@@ -40,6 +40,8 @@ export interface DesignTokens {
   borderRadius: "none" | "small" | "medium" | "large" | "full";
   shadow: "none" | "small" | "medium" | "large";
   darkMode: boolean;
+  spacing: "compact" | "default" | "spacious";
+  typography: "compact" | "default" | "large";
 }
 
 const LIGHT_DEFAULTS: DesignTokens = {
@@ -54,6 +56,8 @@ const LIGHT_DEFAULTS: DesignTokens = {
   borderRadius: "medium",
   shadow: "none",
   darkMode: false,
+  spacing: "default",
+  typography: "default",
 };
 
 const DARK_DEFAULTS: DesignTokens = {
@@ -68,6 +72,8 @@ const DARK_DEFAULTS: DesignTokens = {
   borderRadius: "medium",
   shadow: "none",
   darkMode: true,
+  spacing: "default",
+  typography: "default",
 };
 
 /** Merge partial tokens with smart defaults based on darkMode */
@@ -142,6 +148,35 @@ function withAlpha(hex: string, alpha: number): string {
   const h = hex.replace("#", "").substring(0, 6);
   const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
   return `#${h}${a}`;
+}
+
+/** Get section padding based on spacing token */
+function sectionPad(tokens: DesignTokens): { top: string; bottom: string; left: string; right: string } {
+  const map = { compact: { v: "60", h: "24" }, default: { v: "100", h: "40" }, spacious: { v: "140", h: "60" } };
+  const s = map[tokens.spacing] || map.default;
+  return { top: s.v, bottom: s.v, left: s.h, right: s.h };
+}
+
+/** Get container max-width based on spacing token */
+function containerWidth(tokens: DesignTokens): string {
+  const map = { compact: "960px", default: "1200px", spacious: "1400px" };
+  return map[tokens.spacing] || "1200px";
+}
+
+/** Get gap size based on spacing token */
+function gapSize(tokens: DesignTokens, scale: number = 1): string {
+  const map = { compact: 20, default: 32, spacious: 48 };
+  return String(Math.round((map[tokens.spacing] || 32) * scale));
+}
+
+/** Get font size based on typography token */
+function fontSize(tokens: DesignTokens, level: "h1" | "h2" | "h3" | "h4" | "body" | "small" | "xs"): string {
+  const sizes: Record<string, Record<string, string>> = {
+    compact: { h1: "40px", h2: "32px", h3: "18px", h4: "16px", body: "14px", small: "13px", xs: "11px" },
+    default: { h1: "48px", h2: "40px", h3: "20px", h4: "16px", body: "16px", small: "14px", xs: "12px" },
+    large: { h1: "64px", h2: "48px", h3: "24px", h4: "18px", body: "18px", small: "16px", xs: "13px" },
+  };
+  return (sizes[tokens.typography] || sizes.default)[level] || "16px";
 }
 
 // ============================================================
@@ -2406,6 +2441,1230 @@ export function generateStepsSection(
   return elements;
 }
 
+// ============================================================
+// PORTFOLIO SECTION
+// ============================================================
+export function generatePortfolioSection(
+  sectionTitle: string = "Our Portfolio",
+  sectionSubtitle: string = "Selected projects from our creative team",
+  projects: Array<{
+    title: string;
+    category: string;
+    description?: string;
+    tags?: string[];
+  }> = [
+    { title: "Brand Redesign", category: "Branding", description: "Complete brand overhaul for a Fortune 500 company", tags: ["Identity", "Strategy"] },
+    { title: "E-Commerce Platform", category: "Development", description: "Custom online store with 50,000+ products", tags: ["React", "Node.js"] },
+    { title: "Mobile Banking App", category: "UI/UX", description: "Award-winning fintech app with 1M+ downloads", tags: ["iOS", "Android"] },
+    { title: "Corporate Website", category: "Web Design", description: "Modern responsive site for a tech enterprise", tags: ["WordPress", "Design"] },
+    { title: "Marketing Dashboard", category: "SaaS", description: "Real-time analytics platform for agencies", tags: ["SaaS", "Data"] },
+    { title: "Restaurant Chain", category: "Branding", description: "Multi-location restaurant identity system", tags: ["Print", "Digital"] },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+  const pad = sectionPad(tokens);
+  const cWidth = containerWidth(tokens);
+  const gap = gapSize(tokens);
+
+  const section = createElement("section", 0, {
+    _padding: pad,
+    _background: { color: { hex: tokens.backgroundColor } },
+  }, "Portfolio Section");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: cWidth,
+    _margin: { left: "auto", right: "auto" },
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  const headerBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _margin: { bottom: "60" },
+    _width: "100%",
+  });
+  linkElements(container, headerBlock);
+  elements.push(headerBlock);
+
+  const badge = createElement("text-basic", headerBlock.id, {
+    text: "<p>Portfolio</p>",
+    _padding: { top: "6", bottom: "6", left: "16", right: "16" },
+    _background: { color: { hex: withAlpha(tokens.primaryColor, 0.1) } },
+    _border: { radius: { top: "100", right: "100", bottom: "100", left: "100" } },
+    _typography: {
+      "font-size": fontSize(tokens, "xs"),
+      "font-weight": "600",
+      color: { hex: tokens.primaryColor },
+      "text-transform": "uppercase",
+      "letter-spacing": "0.05em",
+    },
+    _margin: { bottom: "16" },
+  });
+  linkElements(headerBlock, badge);
+  elements.push(badge);
+
+  const title = createElement("heading", headerBlock.id, {
+    text: sectionTitle,
+    tag: "h2",
+    _typography: {
+      "font-size": fontSize(tokens, "h2"),
+      "font-weight": "700",
+      "line-height": "1.2",
+      color: { hex: tokens.headingColor },
+    },
+    _margin: { bottom: "16" },
+  });
+  linkElements(headerBlock, title);
+  elements.push(title);
+
+  const subtitle = createElement("text-basic", headerBlock.id, {
+    text: `<p>${sectionSubtitle}</p>`,
+    _typography: {
+      "font-size": fontSize(tokens, "body"),
+      "line-height": "1.6",
+      color: { hex: tokens.mutedTextColor },
+    },
+    _width: "600px",
+  });
+  linkElements(headerBlock, subtitle);
+  elements.push(subtitle);
+
+  const grid = createElement("div", container.id, {
+    _display: "grid",
+    _gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+    _gap: gap,
+    _width: "100%",
+  });
+  linkElements(container, grid);
+  elements.push(grid);
+
+  const cardShadow = shadowSettings(tokens);
+  const imgColors = [
+    withAlpha(tokens.primaryColor, 0.08),
+    withAlpha(tokens.secondaryColor, 0.08),
+    "#fef3c7", "#d1fae5", "#ede9fe", "#fce7f3",
+  ];
+
+  for (let i = 0; i < projects.length; i++) {
+    const project = projects[i];
+
+    const card = createElement("div", grid.id, {
+      _display: "flex",
+      _direction: "column",
+      _background: { color: { hex: tokens.surfaceColor } },
+      _border: {
+        radius: radObj(tokens, 2),
+        width: { top: "1", right: "1", bottom: "1", left: "1" },
+        style: "solid",
+        color: { hex: tokens.borderColor },
+      },
+      _overflow: "hidden",
+      ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+    });
+    linkElements(grid, card);
+    elements.push(card);
+
+    // Image placeholder
+    const imgPlaceholder = createElement("div", card.id, {
+      _width: "100%",
+      _height: "220px",
+      _background: { color: { hex: imgColors[i % imgColors.length] } },
+      _display: "flex",
+      _justifyContent: "center",
+      _alignItems: "center",
+    });
+    linkElements(card, imgPlaceholder);
+    elements.push(imgPlaceholder);
+
+    const imgIcon = createElement("text-basic", imgPlaceholder.id, {
+      text: "<p>&#128196;</p>",
+      _typography: { "font-size": "40px", color: { hex: tokens.mutedTextColor } },
+      _opacity: "0.3",
+    });
+    linkElements(imgPlaceholder, imgIcon);
+    elements.push(imgIcon);
+
+    // Content
+    const content = createElement("div", card.id, {
+      _display: "flex",
+      _direction: "column",
+      _padding: { top: "24", bottom: "24", left: "24", right: "24" },
+      _gap: "12px",
+    });
+    linkElements(card, content);
+    elements.push(content);
+
+    const category = createElement("text-basic", content.id, {
+      text: `<p>${project.category}</p>`,
+      _typography: {
+        "font-size": fontSize(tokens, "xs"),
+        "font-weight": "600",
+        color: { hex: tokens.primaryColor },
+        "text-transform": "uppercase",
+        "letter-spacing": "0.05em",
+      },
+    });
+    linkElements(content, category);
+    elements.push(category);
+
+    const projectTitle = createElement("heading", content.id, {
+      text: project.title,
+      tag: "h3",
+      _typography: {
+        "font-size": fontSize(tokens, "h3"),
+        "font-weight": "600",
+        "line-height": "1.4",
+        color: { hex: tokens.headingColor },
+      },
+    });
+    linkElements(content, projectTitle);
+    elements.push(projectTitle);
+
+    if (project.description) {
+      const desc = createElement("text-basic", content.id, {
+        text: `<p>${project.description}</p>`,
+        _typography: {
+          "font-size": fontSize(tokens, "small"),
+          "line-height": "1.6",
+          color: { hex: tokens.mutedTextColor },
+        },
+      });
+      linkElements(content, desc);
+      elements.push(desc);
+    }
+
+    if (project.tags && project.tags.length > 0) {
+      const tagRow = createElement("div", content.id, {
+        _display: "flex",
+        _direction: "row",
+        _gap: "8px",
+        _flexWrap: "wrap",
+        _margin: { top: "4" },
+      });
+      linkElements(content, tagRow);
+      elements.push(tagRow);
+
+      for (const tag of project.tags) {
+        const tagEl = createElement("text-basic", tagRow.id, {
+          text: `<p>${tag}</p>`,
+          _padding: { top: "4", bottom: "4", left: "10", right: "10" },
+          _background: { color: { hex: withAlpha(tokens.primaryColor, 0.08) } },
+          _border: { radius: radObj(tokens, 0.75) },
+          _typography: {
+            "font-size": fontSize(tokens, "xs"),
+            "font-weight": "500",
+            color: { hex: tokens.primaryColor },
+          },
+        });
+        linkElements(tagRow, tagEl);
+        elements.push(tagEl);
+      }
+    }
+  }
+
+  return elements;
+}
+
+// ============================================================
+// SERVICES SECTION
+// ============================================================
+export function generateServicesSection(
+  sectionTitle: string = "Our Services",
+  sectionSubtitle: string = "Comprehensive solutions tailored for your business",
+  services: Array<{
+    title: string;
+    description: string;
+    features?: string[];
+  }> = [
+    { title: "Web Design & Development", description: "Custom websites that look great and perform even better.", features: ["Responsive Design", "CMS Integration", "Performance"] },
+    { title: "Brand Identity", description: "Memorable brands that stand out in a crowded market.", features: ["Logo Design", "Brand Guidelines", "Visual Identity"] },
+    { title: "Digital Marketing", description: "Data-driven strategies that deliver measurable results.", features: ["SEO/SEM", "Content Strategy", "Social Media"] },
+    { title: "E-Commerce Solutions", description: "Online stores built to convert visitors into customers.", features: ["WooCommerce", "Custom Cart", "Payments"] },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+  const pad = sectionPad(tokens);
+  const cWidth = containerWidth(tokens);
+  const gap = gapSize(tokens);
+
+  const section = createElement("section", 0, {
+    _padding: pad,
+    _background: { color: { hex: tokens.surfaceColor } },
+  }, "Services Section");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: cWidth,
+    _margin: { left: "auto", right: "auto" },
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  const headerBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _margin: { bottom: "60" },
+    _width: "100%",
+  });
+  linkElements(container, headerBlock);
+  elements.push(headerBlock);
+
+  const title = createElement("heading", headerBlock.id, {
+    text: sectionTitle,
+    tag: "h2",
+    _typography: {
+      "font-size": fontSize(tokens, "h2"),
+      "font-weight": "700",
+      "line-height": "1.2",
+      color: { hex: tokens.headingColor },
+    },
+    _margin: { bottom: "16" },
+  });
+  linkElements(headerBlock, title);
+  elements.push(title);
+
+  const subtitle = createElement("text-basic", headerBlock.id, {
+    text: `<p>${sectionSubtitle}</p>`,
+    _typography: {
+      "font-size": fontSize(tokens, "body"),
+      "line-height": "1.6",
+      color: { hex: tokens.mutedTextColor },
+    },
+    _width: "600px",
+  });
+  linkElements(headerBlock, subtitle);
+  elements.push(subtitle);
+
+  const grid = createElement("div", container.id, {
+    _display: "grid",
+    _gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    _gap: gap,
+    _width: "100%",
+  });
+  linkElements(container, grid);
+  elements.push(grid);
+
+  const cardShadow = shadowSettings(tokens);
+  const accentColors = [tokens.primaryColor, tokens.secondaryColor, "#06b6d4", "#f59e0b"];
+
+  for (let i = 0; i < services.length; i++) {
+    const service = services[i];
+    const accent = accentColors[i % accentColors.length];
+
+    const card = createElement("div", grid.id, {
+      _display: "flex",
+      _direction: "column",
+      _padding: { top: "36", bottom: "36", left: "32", right: "32" },
+      _background: { color: { hex: tokens.backgroundColor } },
+      _border: {
+        radius: radObj(tokens, 2),
+        width: { top: "1", right: "1", bottom: "1", left: "1" },
+        style: "solid",
+        color: { hex: tokens.borderColor },
+      },
+      _gap: "20px",
+      ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+    });
+    linkElements(grid, card);
+    elements.push(card);
+
+    // Accent top border
+    const accentBar = createElement("div", card.id, {
+      _width: "48px",
+      _height: "4px",
+      _background: { color: { hex: accent } },
+      _border: { radius: { top: "9999", right: "9999", bottom: "9999", left: "9999" } },
+    });
+    linkElements(card, accentBar);
+    elements.push(accentBar);
+
+    const serviceTitle = createElement("heading", card.id, {
+      text: service.title,
+      tag: "h3",
+      _typography: {
+        "font-size": fontSize(tokens, "h3"),
+        "font-weight": "600",
+        "line-height": "1.4",
+        color: { hex: tokens.headingColor },
+      },
+    });
+    linkElements(card, serviceTitle);
+    elements.push(serviceTitle);
+
+    const serviceDesc = createElement("text-basic", card.id, {
+      text: `<p>${service.description}</p>`,
+      _typography: {
+        "font-size": fontSize(tokens, "body"),
+        "line-height": "1.7",
+        color: { hex: tokens.mutedTextColor },
+      },
+    });
+    linkElements(card, serviceDesc);
+    elements.push(serviceDesc);
+
+    if (service.features && service.features.length > 0) {
+      const featureList = createElement("div", card.id, {
+        _display: "flex",
+        _direction: "column",
+        _gap: "8px",
+        _margin: { top: "4" },
+      });
+      linkElements(card, featureList);
+      elements.push(featureList);
+
+      for (const feat of service.features) {
+        const featEl = createElement("text-basic", featureList.id, {
+          text: `<p>&#10003; ${feat}</p>`,
+          _typography: {
+            "font-size": fontSize(tokens, "small"),
+            color: { hex: tokens.textColor },
+          },
+        });
+        linkElements(featureList, featEl);
+        elements.push(featEl);
+      }
+    }
+
+    const learnMore = createElement("text-basic", card.id, {
+      text: "<p>Learn More &rarr;</p>",
+      tag: "a",
+      link: { type: "external", url: "#" },
+      _typography: {
+        "font-size": fontSize(tokens, "small"),
+        "font-weight": "600",
+        color: { hex: accent },
+        "text-decoration": "none",
+      },
+      _margin: { top: "auto" },
+    });
+    linkElements(card, learnMore);
+    elements.push(learnMore);
+  }
+
+  return elements;
+}
+
+// ============================================================
+// TIMELINE SECTION
+// ============================================================
+export function generateTimelineSection(
+  sectionTitle: string = "Our Journey",
+  sectionSubtitle: string = "Key milestones in our story",
+  events: Array<{
+    year: string;
+    title: string;
+    description: string;
+  }> = [
+    { year: "2018", title: "Founded", description: "Started with a small team and a big vision to transform the industry." },
+    { year: "2019", title: "First Product Launch", description: "Released our flagship product to overwhelming positive response." },
+    { year: "2020", title: "Series A Funding", description: "Raised $5M to accelerate growth and expand the team." },
+    { year: "2022", title: "10,000 Customers", description: "Reached a major milestone in user adoption worldwide." },
+    { year: "2024", title: "Global Expansion", description: "Opened offices in Europe and Asia to serve customers globally." },
+    { year: "2026", title: "Industry Leader", description: "Recognized as a market leader by top industry analysts." },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+  const pad = sectionPad(tokens);
+  const cWidth = containerWidth(tokens);
+
+  const section = createElement("section", 0, {
+    _padding: pad,
+    _background: { color: { hex: tokens.backgroundColor } },
+  }, "Timeline Section");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: cWidth,
+    _margin: { left: "auto", right: "auto" },
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  const headerBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _margin: { bottom: "60" },
+    _width: "100%",
+  });
+  linkElements(container, headerBlock);
+  elements.push(headerBlock);
+
+  const title = createElement("heading", headerBlock.id, {
+    text: sectionTitle,
+    tag: "h2",
+    _typography: {
+      "font-size": fontSize(tokens, "h2"),
+      "font-weight": "700",
+      "line-height": "1.2",
+      color: { hex: tokens.headingColor },
+    },
+    _margin: { bottom: "16" },
+  });
+  linkElements(headerBlock, title);
+  elements.push(title);
+
+  const subtitle = createElement("text-basic", headerBlock.id, {
+    text: `<p>${sectionSubtitle}</p>`,
+    _typography: {
+      "font-size": fontSize(tokens, "body"),
+      "line-height": "1.6",
+      color: { hex: tokens.mutedTextColor },
+    },
+  });
+  linkElements(headerBlock, subtitle);
+  elements.push(subtitle);
+
+  // Timeline container - vertical layout with center line
+  const timelineContainer = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _width: "800px",
+    _margin: { left: "auto", right: "auto" },
+    _gap: "0px",
+    _position: "relative",
+  });
+  linkElements(container, timelineContainer);
+  elements.push(timelineContainer);
+
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    const isLeft = i % 2 === 0;
+
+    const eventRow = createElement("div", timelineContainer.id, {
+      _display: "flex",
+      _direction: "row",
+      _alignItems: "flex-start",
+      _gap: "24px",
+      _padding: { top: "0", bottom: "32", left: "36", right: "0" },
+      _margin: { left: "19" },
+      ...(i < events.length - 1 ? {
+        _border: {
+          width: { left: "2" },
+          style: "solid",
+          color: { hex: tokens.borderColor },
+        },
+      } : {}),
+    });
+    linkElements(timelineContainer, eventRow);
+    elements.push(eventRow);
+
+    // Dot indicator
+    const dot = createElement("div", eventRow.id, {
+      _width: "14px",
+      _height: "14px",
+      _minWidth: "14px",
+      _background: { color: { hex: tokens.primaryColor } },
+      _border: {
+        radius: { top: "9999", right: "9999", bottom: "9999", left: "9999" },
+        width: { top: "3", right: "3", bottom: "3", left: "3" },
+        style: "solid",
+        color: { hex: tokens.backgroundColor },
+      },
+      _boxShadow: { values: { offsetY: "0", blur: "0", spread: "3" }, color: { hex: withAlpha(tokens.primaryColor, 0.3) } },
+      _position: "absolute",
+      _left: "13px",
+      _margin: { top: "4" },
+    });
+    linkElements(eventRow, dot);
+    elements.push(dot);
+
+    const eventContent = createElement("div", eventRow.id, {
+      _display: "flex",
+      _direction: "column",
+      _gap: "8px",
+    });
+    linkElements(eventRow, eventContent);
+    elements.push(eventContent);
+
+    const yearBadge = createElement("text-basic", eventContent.id, {
+      text: `<p>${event.year}</p>`,
+      _typography: {
+        "font-size": fontSize(tokens, "xs"),
+        "font-weight": "700",
+        color: { hex: tokens.primaryColor },
+        "letter-spacing": "0.05em",
+      },
+    });
+    linkElements(eventContent, yearBadge);
+    elements.push(yearBadge);
+
+    const eventTitle = createElement("heading", eventContent.id, {
+      text: event.title,
+      tag: "h3",
+      _typography: {
+        "font-size": fontSize(tokens, "h3"),
+        "font-weight": "600",
+        color: { hex: tokens.headingColor },
+      },
+    });
+    linkElements(eventContent, eventTitle);
+    elements.push(eventTitle);
+
+    const eventDesc = createElement("text-basic", eventContent.id, {
+      text: `<p>${event.description}</p>`,
+      _typography: {
+        "font-size": fontSize(tokens, "body"),
+        "line-height": "1.7",
+        color: { hex: tokens.mutedTextColor },
+      },
+    });
+    linkElements(eventContent, eventDesc);
+    elements.push(eventDesc);
+  }
+
+  return elements;
+}
+
+// ============================================================
+// 404 ERROR SECTION
+// ============================================================
+export function generate404Section(
+  headline: string = "404",
+  subtext: string = "Oops! The page you're looking for doesn't exist or has been moved.",
+  buttonText: string = "Go Back Home",
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "120", bottom: "120", left: "40", right: "40" },
+    _background: { color: { hex: tokens.backgroundColor } },
+    _minHeight: "80vh",
+    _display: "flex",
+    _justifyContent: "center",
+    _alignItems: "center",
+  }, "404 Error Page");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _width: "600px",
+    _margin: { left: "auto", right: "auto" },
+    _gap: "24px",
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  // Large 404 number
+  const bigNumber = createElement("heading", container.id, {
+    text: headline,
+    tag: "h1",
+    _typography: {
+      "font-size": "120px",
+      "font-weight": "800",
+      "line-height": "1",
+      "letter-spacing": "-0.04em",
+      color: { hex: withAlpha(tokens.primaryColor, 0.15) },
+    },
+  });
+  linkElements(container, bigNumber);
+  elements.push(bigNumber);
+
+  const subHeading = createElement("heading", container.id, {
+    text: "Page Not Found",
+    tag: "h2",
+    _typography: {
+      "font-size": fontSize(tokens, "h2"),
+      "font-weight": "700",
+      color: { hex: tokens.headingColor },
+    },
+    _margin: { top: "-16" },
+  });
+  linkElements(container, subHeading);
+  elements.push(subHeading);
+
+  const text = createElement("text-basic", container.id, {
+    text: `<p>${subtext}</p>`,
+    _typography: {
+      "font-size": fontSize(tokens, "body"),
+      "line-height": "1.6",
+      color: { hex: tokens.mutedTextColor },
+    },
+    _width: "480px",
+  });
+  linkElements(container, text);
+  elements.push(text);
+
+  const btnRow = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "row",
+    _gap: "16px",
+    _justifyContent: "center",
+    _margin: { top: "8" },
+  });
+  linkElements(container, btnRow);
+  elements.push(btnRow);
+
+  const homeBtn = createElement("text-basic", btnRow.id, {
+    text: `<p>${buttonText}</p>`,
+    tag: "a",
+    link: { type: "external", url: "/" },
+    _padding: { top: "14", bottom: "14", left: "32", right: "32" },
+    _background: { color: { hex: tokens.primaryColor } },
+    _border: { radius: radObj(tokens) },
+    _typography: {
+      "font-size": fontSize(tokens, "body"),
+      "font-weight": "600",
+      color: { hex: "#ffffff" },
+      "text-decoration": "none",
+    },
+  });
+  linkElements(btnRow, homeBtn);
+  elements.push(homeBtn);
+
+  const contactBtn = createElement("text-basic", btnRow.id, {
+    text: "<p>Contact Support</p>",
+    tag: "a",
+    link: { type: "external", url: "#contact" },
+    _padding: { top: "14", bottom: "14", left: "32", right: "32" },
+    _background: { color: { hex: "transparent" } },
+    _border: {
+      radius: radObj(tokens),
+      width: { top: "2", right: "2", bottom: "2", left: "2" },
+      style: "solid",
+      color: { hex: tokens.borderColor },
+    },
+    _typography: {
+      "font-size": fontSize(tokens, "body"),
+      "font-weight": "600",
+      color: { hex: tokens.textColor },
+      "text-decoration": "none",
+    },
+  });
+  linkElements(btnRow, contactBtn);
+  elements.push(contactBtn);
+
+  return elements;
+}
+
+// ============================================================
+// COMING SOON SECTION
+// ============================================================
+export function generateComingSoonSection(
+  headline: string = "Coming Soon",
+  subtext: string = "We're working on something amazing. Be the first to know when we launch.",
+  brandName: string = "BrandName",
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "0", bottom: "0", left: "40", right: "40" },
+    _background: { color: { hex: tokens.darkMode ? tokens.backgroundColor : "#0f172a" } },
+    _minHeight: "100vh",
+    _display: "flex",
+    _justifyContent: "center",
+    _alignItems: "center",
+  }, "Coming Soon Page");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _width: "700px",
+    _margin: { left: "auto", right: "auto" },
+    _gap: "32px",
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  // Brand name
+  const brand = createElement("heading", container.id, {
+    text: brandName,
+    tag: "h3",
+    _typography: {
+      "font-size": "24px",
+      "font-weight": "700",
+      "letter-spacing": "-0.02em",
+      color: { hex: tokens.primaryColor },
+    },
+  });
+  linkElements(container, brand);
+  elements.push(brand);
+
+  const mainHeading = createElement("heading", container.id, {
+    text: headline,
+    tag: "h1",
+    _typography: {
+      "font-size": "64px",
+      "font-weight": "800",
+      "line-height": "1.1",
+      "letter-spacing": "-0.03em",
+      color: { hex: tokens.darkMode ? tokens.headingColor : "#ffffff" },
+    },
+  });
+  linkElements(container, mainHeading);
+  elements.push(mainHeading);
+
+  const text = createElement("text-basic", container.id, {
+    text: `<p>${subtext}</p>`,
+    _typography: {
+      "font-size": "20px",
+      "line-height": "1.6",
+      color: { hex: tokens.darkMode ? tokens.mutedTextColor : "#94a3b8" },
+    },
+    _width: "560px",
+  });
+  linkElements(container, text);
+  elements.push(text);
+
+  // Email signup form
+  const formRow = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "row",
+    _gap: "12px",
+    _justifyContent: "center",
+    _alignItems: "center",
+    _width: "480px",
+    _margin: { top: "8" },
+    _flexWrap: "wrap",
+  });
+  linkElements(container, formRow);
+  elements.push(formRow);
+
+  const emailInput = createElement("text-basic", formRow.id, {
+    text: "<p>Enter your email</p>",
+    _padding: { top: "14", bottom: "14", left: "20", right: "20" },
+    _background: { color: { hex: tokens.darkMode ? tokens.surfaceColor : "#1e293b" } },
+    _border: {
+      radius: radObj(tokens),
+      width: { top: "1", right: "1", bottom: "1", left: "1" },
+      style: "solid",
+      color: { hex: tokens.darkMode ? tokens.borderColor : "#334155" },
+    },
+    _typography: {
+      "font-size": "15px",
+      color: { hex: tokens.darkMode ? tokens.mutedTextColor : "#64748b" },
+    },
+    _width: "300px",
+  });
+  linkElements(formRow, emailInput);
+  elements.push(emailInput);
+
+  const notifyBtn = createElement("text-basic", formRow.id, {
+    text: "<p>Notify Me</p>",
+    tag: "a",
+    link: { type: "external", url: "#" },
+    _padding: { top: "14", bottom: "14", left: "28", right: "28" },
+    _background: { color: { hex: tokens.primaryColor } },
+    _border: { radius: radObj(tokens) },
+    _typography: {
+      "font-size": "15px",
+      "font-weight": "600",
+      color: { hex: "#ffffff" },
+      "text-decoration": "none",
+    },
+  });
+  linkElements(formRow, notifyBtn);
+  elements.push(notifyBtn);
+
+  // Social links placeholder
+  const socialRow = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "row",
+    _gap: "20px",
+    _justifyContent: "center",
+    _margin: { top: "24" },
+  });
+  linkElements(container, socialRow);
+  elements.push(socialRow);
+
+  for (const social of ["Twitter", "LinkedIn", "GitHub"]) {
+    const socialLink = createElement("text-basic", socialRow.id, {
+      text: `<p>${social}</p>`,
+      tag: "a",
+      link: { type: "external", url: "#" },
+      _typography: {
+        "font-size": "14px",
+        "font-weight": "500",
+        color: { hex: tokens.darkMode ? tokens.mutedTextColor : "#64748b" },
+        "text-decoration": "none",
+      },
+    });
+    linkElements(socialRow, socialLink);
+    elements.push(socialLink);
+  }
+
+  return elements;
+}
+
+// ============================================================
+// LOGIN SECTION
+// ============================================================
+export function generateLoginSection(
+  heading: string = "Welcome Back",
+  subtext: string = "Sign in to your account to continue",
+  brandName: string = "BrandName",
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "0", bottom: "0", left: "0", right: "0" },
+    _background: { color: { hex: tokens.surfaceColor } },
+    _minHeight: "100vh",
+    _display: "flex",
+    _justifyContent: "center",
+    _alignItems: "center",
+  }, "Login Page");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: "440px",
+    _margin: { left: "auto", right: "auto" },
+    _padding: { top: "48", bottom: "48", left: "40", right: "40" },
+    _background: { color: { hex: tokens.backgroundColor } },
+    _border: {
+      radius: radObj(tokens, 2),
+      width: { top: "1", right: "1", bottom: "1", left: "1" },
+      style: "solid",
+      color: { hex: tokens.borderColor },
+    },
+    _gap: "28px",
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  // Brand
+  const brand = createElement("heading", container.id, {
+    text: brandName,
+    tag: "h3",
+    _typography: {
+      "font-size": "24px",
+      "font-weight": "700",
+      color: { hex: tokens.primaryColor },
+    },
+    _textAlign: "center",
+  });
+  linkElements(container, brand);
+  elements.push(brand);
+
+  // Heading
+  const headerBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _gap: "8px",
+    _width: "100%",
+  });
+  linkElements(container, headerBlock);
+  elements.push(headerBlock);
+
+  const title = createElement("heading", headerBlock.id, {
+    text: heading,
+    tag: "h2",
+    _typography: {
+      "font-size": fontSize(tokens, "h3"),
+      "font-weight": "700",
+      color: { hex: tokens.headingColor },
+    },
+  });
+  linkElements(headerBlock, title);
+  elements.push(title);
+
+  const sub = createElement("text-basic", headerBlock.id, {
+    text: `<p>${subtext}</p>`,
+    _typography: {
+      "font-size": fontSize(tokens, "small"),
+      color: { hex: tokens.mutedTextColor },
+    },
+  });
+  linkElements(headerBlock, sub);
+  elements.push(sub);
+
+  // Login form
+  const form = createElement("form", container.id, {
+    fields: [
+      { type: "email", label: "Email", placeholder: "you@example.com", required: true, id: generateId() },
+      { type: "password", label: "Password", placeholder: "Enter your password", required: true, id: generateId() },
+    ],
+    submitButtonText: "Sign In",
+    submitButtonStyle: "primary",
+    submitButtonBackgroundColor: { hex: tokens.primaryColor },
+    submitButtonTypography: {
+      "font-size": "16px",
+      "font-weight": "600",
+      color: { hex: "#ffffff" },
+    },
+    submitButtonBorder: { radius: radObj(tokens) },
+    submitButtonPadding: { top: "14", bottom: "14", left: "24", right: "24" },
+    fieldBackgroundColor: { hex: tokens.surfaceColor },
+    fieldBorder: {
+      radius: radObj(tokens),
+      width: { top: "1", right: "1", bottom: "1", left: "1" },
+      style: "solid",
+      color: { hex: tokens.borderColor },
+    },
+    fieldTypography: {
+      "font-size": "15px",
+      color: { hex: tokens.textColor },
+    },
+    labelTypography: {
+      "font-size": "14px",
+      "font-weight": "500",
+      color: { hex: tokens.textColor },
+    },
+    showLabels: true,
+  });
+  linkElements(container, form);
+  elements.push(form);
+
+  // Forgot password link
+  const forgotLink = createElement("text-basic", container.id, {
+    text: "<p>Forgot your password?</p>",
+    tag: "a",
+    link: { type: "external", url: "#" },
+    _typography: {
+      "font-size": fontSize(tokens, "small"),
+      "font-weight": "500",
+      color: { hex: tokens.primaryColor },
+      "text-decoration": "none",
+    },
+    _textAlign: "center",
+    _margin: { top: "-12" },
+  });
+  linkElements(container, forgotLink);
+  elements.push(forgotLink);
+
+  // Divider
+  const dividerRow = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "row",
+    _alignItems: "center",
+    _gap: "16px",
+    _width: "100%",
+  });
+  linkElements(container, dividerRow);
+  elements.push(dividerRow);
+
+  const dividerLeft = createElement("div", dividerRow.id, {
+    _height: "1px",
+    _background: { color: { hex: tokens.borderColor } },
+    _width: "100%",
+  });
+  linkElements(dividerRow, dividerLeft);
+  elements.push(dividerLeft);
+
+  const dividerText = createElement("text-basic", dividerRow.id, {
+    text: "<p>or</p>",
+    _typography: {
+      "font-size": "13px",
+      color: { hex: tokens.mutedTextColor },
+    },
+    _minWidth: "24px",
+    _textAlign: "center",
+  });
+  linkElements(dividerRow, dividerText);
+  elements.push(dividerText);
+
+  const dividerRight = createElement("div", dividerRow.id, {
+    _height: "1px",
+    _background: { color: { hex: tokens.borderColor } },
+    _width: "100%",
+  });
+  linkElements(dividerRow, dividerRight);
+  elements.push(dividerRight);
+
+  // Social login button placeholder
+  const socialBtn = createElement("text-basic", container.id, {
+    text: "<p>Continue with Google</p>",
+    tag: "a",
+    link: { type: "external", url: "#" },
+    _padding: { top: "12", bottom: "12", left: "24", right: "24" },
+    _background: { color: { hex: "transparent" } },
+    _border: {
+      radius: radObj(tokens),
+      width: { top: "1", right: "1", bottom: "1", left: "1" },
+      style: "solid",
+      color: { hex: tokens.borderColor },
+    },
+    _typography: {
+      "font-size": "15px",
+      "font-weight": "500",
+      color: { hex: tokens.textColor },
+      "text-decoration": "none",
+      "text-align": "center",
+    },
+    _width: "100%",
+  });
+  linkElements(container, socialBtn);
+  elements.push(socialBtn);
+
+  // Sign up link
+  const signupLink = createElement("text-basic", container.id, {
+    text: `<p>Don't have an account? <strong>Sign up</strong></p>`,
+    _typography: {
+      "font-size": fontSize(tokens, "small"),
+      color: { hex: tokens.mutedTextColor },
+    },
+    _textAlign: "center",
+  });
+  linkElements(container, signupLink);
+  elements.push(signupLink);
+
+  return elements;
+}
+
+// ============================================================
+// CONTENT / INTRODUCTION SECTION
+// ============================================================
+export function generateContentSection(
+  sectionTitle: string = "About Our Company",
+  content: string = "We are a team of passionate designers and developers dedicated to creating exceptional digital experiences. With over a decade of experience, we've helped hundreds of businesses transform their online presence and achieve their goals.",
+  imagePosition: "left" | "right" | "none" = "right",
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+  const pad = sectionPad(tokens);
+  const cWidth = containerWidth(tokens);
+
+  const section = createElement("section", 0, {
+    _padding: pad,
+    _background: { color: { hex: tokens.backgroundColor } },
+  }, "Content Section");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: imagePosition === "none" ? "column" : "row",
+    _alignItems: imagePosition === "none" ? "center" : "center",
+    _width: cWidth,
+    _margin: { left: "auto", right: "auto" },
+    _gap: "60px",
+    _flexWrap: "wrap",
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  // Text content
+  const textBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _gap: "24px",
+    _width: imagePosition === "none" ? "800px" : "50%",
+    _minWidth: "300px",
+    ...(imagePosition === "none" ? { _textAlign: "center", _alignItems: "center" } : {}),
+    ...(imagePosition === "left" ? { _order: "2" } : {}),
+  });
+  linkElements(container, textBlock);
+  elements.push(textBlock);
+
+  const badge = createElement("text-basic", textBlock.id, {
+    text: "<p>About Us</p>",
+    _padding: { top: "6", bottom: "6", left: "16", right: "16" },
+    _background: { color: { hex: withAlpha(tokens.primaryColor, 0.1) } },
+    _border: { radius: { top: "100", right: "100", bottom: "100", left: "100" } },
+    _typography: {
+      "font-size": fontSize(tokens, "xs"),
+      "font-weight": "600",
+      color: { hex: tokens.primaryColor },
+      "text-transform": "uppercase",
+      "letter-spacing": "0.05em",
+    },
+    _alignSelf: imagePosition === "none" ? "center" : "flex-start",
+  });
+  linkElements(textBlock, badge);
+  elements.push(badge);
+
+  const title = createElement("heading", textBlock.id, {
+    text: sectionTitle,
+    tag: "h2",
+    _typography: {
+      "font-size": fontSize(tokens, "h2"),
+      "font-weight": "700",
+      "line-height": "1.2",
+      color: { hex: tokens.headingColor },
+    },
+  });
+  linkElements(textBlock, title);
+  elements.push(title);
+
+  const text = createElement("text-basic", textBlock.id, {
+    text: `<p>${content}</p>`,
+    _typography: {
+      "font-size": fontSize(tokens, "body"),
+      "line-height": "1.8",
+      color: { hex: tokens.mutedTextColor },
+    },
+  });
+  linkElements(textBlock, text);
+  elements.push(text);
+
+  // CTA button
+  const ctaBtn = createElement("text-basic", textBlock.id, {
+    text: "<p>Learn More &rarr;</p>",
+    tag: "a",
+    link: { type: "external", url: "#" },
+    _padding: { top: "14", bottom: "14", left: "28", right: "28" },
+    _background: { color: { hex: tokens.primaryColor } },
+    _border: { radius: radObj(tokens) },
+    _typography: {
+      "font-size": fontSize(tokens, "body"),
+      "font-weight": "600",
+      color: { hex: "#ffffff" },
+      "text-decoration": "none",
+    },
+    _alignSelf: imagePosition === "none" ? "center" : "flex-start",
+  });
+  linkElements(textBlock, ctaBtn);
+  elements.push(ctaBtn);
+
+  // Image block (if not "none")
+  if (imagePosition !== "none") {
+    const imageBlock = createElement("div", container.id, {
+      _width: "45%",
+      _minWidth: "300px",
+      ...(imagePosition === "left" ? { _order: "1" } : {}),
+    });
+    linkElements(container, imageBlock);
+    elements.push(imageBlock);
+
+    const imgPlaceholder = createElement("div", imageBlock.id, {
+      _width: "100%",
+      _height: "400px",
+      _background: { color: { hex: withAlpha(tokens.primaryColor, 0.08) } },
+      _border: { radius: radObj(tokens, 2) },
+      _display: "flex",
+      _justifyContent: "center",
+      _alignItems: "center",
+    });
+    linkElements(imageBlock, imgPlaceholder);
+    elements.push(imgPlaceholder);
+
+    const imgIcon = createElement("text-basic", imgPlaceholder.id, {
+      text: "<p>&#128247;</p>",
+      _typography: { "font-size": "56px", color: { hex: tokens.mutedTextColor } },
+      _opacity: "0.3",
+    });
+    linkElements(imgPlaceholder, imgIcon);
+    elements.push(imgIcon);
+  }
+
+  return elements;
+}
+
 // Full page generator (uses default tokens if none provided)
 export function generateFullPage(
   config: {
@@ -2420,6 +3679,10 @@ export function generateFullPage(
     includeCTA?: boolean;
     includeContact?: boolean;
     includeFooter?: boolean;
+    includeServices?: boolean;
+    includePortfolio?: boolean;
+    includeTimeline?: boolean;
+    includeContent?: boolean;
     tokens?: DesignTokens;
   } = {}
 ): BricksElement[] {
@@ -2435,6 +3698,10 @@ export function generateFullPage(
     includeCTA = true,
     includeContact = false,
     includeFooter = true,
+    includeServices = false,
+    includePortfolio = false,
+    includeTimeline = false,
+    includeContent = false,
     tokens = LIGHT_DEFAULTS,
   } = config;
 
@@ -2442,8 +3709,12 @@ export function generateFullPage(
 
   if (includeNavbar) elements = [...elements, ...generateNavbar(brandName, undefined, undefined, tokens)];
   if (includeHero) elements = [...elements, ...generateHeroSection(headline, subtext, undefined, undefined, undefined, tokens)];
+  if (includeContent) elements = [...elements, ...generateContentSection(undefined, undefined, undefined, tokens)];
   if (includeFeatures) elements = [...elements, ...generateFeaturesSection(undefined, undefined, undefined, tokens)];
+  if (includeServices) elements = [...elements, ...generateServicesSection(undefined, undefined, undefined, tokens)];
+  if (includePortfolio) elements = [...elements, ...generatePortfolioSection(undefined, undefined, undefined, tokens)];
   if (includeTestimonials) elements = [...elements, ...generateTestimonialsSection(undefined, tokens)];
+  if (includeTimeline) elements = [...elements, ...generateTimelineSection(undefined, undefined, undefined, tokens)];
   if (includePricing) elements = [...elements, ...generatePricingSection(undefined, tokens)];
   if (includeCTA) elements = [...elements, ...generateCTASection(undefined, undefined, undefined, tokens)];
   if (includeContact) elements = [...elements, ...generateContactSection(tokens)];

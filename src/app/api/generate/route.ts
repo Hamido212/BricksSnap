@@ -15,6 +15,13 @@ import {
   generateLogoCloudSection,
   generateBlogSection,
   generateStepsSection,
+  generatePortfolioSection,
+  generateServicesSection,
+  generateTimelineSection,
+  generate404Section,
+  generateComingSoonSection,
+  generateLoginSection,
+  generateContentSection,
   wrapTemplate,
   resolveDesignTokens,
   BricksElement,
@@ -57,6 +64,18 @@ interface GenerationConfig {
   logoNames: Array<{ name: string }>;
   blogPosts: Array<{ title: string; excerpt: string; category: string; date: string; readTime?: string }>;
   steps: Array<{ title: string; description: string }>;
+  portfolioProjects: Array<{ title: string; category: string; description?: string; tags?: string[] }>;
+  services: Array<{ title: string; description: string; features?: string[] }>;
+  timelineEvents: Array<{ year: string; title: string; description: string }>;
+  contentTitle: string;
+  contentText: string;
+  contentImagePosition: "left" | "right" | "none";
+  errorHeadline: string;
+  errorSubtext: string;
+  comingSoonHeadline: string;
+  comingSoonSubtext: string;
+  loginHeading: string;
+  loginSubtext: string;
   designTokens: Partial<DesignTokens>;
 }
 
@@ -194,17 +213,41 @@ function analyzePrompt(prompt: string): GenerationConfig {
   const hasLogos = /logos?|brands?|marken|partner|kunden|clients?|trusted/i.test(lower);
   const hasBlog = /blog|artikel|articles?|news|nachrichten|posts?|beiträge?|magazine?/i.test(lower);
   const hasSteps = /steps?|schritte?|prozess|process|how\s*it\s*works|ablauf|anleitung|wie\s*(es\s*)?funktioniert/i.test(lower);
+  const hasPortfolio = /portfolio|projekte|projects?|case.stud|arbeitsproben|showcase|referenzen|work/i.test(lower);
+  const hasServices = /services?|dienstleistungen?|leistungen|angebote?|offerings?|was\s*wir\s*bieten/i.test(lower);
+  const hasTimeline = /timeline|zeitstrahl|chronik|history|geschichte|milestones?|meilensteine?|journey/i.test(lower);
+  const has404 = /404|error\s*page|fehlerseite|not\s*found|seite\s*nicht\s*gefunden/i.test(lower);
+  const hasComingSoon = /coming\s*soon|launch|bald|demnächst|demnaechst|under\s*construction|wartung/i.test(lower);
+  const hasLogin = /login|anmelden|sign\s*in|einloggen|auth|authentifizierung|register|registrier/i.test(lower);
+  const hasContent = /about|über\s*uns|ueber\s*uns|introduction|einleitung|content\s*section|vorstellung/i.test(lower);
   const isFullPage = /full.page|complete|ganze.seite|komplette.seite|landing.?page|website|webseite/i.test(lower);
+
+  // Special standalone pages
+  if (has404) {
+    sections.push("404");
+    return buildConfig(sections, lower, prompt, brandName);
+  }
+  if (hasComingSoon) {
+    sections.push("coming-soon");
+    return buildConfig(sections, lower, prompt, brandName);
+  }
+  if (hasLogin) {
+    sections.push("login");
+    return buildConfig(sections, lower, prompt, brandName);
+  }
 
   if (isFullPage) {
     sections.push("navbar", "hero");
     if (hasLogos) sections.push("logos");
+    if (hasContent) sections.push("content");
     sections.push("features");
+    if (hasServices) sections.push("services");
     if (hasSteps) sections.push("steps");
-    if (hasGallery) sections.push("gallery");
+    if (hasGallery || hasPortfolio) sections.push(hasPortfolio ? "portfolio" : "gallery");
     if (hasStats) sections.push("stats");
     sections.push("testimonials");
     if (hasTeam) sections.push("team");
+    if (hasTimeline) sections.push("timeline");
     if (hasFaq) sections.push("faq");
     if (hasBlog) sections.push("blog");
     sections.push("pricing", "cta");
@@ -214,12 +257,16 @@ function analyzePrompt(prompt: string): GenerationConfig {
     if (hasNavbar) sections.push("navbar");
     if (hasHero) sections.push("hero");
     if (hasLogos) sections.push("logos");
+    if (hasContent) sections.push("content");
     if (hasFeatures) sections.push("features");
+    if (hasServices) sections.push("services");
     if (hasSteps) sections.push("steps");
-    if (hasGallery) sections.push("gallery");
+    if (hasPortfolio) sections.push("portfolio");
+    if (hasGallery && !hasPortfolio) sections.push("gallery");
     if (hasStats) sections.push("stats");
     if (hasTestimonials) sections.push("testimonials");
     if (hasTeam) sections.push("team");
+    if (hasTimeline) sections.push("timeline");
     if (hasFaq) sections.push("faq");
     if (hasBlog) sections.push("blog");
     if (hasPricing) sections.push("pricing");
@@ -430,13 +477,51 @@ function analyzePrompt(prompt: string): GenerationConfig {
     { title: "Launch", description: "Publish your website and share it with the world." },
   ];
 
-  return {
-    sections, brandName, headline, subtext, heroStyle, buttonText,
-    features, plans, testimonials, navLinks, ctaHeadline, ctaSubtext, ctaButtonText,
-    galleryItems, gallerySectionTitle, gallerySectionSubtitle,
-    teamMembers, stats, faqItems, logoNames, blogPosts, steps,
-    designTokens,
-  };
+  const portfolioProjects = [
+    { title: "Brand Redesign", category: "Branding", description: "Complete brand overhaul for a Fortune 500 company", tags: ["Identity", "Strategy"] },
+    { title: "E-Commerce Platform", category: "Development", description: "Custom online store with 50,000+ products", tags: ["React", "Node.js"] },
+    { title: "Mobile Banking App", category: "UI/UX", description: "Award-winning fintech app with 1M+ downloads", tags: ["iOS", "Android"] },
+    { title: "Corporate Website", category: "Web Design", description: "Modern responsive site for a tech enterprise", tags: ["WordPress", "Design"] },
+    { title: "Marketing Dashboard", category: "SaaS", description: "Real-time analytics platform for agencies", tags: ["SaaS", "Data"] },
+    { title: "Restaurant Chain", category: "Branding", description: "Multi-location restaurant identity system", tags: ["Print", "Digital"] },
+  ];
+
+  const services = [
+    { title: "Web Design & Development", description: "Custom websites that look great and perform even better.", features: ["Responsive Design", "CMS Integration", "Performance"] },
+    { title: "Brand Identity", description: "Memorable brands that stand out in a crowded market.", features: ["Logo Design", "Brand Guidelines", "Visual Identity"] },
+    { title: "Digital Marketing", description: "Data-driven strategies that deliver measurable results.", features: ["SEO/SEM", "Content Strategy", "Social Media"] },
+    { title: "E-Commerce Solutions", description: "Online stores built to convert visitors into customers.", features: ["WooCommerce", "Custom Cart", "Payments"] },
+  ];
+
+  const timelineEvents = [
+    { year: "2018", title: "Founded", description: "Started with a small team and a big vision." },
+    { year: "2020", title: "Product Launch", description: "Released our flagship product to market." },
+    { year: "2022", title: "10,000 Customers", description: "Reached a major milestone in user adoption." },
+    { year: "2024", title: "Global Expansion", description: "Opened offices in Europe and Asia." },
+    { year: "2026", title: "Industry Leader", description: "Recognized as a market leader by analysts." },
+  ];
+
+  return buildConfig(sections, lower, prompt, brandName);
+
+  function buildConfig(sections: string[], lower: string, prompt: string, brandName: string): GenerationConfig {
+    return {
+      sections, brandName, headline, subtext, heroStyle, buttonText,
+      features, plans, testimonials, navLinks, ctaHeadline, ctaSubtext, ctaButtonText,
+      galleryItems, gallerySectionTitle, gallerySectionSubtitle,
+      teamMembers, stats, faqItems, logoNames, blogPosts, steps,
+      portfolioProjects, services, timelineEvents,
+      contentTitle: "About Our Company",
+      contentText: "We are a team of passionate professionals dedicated to creating exceptional experiences. With years of experience, we've helped hundreds of businesses transform their online presence.",
+      contentImagePosition: "right" as const,
+      errorHeadline: "404",
+      errorSubtext: "The page you're looking for doesn't exist or has been moved.",
+      comingSoonHeadline: "Coming Soon",
+      comingSoonSubtext: "We're working on something amazing. Be the first to know when we launch.",
+      loginHeading: "Welcome Back",
+      loginSubtext: "Sign in to your account to continue",
+      designTokens,
+    };
+  }
 }
 
 // ============================================================
@@ -512,6 +597,18 @@ Antworte NUR mit einem JSON-Objekt in diesem exakten Format:
   "steps": [
     {"title": "Schritt", "description": "Beschreibung"}
   ],
+  "portfolioProjects": [
+    {"title": "Projekt", "category": "Kategorie", "description": "Beschreibung", "tags": ["Tag1", "Tag2"]}
+  ],
+  "services": [
+    {"title": "Dienstleistung", "description": "Beschreibung", "features": ["Feature 1", "Feature 2"]}
+  ],
+  "timelineEvents": [
+    {"year": "2024", "title": "Titel", "description": "Beschreibung"}
+  ],
+  "contentTitle": "Über Uns",
+  "contentText": "Text über die Firma...",
+  "contentImagePosition": "right",
   "designTokens": {
     "primaryColor": "#3b82f6",
     "secondaryColor": "#8b5cf6",
@@ -547,9 +644,16 @@ DESIGN TOKEN REGELN:
 - Alle Farben als Hex-Werte (#RRGGBB)
 
 SECTION REGELN:
-- "sections" muss ein Array sein mit Werten aus: "navbar", "hero", "logos", "features", "steps", "gallery", "stats", "testimonials", "team", "faq", "blog", "pricing", "cta", "contact", "footer"
+- "sections" muss ein Array sein mit Werten aus: "navbar", "hero", "logos", "features", "steps", "gallery", "stats", "testimonials", "team", "faq", "blog", "pricing", "cta", "contact", "footer", "portfolio", "services", "timeline", "content", "404", "coming-soon", "login"
 - Wähle NUR die Sections, die zum Prompt des Users passen!
-- "gallery/portfolio/showcase/Galerie/Bilder/Fotos" → "gallery" in sections
+- "gallery/Galerie/Bilder/Fotos" → "gallery" in sections
+- "portfolio/Projekte/case study/Referenzen" → "portfolio" in sections
+- "services/Dienstleistungen/Angebote" → "services" in sections
+- "timeline/Zeitstrahl/Geschichte/Meilensteine/journey" → "timeline" in sections
+- "about/über uns/Vorstellung/content" → "content" in sections
+- "404/error page/Fehlerseite" → "404" in sections (standalone)
+- "coming soon/launch/bald/demnächst" → "coming-soon" in sections (standalone)
+- "login/anmelden/sign in/register" → "login" in sections (standalone)
 - "team/Mitarbeiter/über uns/about" → "team" in sections
 - "FAQ/Fragen" → "faq" in sections
 - "stats/Zahlen/counter" → "stats" in sections
@@ -561,6 +665,11 @@ SECTION REGELN:
 CONTENT REGELN:
 - Passe ALLE Texte an die beschriebene Branche/Nische an
 - Features: 6, galleryItems: 6, Plans: 3, teamMembers: 4, stats: 4, faqItems: 5, logoNames: 6, blogPosts: 3, steps: 3-4
+- portfolioProjects: 6 (mit title, category, description, tags)
+- services: 3-4 (mit title, description, features Array)
+- timelineEvents: 4-6 (mit year, title, description)
+- contentTitle + contentText: Passend zur Firma
+- contentImagePosition: "left" | "right" | "none"
 - Testimonials: Anzahl passend zum Prompt (Standard: 3, max 12)
 - Wenn der User Deutsch schreibt, antworte mit deutschen Inhalten
 - Antworte NUR mit dem JSON, kein anderer Text`;
@@ -695,6 +804,40 @@ CONTENT REGELN:
     steps: Array.isArray(parsed.steps) && parsed.steps.length > 0
       ? parsed.steps.slice(0, 6)
       : [{ title: "Step 1", description: "Get started" }],
+    portfolioProjects: Array.isArray(parsed.portfolioProjects) && parsed.portfolioProjects.length > 0
+      ? parsed.portfolioProjects.slice(0, 8)
+      : [
+          { title: "Brand Redesign", category: "Branding", description: "Complete brand overhaul", tags: ["Identity"] },
+          { title: "E-Commerce Platform", category: "Development", description: "Custom online store", tags: ["React"] },
+          { title: "Mobile App", category: "UI/UX", description: "Award-winning app", tags: ["iOS"] },
+          { title: "Corporate Website", category: "Web Design", description: "Modern responsive site", tags: ["Design"] },
+          { title: "Dashboard", category: "SaaS", description: "Analytics platform", tags: ["Data"] },
+          { title: "Restaurant Chain", category: "Branding", description: "Identity system", tags: ["Digital"] },
+        ],
+    services: Array.isArray(parsed.services) && parsed.services.length > 0
+      ? parsed.services.slice(0, 6)
+      : [
+          { title: "Web Design", description: "Custom websites that perform.", features: ["Responsive", "CMS"] },
+          { title: "Branding", description: "Memorable brand identities.", features: ["Logo", "Guidelines"] },
+          { title: "Marketing", description: "Data-driven strategies.", features: ["SEO", "Content"] },
+        ],
+    timelineEvents: Array.isArray(parsed.timelineEvents) && parsed.timelineEvents.length > 0
+      ? parsed.timelineEvents.slice(0, 8)
+      : [
+          { year: "2020", title: "Founded", description: "Started with a big vision." },
+          { year: "2022", title: "Growth", description: "Reached 10,000 customers." },
+          { year: "2024", title: "Expansion", description: "Went global." },
+          { year: "2026", title: "Leader", description: "Industry recognized." },
+        ],
+    contentTitle: parsed.contentTitle || "About Our Company",
+    contentText: parsed.contentText || "We are a team of passionate professionals dedicated to creating exceptional experiences.",
+    contentImagePosition: ["left", "right", "none"].includes(parsed.contentImagePosition) ? parsed.contentImagePosition : "right",
+    errorHeadline: "404",
+    errorSubtext: "The page you're looking for doesn't exist.",
+    comingSoonHeadline: parsed.headline || "Coming Soon",
+    comingSoonSubtext: parsed.subtext || "We're working on something amazing.",
+    loginHeading: "Welcome Back",
+    loginSubtext: "Sign in to your account to continue",
     designTokens: aiDesignTokens,
   };
 }
@@ -752,6 +895,27 @@ function generateFromConfig(config: GenerationConfig): BricksElement[] {
         break;
       case "footer":
         elements = [...elements, ...generateFooterSection(config.brandName, undefined, tokens)];
+        break;
+      case "portfolio":
+        elements = [...elements, ...generatePortfolioSection(undefined, undefined, config.portfolioProjects, tokens)];
+        break;
+      case "services":
+        elements = [...elements, ...generateServicesSection(undefined, undefined, config.services, tokens)];
+        break;
+      case "timeline":
+        elements = [...elements, ...generateTimelineSection(undefined, undefined, config.timelineEvents, tokens)];
+        break;
+      case "content":
+        elements = [...elements, ...generateContentSection(config.contentTitle, config.contentText, config.contentImagePosition, tokens)];
+        break;
+      case "404":
+        elements = [...elements, ...generate404Section(config.errorHeadline, config.errorSubtext, undefined, tokens)];
+        break;
+      case "coming-soon":
+        elements = [...elements, ...generateComingSoonSection(config.comingSoonHeadline, config.comingSoonSubtext, config.brandName, tokens)];
+        break;
+      case "login":
+        elements = [...elements, ...generateLoginSection(config.loginHeading, config.loginSubtext, config.brandName, tokens)];
         break;
     }
   }

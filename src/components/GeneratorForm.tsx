@@ -11,13 +11,15 @@ interface GeneratorFormProps {
 
 const EXAMPLE_PROMPTS = [
   "SaaS landing page with hero, features, stats, pricing, FAQ, and footer",
+  "Agency website with services, portfolio, timeline, team, and contact",
   "Dark tech startup with gradient hero, steps, team, and testimonials",
   "Restaurant website schwarzer Hintergrund, goldene Akzente, runde Ecken",
-  "Agency portfolio with gallery, team, process steps, and contact",
-  "6 testimonials hintergrund schwarz weiße texte mit schatten",
+  "Consulting firm with about us, services, stats, timeline, and FAQ",
+  "Developer portfolio dark mode with projects, blog, and stats",
+  "Coming soon page für ein neues Startup-Produkt",
+  "Login page mit dunklem theme und runden Ecken",
+  "404 error page with custom styling",
   "E-Commerce shop landing page mit blauer primary farbe und FAQ",
-  "Fitness studio with stats, pricing, blog, and team section",
-  "Real estate agency with hero, features, logos, and contact form",
 ];
 
 export default function GeneratorForm({ onGenerate, isLoading, aiAvailable, lastMode }: GeneratorFormProps) {

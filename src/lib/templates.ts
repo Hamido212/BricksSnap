@@ -15,6 +15,13 @@ import {
   generateLogoCloudSection,
   generateBlogSection,
   generateStepsSection,
+  generatePortfolioSection,
+  generateServicesSection,
+  generateTimelineSection,
+  generate404Section,
+  generateComingSoonSection,
+  generateLoginSection,
+  generateContentSection,
   generateFullPage,
   resolveDesignTokens,
   BricksElement,
@@ -35,11 +42,15 @@ export const CATEGORIES = [
   { id: "hero", name: "Hero Sections", icon: "layout" },
   { id: "navbar", name: "Navigation", icon: "menu" },
   { id: "features", name: "Features", icon: "star" },
+  { id: "services", name: "Services", icon: "briefcase" },
   { id: "steps", name: "Steps / Process", icon: "list" },
   { id: "stats", name: "Stats / Counters", icon: "bar-chart" },
   { id: "pricing", name: "Pricing", icon: "tag" },
   { id: "testimonials", name: "Testimonials", icon: "quote" },
   { id: "team", name: "Team", icon: "users" },
+  { id: "portfolio", name: "Portfolio", icon: "briefcase" },
+  { id: "timeline", name: "Timeline", icon: "clock" },
+  { id: "content", name: "Content / About", icon: "file-text" },
   { id: "faq", name: "FAQ", icon: "help-circle" },
   { id: "blog", name: "Blog", icon: "book" },
   { id: "logos", name: "Logo Cloud", icon: "award" },
@@ -47,6 +58,9 @@ export const CATEGORIES = [
   { id: "gallery", name: "Gallery", icon: "image" },
   { id: "contact", name: "Contact", icon: "mail" },
   { id: "footer", name: "Footer", icon: "footer" },
+  { id: "login", name: "Login / Auth", icon: "lock" },
+  { id: "error", name: "Error Pages", icon: "alert-triangle" },
+  { id: "coming-soon", name: "Coming Soon", icon: "clock" },
   { id: "fullpage", name: "Full Pages", icon: "file" },
 ];
 
@@ -576,6 +590,260 @@ export const TEMPLATES: TemplateDefinition[] = [
     ),
   },
 
+  // Portfolio
+  {
+    id: "portfolio-agency",
+    name: "Portfolio - Agency",
+    description: "Agency portfolio grid with project cards, categories, descriptions, and tags.",
+    category: "portfolio",
+    tags: ["portfolio", "agency", "projects", "case-study"],
+    preview: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+    generator: () => generatePortfolioSection(),
+  },
+  {
+    id: "portfolio-developer",
+    name: "Portfolio - Developer",
+    description: "Developer portfolio showcasing technical projects with tech stack tags.",
+    category: "portfolio",
+    tags: ["portfolio", "developer", "tech", "projects"],
+    preview: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    generator: () => generatePortfolioSection(
+      "My Work",
+      "Recent projects and open source contributions",
+      [
+        { title: "CLI Framework", category: "Open Source", description: "A fast, extensible CLI framework for Node.js", tags: ["TypeScript", "Node.js"] },
+        { title: "Real-time Chat", category: "Full Stack", description: "WebSocket-based messaging with E2E encryption", tags: ["React", "Socket.io"] },
+        { title: "ML Pipeline", category: "Data Science", description: "Automated machine learning pipeline for image classification", tags: ["Python", "TensorFlow"] },
+        { title: "Design System", category: "Frontend", description: "Component library with 50+ reusable components", tags: ["React", "Storybook"] },
+        { title: "API Gateway", category: "Backend", description: "High-performance API gateway with rate limiting", tags: ["Go", "Redis"] },
+        { title: "Mobile App", category: "Mobile", description: "Cross-platform fitness tracking application", tags: ["React Native", "Firebase"] },
+      ]
+    ),
+  },
+  {
+    id: "portfolio-minimal",
+    name: "Portfolio - Minimal",
+    description: "Clean minimal portfolio with focus on project visuals and brief descriptions.",
+    category: "portfolio",
+    tags: ["portfolio", "minimal", "clean"],
+    preview: "linear-gradient(135deg, #fdfcfb 0%, #e2d1c3 100%)",
+    generator: () => {
+      const tokens = resolveDesignTokens({ shadow: "small", borderRadius: "large" });
+      return generatePortfolioSection(
+        "Selected Work",
+        "A curated selection of our favorite projects",
+        [
+          { title: "Luxury Brand", category: "Branding", description: "Premium brand identity for a luxury fashion house" },
+          { title: "SaaS Dashboard", category: "Web App", description: "Analytics dashboard for marketing teams" },
+          { title: "Magazine Redesign", category: "Editorial", description: "Digital transformation of a print magazine" },
+          { title: "Startup Launch", category: "Strategy", description: "Go-to-market strategy and brand launch" },
+        ],
+        tokens
+      );
+    },
+  },
+
+  // Services
+  {
+    id: "services-agency",
+    name: "Services - Agency",
+    description: "Service cards with accent bars, descriptions, and feature lists for agencies.",
+    category: "services",
+    tags: ["services", "agency", "offerings"],
+    preview: "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)",
+    generator: () => generateServicesSection(),
+  },
+  {
+    id: "services-consulting",
+    name: "Services - Consulting",
+    description: "Consulting firm services with strategic offerings and deliverables.",
+    category: "services",
+    tags: ["services", "consulting", "business"],
+    preview: "linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 100%)",
+    generator: () => generateServicesSection(
+      "What We Do",
+      "Strategic consulting to accelerate your growth",
+      [
+        { title: "Strategy & Planning", description: "Define your vision and create a roadmap to achieve your business goals.", features: ["Market Analysis", "Competitive Audit", "Growth Roadmap"] },
+        { title: "Digital Transformation", description: "Modernize your tech stack and processes for the digital age.", features: ["Process Automation", "Cloud Migration", "Data Strategy"] },
+        { title: "Product Development", description: "From concept to launch, we build products users love.", features: ["UX Research", "Prototyping", "Agile Development"] },
+        { title: "Performance Optimization", description: "Maximize efficiency and ROI across all digital channels.", features: ["Analytics Setup", "A/B Testing", "Conversion Optimization"] },
+      ]
+    ),
+  },
+  {
+    id: "services-tech",
+    name: "Services - Tech Company",
+    description: "Technology services with technical features and capabilities.",
+    category: "services",
+    tags: ["services", "tech", "saas", "development"],
+    preview: "linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)",
+    generator: () => generateServicesSection(
+      "Our Solutions",
+      "Enterprise-grade solutions for modern businesses",
+      [
+        { title: "Cloud Infrastructure", description: "Scalable, secure cloud solutions built for enterprise workloads.", features: ["Auto-scaling", "99.99% SLA", "Multi-region"] },
+        { title: "Custom Development", description: "Bespoke software solutions tailored to your unique needs.", features: ["Full-stack", "API Development", "Microservices"] },
+        { title: "Data & Analytics", description: "Turn your data into actionable insights with our analytics platform.", features: ["Real-time Dashboards", "ML Models", "ETL Pipelines"] },
+        { title: "Security & Compliance", description: "Keep your systems and data secure with our security solutions.", features: ["Penetration Testing", "SOC 2", "GDPR Compliance"] },
+      ]
+    ),
+  },
+
+  // Timeline
+  {
+    id: "timeline-company",
+    name: "Timeline - Company History",
+    description: "Vertical timeline showing company milestones with year badges and descriptions.",
+    category: "timeline",
+    tags: ["timeline", "history", "milestones", "about"],
+    preview: "linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)",
+    generator: () => generateTimelineSection(),
+  },
+  {
+    id: "timeline-startup",
+    name: "Timeline - Startup Journey",
+    description: "Startup growth timeline from founding to market leadership.",
+    category: "timeline",
+    tags: ["timeline", "startup", "growth", "journey"],
+    preview: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+    generator: () => generateTimelineSection(
+      "Our Story",
+      "From garage startup to global platform",
+      [
+        { year: "2019", title: "The Spark", description: "Two founders, one laptop, and a vision to democratize web development." },
+        { year: "2020", title: "First Users", description: "Launched beta and acquired our first 100 passionate early adopters." },
+        { year: "2021", title: "Seed Funding", description: "Raised $2M seed round from top-tier investors to accelerate growth." },
+        { year: "2022", title: "Product-Market Fit", description: "Hit 5,000 paying customers and achieved profitability." },
+        { year: "2024", title: "Series A", description: "Raised $15M Series A to expand internationally and grow the team to 50." },
+        { year: "2026", title: "Market Leader", description: "Serving 50,000+ businesses across 120 countries worldwide." },
+      ]
+    ),
+  },
+
+  // Content / About
+  {
+    id: "content-about",
+    name: "Content - About Us",
+    description: "Split layout with about text and image placeholder, including badge and CTA.",
+    category: "content",
+    tags: ["content", "about", "introduction", "split"],
+    preview: "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
+    generator: () => generateContentSection(),
+  },
+  {
+    id: "content-mission",
+    name: "Content - Mission Statement",
+    description: "Centered mission statement without image for maximum text impact.",
+    category: "content",
+    tags: ["content", "mission", "centered", "text"],
+    preview: "linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)",
+    generator: () => generateContentSection(
+      "Our Mission",
+      "We believe that great design should be accessible to everyone. Our mission is to empower creators, entrepreneurs, and businesses of all sizes to build beautiful, high-performing websites without writing a single line of code. We're committed to pushing the boundaries of what's possible in web design while keeping things simple, intuitive, and delightful to use.",
+      "none"
+    ),
+  },
+  {
+    id: "content-image-left",
+    name: "Content - Image Left",
+    description: "Content section with image on the left and text on the right.",
+    category: "content",
+    tags: ["content", "about", "image-left", "split"],
+    preview: "linear-gradient(135deg, #c1dfc4 0%, #deecdd 100%)",
+    generator: () => generateContentSection(
+      "Why Choose Us",
+      "With over a decade of experience in the industry, we've built a reputation for delivering exceptional results. Our team combines creativity with technical expertise to create solutions that not only look stunning but also drive real business outcomes. Every project we take on is treated with the same level of care and attention to detail.",
+      "left"
+    ),
+  },
+
+  // 404 Error Pages
+  {
+    id: "error-404",
+    name: "404 - Default",
+    description: "Clean 404 error page with large number, message, and navigation buttons.",
+    category: "error",
+    tags: ["404", "error", "not-found"],
+    preview: "linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%)",
+    generator: () => generate404Section(),
+  },
+  {
+    id: "error-404-dark",
+    name: "404 - Dark Mode",
+    description: "Dark-themed 404 error page for modern websites.",
+    category: "error",
+    tags: ["404", "error", "dark", "modern"],
+    preview: "linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 100%)",
+    generator: () => {
+      const tokens = resolveDesignTokens({ darkMode: true, primaryColor: "#8b5cf6" });
+      return generate404Section("404", "Oops! This page seems to have vanished into the digital void.", "Return Home", tokens);
+    },
+  },
+
+  // Coming Soon
+  {
+    id: "coming-soon-default",
+    name: "Coming Soon - Default",
+    description: "Dark coming soon page with email signup, brand name, and social links.",
+    category: "coming-soon",
+    tags: ["coming-soon", "launch", "pre-launch"],
+    preview: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+    generator: () => generateComingSoonSection(),
+  },
+  {
+    id: "coming-soon-startup",
+    name: "Coming Soon - Startup",
+    description: "Startup launch page with vibrant accent color and email capture.",
+    category: "coming-soon",
+    tags: ["coming-soon", "startup", "launch"],
+    preview: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    generator: () => {
+      const tokens = resolveDesignTokens({ primaryColor: "#8b5cf6" });
+      return generateComingSoonSection(
+        "Something Big Is Coming",
+        "We're building the future of web development. Join the waitlist and be the first to experience it.",
+        "LaunchPad",
+        tokens
+      );
+    },
+  },
+
+  // Login / Auth
+  {
+    id: "login-default",
+    name: "Login - Default",
+    description: "Clean login form with email/password fields, social login, and sign up link.",
+    category: "login",
+    tags: ["login", "auth", "sign-in", "form"],
+    preview: "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)",
+    generator: () => generateLoginSection(),
+  },
+  {
+    id: "login-dark",
+    name: "Login - Dark Mode",
+    description: "Dark-themed login page for modern SaaS applications.",
+    category: "login",
+    tags: ["login", "auth", "dark", "saas"],
+    preview: "linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 100%)",
+    generator: () => {
+      const tokens = resolveDesignTokens({ darkMode: true, primaryColor: "#6366f1", borderRadius: "large" });
+      return generateLoginSection("Welcome Back", "Sign in to access your dashboard", "DarkApp", tokens);
+    },
+  },
+  {
+    id: "login-branded",
+    name: "Login - Branded",
+    description: "Branded login page with custom colors for enterprise applications.",
+    category: "login",
+    tags: ["login", "auth", "branded", "enterprise"],
+    preview: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+    generator: () => {
+      const tokens = resolveDesignTokens({ primaryColor: "#e11d48", borderRadius: "small", shadow: "medium" });
+      return generateLoginSection("Sign In", "Access your enterprise workspace", "EnterpriseCo", tokens);
+    },
+  },
+
   // Full Pages
   {
     id: "fullpage-saas",
@@ -720,6 +988,135 @@ export const TEMPLATES: TemplateDefinition[] = [
         ...generateCTASection("Ready to Dine With Us?", "Book your table today and experience unforgettable flavors.", "Make Reservation", tokens),
         ...generateContactSection(tokens),
         ...generateFooterSection("Bella Cucina", undefined, tokens),
+      ];
+    },
+  },
+  {
+    id: "fullpage-portfolio",
+    name: "Full Page - Portfolio Agency",
+    description: "Agency portfolio site: navbar, hero, services, portfolio, timeline, team, testimonials, CTA, contact, footer.",
+    category: "fullpage",
+    tags: ["fullpage", "portfolio", "agency", "services"],
+    preview: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+    generator: () => {
+      const tokens = resolveDesignTokens({ primaryColor: "#e11d48", borderRadius: "large", shadow: "small" });
+      return [
+        ...generateNavbar("PixelCraft", [
+          { text: "Home", url: "/" }, { text: "Services", url: "#services" },
+          { text: "Work", url: "#portfolio" }, { text: "About", url: "#about" },
+          { text: "Contact", url: "#contact" },
+        ], "Hire Us", tokens),
+        ...generateHeroSection("We Design Digital Products People Love", "Award-winning agency crafting exceptional web experiences, brands, and digital strategies for ambitious companies.", "See Our Work", "#portfolio", "split", tokens),
+        ...generateLogoCloudSection("Trusted by innovative brands", undefined, tokens),
+        ...generateServicesSection(undefined, undefined, undefined, tokens),
+        ...generatePortfolioSection(undefined, undefined, undefined, tokens),
+        ...generateTimelineSection("Our Journey", "15 years of creative excellence", [
+          { year: "2011", title: "Founded", description: "Started as a two-person design studio in Berlin." },
+          { year: "2014", title: "First Award", description: "Won our first Awwwards Site of the Day." },
+          { year: "2017", title: "25 Team Members", description: "Grew to a full-service agency." },
+          { year: "2020", title: "Global Clients", description: "Serving clients across 30+ countries." },
+          { year: "2026", title: "500+ Projects", description: "Completed over 500 successful projects." },
+        ], tokens),
+        ...generateTeamSection(undefined, undefined, undefined, tokens),
+        ...generateTestimonialsSection(undefined, tokens),
+        ...generateCTASection("Ready to Start Your Project?", "Let's create something extraordinary together. Get in touch today.", "Start a Project", tokens),
+        ...generateContactSection(tokens),
+        ...generateFooterSection("PixelCraft", undefined, tokens),
+      ];
+    },
+  },
+  {
+    id: "fullpage-consulting",
+    name: "Full Page - Consulting Firm",
+    description: "Professional consulting site: navbar, hero, content, services, stats, timeline, team, testimonials, FAQ, CTA, footer.",
+    category: "fullpage",
+    tags: ["fullpage", "consulting", "business", "corporate"],
+    preview: "linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)",
+    generator: () => {
+      const tokens = resolveDesignTokens({ primaryColor: "#1d4ed8", borderRadius: "small", shadow: "small" });
+      return [
+        ...generateNavbar("StrategyPro", [
+          { text: "Home", url: "/" }, { text: "About", url: "#about" },
+          { text: "Services", url: "#services" }, { text: "Contact", url: "#contact" },
+        ], "Book Consultation", tokens),
+        ...generateHeroSection("Unlock Your Business Potential", "Strategic consulting for companies ready to scale. We help you navigate complexity and seize opportunities.", "Schedule a Call", "#contact", "centered", tokens),
+        ...generateContentSection("Who We Are", "StrategyPro is a management consulting firm founded on the belief that every business deserves access to world-class strategic advice. With a team of former Fortune 500 executives and industry specialists, we bring deep expertise to help companies navigate their most challenging business problems and capture new growth opportunities.", "right", tokens),
+        ...generateServicesSection("What We Do", "End-to-end strategic consulting", [
+          { title: "Growth Strategy", description: "Identify and capture new market opportunities.", features: ["Market Entry", "M&A Advisory", "Revenue Optimization"] },
+          { title: "Operations", description: "Streamline operations for maximum efficiency.", features: ["Process Design", "Supply Chain", "Cost Reduction"] },
+          { title: "Digital Transformation", description: "Modernize your technology and processes.", features: ["Tech Strategy", "Change Management", "Implementation"] },
+          { title: "Leadership Development", description: "Build high-performing leadership teams.", features: ["Executive Coaching", "Team Building", "Succession Planning"] },
+        ], tokens),
+        ...generateStatsSection("Our Track Record", [
+          { value: "$2B+", label: "Value Created", description: "For our clients" },
+          { value: "200+", label: "Engagements", description: "Across 30 industries" },
+          { value: "95%", label: "Client Retention", description: "Year over year" },
+          { value: "40+", label: "Consultants", description: "Former C-suite execs" },
+        ], tokens),
+        ...generateTimelineSection("Our History", "Two decades of strategic impact", [
+          { year: "2006", title: "Founded", description: "Established by three former McKinsey partners." },
+          { year: "2010", title: "International", description: "Opened offices in London and Singapore." },
+          { year: "2015", title: "Digital Practice", description: "Launched our digital transformation practice." },
+          { year: "2020", title: "100th Client", description: "Celebrated our 100th Fortune 500 engagement." },
+          { year: "2026", title: "Industry Leader", description: "Ranked #1 mid-size consulting firm globally." },
+        ], tokens),
+        ...generateTeamSection("Our Leadership", "Industry veterans guiding your success", [
+          { name: "Richard Hayes", role: "Managing Partner", bio: "25 years of strategy consulting experience." },
+          { name: "Dr. Sarah Kim", role: "Head of Digital", bio: "Former CTO of a Fortune 100 tech company." },
+          { name: "Marcus Johnson", role: "Head of Operations", bio: "Supply chain expert with global experience." },
+          { name: "Elena Petrova", role: "Head of Growth", bio: "Led $500M+ revenue growth initiatives." },
+        ], tokens),
+        ...generateTestimonialsSection([
+          { quote: "StrategyPro helped us identify a $50M revenue opportunity we had completely overlooked.", author: "David Chen", role: "CEO, TechVentures", rating: 5 },
+          { quote: "Their operations team reduced our costs by 30% while improving quality. Exceptional.", author: "Angela Morrison", role: "COO, GlobalManufacturing", rating: 5 },
+          { quote: "The best strategic advisors we've worked with. They truly understand our industry.", author: "James White", role: "CFO, FinanceGroup", rating: 5 },
+        ], tokens),
+        ...generateFaqSection("Common Questions", "Answers to frequent client questions", [
+          { question: "How long does a typical engagement last?", answer: "Most strategy engagements run 8-12 weeks. Implementation support can extend to 6-12 months." },
+          { question: "What industries do you specialize in?", answer: "We have deep expertise in technology, financial services, healthcare, manufacturing, and consumer goods." },
+          { question: "How do you structure your fees?", answer: "We offer project-based, retainer, and success-fee models depending on the engagement type." },
+          { question: "Can you work with our existing teams?", answer: "Absolutely. We pride ourselves on collaborative engagements that build internal capability." },
+        ], tokens),
+        ...generateCTASection("Ready to Transform Your Business?", "Schedule a complimentary strategy session with our team.", "Book Your Consultation", tokens),
+        ...generateFooterSection("StrategyPro", undefined, tokens),
+      ];
+    },
+  },
+  {
+    id: "fullpage-developer",
+    name: "Full Page - Developer Portfolio",
+    description: "Personal developer portfolio: navbar, hero, content, portfolio, stats, steps, blog, contact, footer.",
+    category: "fullpage",
+    tags: ["fullpage", "developer", "personal", "portfolio"],
+    preview: "linear-gradient(135deg, #0c0c1d 0%, #1a1a3e 100%)",
+    generator: () => {
+      const tokens = resolveDesignTokens({ darkMode: true, primaryColor: "#06b6d4", borderRadius: "large", shadow: "medium" });
+      return [
+        ...generateNavbar("alex.dev", [
+          { text: "About", url: "#about" }, { text: "Work", url: "#portfolio" },
+          { text: "Blog", url: "#blog" }, { text: "Contact", url: "#contact" },
+        ], "Hire Me", tokens),
+        ...generateHeroSection("Full-Stack Developer & Open Source Contributor", "I build fast, accessible, and scalable web applications. Currently available for freelance projects.", "View My Work", "#portfolio", "centered", tokens),
+        ...generateContentSection("About Me", "I'm a full-stack developer with 8+ years of experience building web applications. I specialize in React, TypeScript, and Node.js, with a passion for clean code, performance optimization, and developer experience. When I'm not coding, I contribute to open source projects and write technical articles.", "none", tokens),
+        ...generatePortfolioSection("Featured Projects", "Recent work and side projects", [
+          { title: "Cloud IDE", category: "SaaS", description: "Browser-based code editor with real-time collaboration", tags: ["React", "WebSocket", "Monaco"] },
+          { title: "CLI Framework", category: "Open Source", description: "1000+ stars on GitHub, used by 500+ projects", tags: ["TypeScript", "Node.js"] },
+          { title: "E-Commerce Platform", category: "Freelance", description: "Custom headless commerce with 99.9% uptime", tags: ["Next.js", "Stripe"] },
+          { title: "AI Chat Interface", category: "Side Project", description: "Real-time AI assistant with streaming responses", tags: ["React", "OpenAI"] },
+        ], tokens),
+        ...generateStatsSection("", [
+          { value: "50+", label: "Projects Completed" },
+          { value: "1.2K", label: "GitHub Stars" },
+          { value: "30+", label: "Open Source PRs" },
+          { value: "8+", label: "Years Experience" },
+        ], tokens),
+        ...generateBlogSection("Latest Articles", "Thoughts on code, tech, and building things", [
+          { title: "Building Type-Safe APIs with tRPC", excerpt: "A deep dive into end-to-end type safety in modern web applications.", category: "TypeScript", date: "Feb 2026", readTime: "10 min" },
+          { title: "Performance Patterns in React", excerpt: "Advanced techniques for optimizing React application performance.", category: "React", date: "Jan 2026", readTime: "8 min" },
+          { title: "The Art of Code Review", excerpt: "How to give and receive code reviews that actually improve code quality.", category: "Engineering", date: "Jan 2026", readTime: "6 min" },
+        ], tokens),
+        ...generateContactSection(tokens),
+        ...generateFooterSection("alex.dev", undefined, tokens),
       ];
     },
   },
