@@ -22,7 +22,6 @@ import {
   generateComingSoonSection,
   generateLoginSection,
   generateContentSection,
-  generateFullPage,
   resolveDesignTokens,
   BricksElement,
 } from "./bricks-engine";
