@@ -2945,8 +2945,6 @@ export function generateTimelineSection(
 
   for (let i = 0; i < events.length; i++) {
     const event = events[i];
-    const isLeft = i % 2 === 0;
-
     const eventRow = createElement("div", timelineContainer.id, {
       _display: "flex",
       _direction: "row",

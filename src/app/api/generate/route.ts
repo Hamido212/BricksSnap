@@ -107,23 +107,11 @@ The user describes a website. You generate DIRECT valid Bricks Builder JSON.
 - **"image"** - Images with "image": { "url": "https://...", "filename": "..." }
 - **"form"** - Contact forms with "fields": Array of field objects
 
-### 3. REQUIRED SETTINGS FOR EVERY ELEMENT:
-**_padding**: { top, bottom, left, right } (Strings like "100", "40")
-**_background**: { color: { hex: "#HEX" } }
-**_typography**: { "font-size", "font-weight", "color": { hex: "#HEX" }, "text-decoration" (for links: "none"), ... }
-**_border**: { radius: { top, right, bottom, left }, width, style, color: { hex } }
-**_margin**: { ... }
-**_display**: "flex" | "grid" | "block"
-**_direction**: "row" | "column"
-**_justifyContent**: "center" | "flex-start" | "space-between" | "flex-end"
-**_alignItems**: "center" | "flex-start" | "stretch"
-**_gap**: String (e.g., "32")
-**_width**: "100%" | "50%" | "auto" | "1200px"
-**_height**: String (e.g., "100vh", "48px")
-**_gridTemplateColumns**: CSS grid template (e.g., "repeat(auto-fill, minmax(320px, 1fr))")
-**_textAlign**: "center" | "left" | "right"
-**_minHeight**: String (e.g., "100vh")
-**_zIndex**: String (e.g., "50")
+### 3. REQUIRED SETTINGS POLICY:
+- Use realistic settings for each element type.
+- For sections/containers/cards/buttons/links always include sizing/spacing/typography/background/border where appropriate.
+- Prefer explicit values over empty objects.
+- NEVER invent unsupported element names.
 
 ### 4. BUTTON/LINK STRUCTURE (CRITICAL!):
 - name: "text-basic"
@@ -146,7 +134,7 @@ The user describes a website. You generate DIRECT valid Bricks Builder JSON.
 ### 6. REQUIRED SECTIONS (based on prompt):
 Choose appropriate sections: navbar, hero, features, pricing, testimonials, cta, gallery, team, stats, faq, blog, steps, portfolio, services, timeline, content, contact, footer, login, 404, coming-soon
 
-### 5. MINIMUM CONTENT PER SECTION:
+### 7. MINIMUM CONTENT PER SECTION:
 - **navbar**: Logo/Brand, 3-5 Links, 1 CTA Button
 - **hero**: H1 headline, Subtext, 1-2 Buttons, (optional: image for split layout)
 - **features**: 4-6 Feature Cards with Icon, Title, Description
@@ -167,10 +155,8 @@ Choose appropriate sections: navbar, hero, features, pricing, testimonials, cta,
 - Image placeholder URLs from unsplash
 
 ## YOUR RESPONSE:
-1. Analyze the user prompt
-2. Create appropriate sections
-3. Generate creative design decisions
-4. Return ONLY a valid JSON array (no markdown, no text)
+Return ONLY a valid JSON array of Bricks elements.
+No markdown, no comments, no prose, no code fences.
 
 ## IMPORTANT RULES:
 - IDs must be 6 characters random (a-z0-9)
@@ -182,6 +168,74 @@ Choose appropriate sections: navbar, hero, features, pricing, testimonials, cta,
 - "link": { "type": "external", "url": "#" } for buttons/links
 
 Answer ONLY with the JSON array!`;
+
+const ALLOWED_ELEMENT_NAMES = new Set([
+  "section",
+  "container",
+  "heading",
+  "text-basic",
+  "div",
+  "image",
+  "form",
+]);
+
+function randomId(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < 6; i++) result += chars[Math.floor(Math.random() * chars.length)];
+  return result;
+}
+
+function sanitizeBricksElements(input: unknown): BricksElement[] {
+  if (!Array.isArray(input)) return [];
+
+  const usedIds = new Set<string>();
+  const sanitized: BricksElement[] = [];
+
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const candidate = raw as Partial<BricksElement> & { settings?: unknown };
+    const name = typeof candidate.name === "string" ? candidate.name : "div";
+    if (!ALLOWED_ELEMENT_NAMES.has(name)) continue;
+
+    let id = typeof candidate.id === "string" ? candidate.id.toLowerCase() : "";
+    if (!/^[a-z0-9]{6}$/.test(id) || usedIds.has(id)) {
+      do {
+        id = randomId();
+      } while (usedIds.has(id));
+    }
+    usedIds.add(id);
+
+    const parent =
+      candidate.parent === 0 || typeof candidate.parent === "string"
+        ? candidate.parent
+        : 0;
+
+    sanitized.push({
+      id,
+      name,
+      parent,
+      children: [],
+      settings:
+        candidate.settings && typeof candidate.settings === "object"
+          ? (candidate.settings as Record<string, unknown>)
+          : {},
+      ...(typeof candidate.label === "string" ? { label: candidate.label } : {}),
+    });
+  }
+
+  const byId = new Map(sanitized.map((el) => [el.id, el]));
+  for (const el of sanitized) {
+    if (el.parent !== 0 && !byId.has(el.parent)) {
+      el.parent = 0;
+    }
+  }
+  for (const el of sanitized) {
+    if (el.parent !== 0) byId.get(el.parent)?.children.push(el.id);
+  }
+
+  return sanitized;
+}
 
 async function generateDirectBricksJSON(
   prompt: string,
@@ -245,13 +299,13 @@ async function generateDirectBricksJSON(
   }
 
   const parsed = JSON.parse(jsonMatch[0]);
-  
-  // Ensure parsed is an array
-  if (!Array.isArray(parsed)) {
-    throw new Error("AI response is not an array");
+  const sanitized = sanitizeBricksElements(parsed);
+
+  if (sanitized.length === 0) {
+    throw new Error("AI response contained no valid Bricks elements");
   }
 
-  return parsed as BricksElement[];
+  return sanitized;
 }
 
 // ============================================================
@@ -341,7 +395,12 @@ function generateFromConfig(config: GenerationConfig): BricksElement[] {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, useAI } = body;
+    const { prompt, useAI, apiKey: requestApiKey, provider } = body as {
+      prompt?: string;
+      useAI?: boolean;
+      apiKey?: string;
+      provider?: "openai" | "anthropic";
+    };
 
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json(
@@ -350,14 +409,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Detect API keys
+    // Detect API keys (request key has priority, then environment variables)
     const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim();
     const openaiKey = process.env.OPENAI_API_KEY?.trim();
+    const bodyApiKey = requestApiKey?.trim();
 
     let apiKey: string | undefined;
     let isAnthropicKey = false;
 
-    if (anthropicKey && anthropicKey.length > 10) {
+    if (bodyApiKey && bodyApiKey.length > 10) {
+      apiKey = bodyApiKey;
+      if (provider === "anthropic") {
+        isAnthropicKey = true;
+      } else if (provider === "openai") {
+        isAnthropicKey = false;
+      } else {
+        // Auto-detect by key prefix for BYOK payloads
+        isAnthropicKey = bodyApiKey.startsWith("sk-ant-");
+      }
+    } else if (provider === "anthropic" && anthropicKey && anthropicKey.length > 10) {
+      apiKey = anthropicKey;
+      isAnthropicKey = true;
+    } else if (provider === "openai" && openaiKey && openaiKey.length > 10) {
+      apiKey = openaiKey;
+      isAnthropicKey = false;
+    } else if (anthropicKey && anthropicKey.length > 10) {
       apiKey = anthropicKey;
       isAnthropicKey = true;
     } else if (openaiKey && openaiKey.length > 10) {
@@ -420,11 +496,25 @@ function analyzePromptWithBasicDetection(prompt: string): GenerationConfig {
   const sections: string[] = [];
   if (/nav|menu|header/i.test(lower)) sections.push("navbar");
   if (/hero|banner|landing/i.test(lower)) sections.push("hero");
-  if (/feature|service/i.test(lower)) sections.push("features");
+  if (/feature/i.test(lower)) sections.push("features");
+  if (/service/i.test(lower)) sections.push("services");
+  if (/gallery|showcase|portfolio grid/i.test(lower)) sections.push("gallery");
   if (/pricing|price|plan/i.test(lower)) sections.push("pricing");
   if (/testimonial|review/i.test(lower)) sections.push("testimonials");
   if (/cta|call.to.action/i.test(lower)) sections.push("cta");
   if (/contact|form/i.test(lower)) sections.push("contact");
+  if (/team|about us|founder/i.test(lower)) sections.push("team");
+  if (/stats|numbers|counter|kpi/i.test(lower)) sections.push("stats");
+  if (/faq|question/i.test(lower)) sections.push("faq");
+  if (/logo|partners|clients/i.test(lower)) sections.push("logos");
+  if (/blog|articles|news/i.test(lower)) sections.push("blog");
+  if (/steps|process|how it works/i.test(lower)) sections.push("steps");
+  if (/portfolio|projects|case studies/i.test(lower)) sections.push("portfolio");
+  if (/timeline|history|roadmap/i.test(lower)) sections.push("timeline");
+  if (/content|about|story/i.test(lower)) sections.push("content");
+  if (/404|not found/i.test(lower)) sections.push("404");
+  if (/coming soon|launch soon|waitlist/i.test(lower)) sections.push("coming-soon");
+  if (/login|sign in|auth/i.test(lower)) sections.push("login");
   if (/footer/i.test(lower)) sections.push("footer");
   if (sections.length === 0) sections.push("hero");
 
