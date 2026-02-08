@@ -113,6 +113,24 @@ The user describes a website. You generate DIRECT valid Bricks Builder JSON.
 - Prefer explicit values over empty objects.
 - NEVER invent unsupported element names.
 
+### 3a. REQUIRED SETTINGS FOR EVERY ELEMENT:
+- _padding: { top, bottom, left, right } (strings like "100", "40")
+- _background: { color: { hex: "#HEX" } }
+- _typography: { "font-size", "font-weight", "color": { hex: "#HEX" }, "text-decoration" (for links: "none"), ... }
+- _border: { radius: { top, right, bottom, left }, width, style, color: { hex } }
+- _margin: { ... }
+- _display: "flex" | "grid" | "block"
+- _direction: "row" | "column"
+- _justifyContent: "center" | "flex-start" | "space-between" | "flex-end"
+- _alignItems: "center" | "flex-start" | "stretch"
+- _gap: String (e.g., "32")
+- _width: "100%" | "50%" | "auto" | "1200px"
+- _height: String (e.g., "100vh", "48px")
+- _gridTemplateColumns: CSS grid template (e.g., "repeat(auto-fill, minmax(320px, 1fr))")
+- _textAlign: "center" | "left" | "right"
+- _minHeight: String (e.g., "100vh")
+- _zIndex: String (e.g., "50")
+
 ### 3b. LAYOUT QUALITY GUARDRAILS (CRITICAL):
 - Build clean, usable layouts first. Avoid experimental compositions that break readability.
 - Hero content must stay readable on desktop: do NOT split text into very narrow columns.
