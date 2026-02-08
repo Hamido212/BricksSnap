@@ -223,7 +223,8 @@ function analyzePrompt(prompt: string): GenerationConfig {
 // ============================================================
 async function generateContentWithAI(
   prompt: string,
-  apiKey: string
+  apiKey: string,
+  isAnthropic: boolean
 ): Promise<GenerationConfig> {
   const systemPrompt = `Du bist ein Content-Generator für Website-Templates. Der User beschreibt eine Website, du lieferst passende Inhalte als JSON zurück.
 
@@ -273,8 +274,6 @@ Regeln:
 - Testimonials sollten genau 3 sein
 - Wenn der User Deutsch schreibt, antworte mit deutschen Inhalten
 - Antworte NUR mit dem JSON, kein anderer Text`;
-
-  const isAnthropic = apiKey.startsWith("sk-ant-");
 
   let responseText: string;
 
@@ -415,8 +414,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
-    const aiAvailable = !!(apiKey && apiKey.length > 10);
+    // Detect API keys by env variable name (not key format)
+    const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim();
+    const openaiKey = process.env.OPENAI_API_KEY?.trim();
+
+    let apiKey: string | undefined;
+    let isAnthropicKey = false;
+
+    if (anthropicKey && anthropicKey.length > 10) {
+      apiKey = anthropicKey;
+      isAnthropicKey = true;
+    } else if (openaiKey && openaiKey.length > 10) {
+      apiKey = openaiKey;
+      isAnthropicKey = false;
+    }
+
+    const aiAvailable = !!apiKey;
     const shouldUseAI = aiAvailable && useAI !== false;
 
     let config: GenerationConfig;
@@ -424,7 +437,7 @@ export async function POST(request: NextRequest) {
 
     if (shouldUseAI) {
       try {
-        config = await generateContentWithAI(prompt, apiKey!);
+        config = await generateContentWithAI(prompt, apiKey!, isAnthropicKey);
         mode = "ai";
       } catch (err) {
         console.error("AI generation failed, falling back to built-in:", err);

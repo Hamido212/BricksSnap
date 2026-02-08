@@ -133,7 +133,7 @@ export function generateHeroSection(
   linkElements(section, container);
   elements.push(container);
 
-  const contentBlock = createElement("block", container.id, {
+  const contentBlock = createElement("div", container.id, {
     _display: "flex",
     _direction: "column",
     _alignItems: style === "split" ? "flex-start" : "center",
@@ -175,7 +175,7 @@ export function generateHeroSection(
   linkElements(contentBlock, text);
   elements.push(text);
 
-  const buttonWrapper = createElement("block", contentBlock.id, {
+  const buttonWrapper = createElement("div", contentBlock.id, {
     _display: "flex",
     _direction: "row",
     _gap: "16px",
@@ -231,7 +231,7 @@ export function generateHeroSection(
   elements.push(secondaryBtn);
 
   if (style === "split") {
-    const imageBlock = createElement("block", container.id, {
+    const imageBlock = createElement("div", container.id, {
       _width: "50%",
     });
     linkElements(container, imageBlock);
@@ -304,7 +304,7 @@ export function generateNavbar(
   linkElements(container, brand);
   elements.push(brand);
 
-  const navBlock = createElement("block", container.id, {
+  const navBlock = createElement("div", container.id, {
     _display: "flex",
     _direction: "row",
     _gap: "32px",
@@ -398,7 +398,7 @@ export function generateFeaturesSection(
   linkElements(section, container);
   elements.push(container);
 
-  const headerBlock = createElement("block", container.id, {
+  const headerBlock = createElement("div", container.id, {
     _display: "flex",
     _direction: "column",
     _alignItems: "center",
@@ -435,7 +435,7 @@ export function generateFeaturesSection(
   linkElements(headerBlock, subtitle);
   elements.push(subtitle);
 
-  const grid = createElement("block", container.id, {
+  const grid = createElement("div", container.id, {
     _display: "grid",
     _gridTemplateColumns: "repeat(3, 1fr)",
     _gap: "32px",
@@ -448,7 +448,7 @@ export function generateFeaturesSection(
 
   for (let i = 0; i < features.length; i++) {
     const feature = features[i];
-    const card = createElement("block", grid.id, {
+    const card = createElement("div", grid.id, {
       _display: "flex",
       _direction: "column",
       _padding: { top: "32", bottom: "32", left: "32", right: "32" },
@@ -464,7 +464,7 @@ export function generateFeaturesSection(
     linkElements(grid, card);
     elements.push(card);
 
-    const iconWrapper = createElement("block", card.id, {
+    const iconWrapper = createElement("div", card.id, {
       _width: "48px",
       _height: "48px",
       _background: {
@@ -568,7 +568,7 @@ export function generatePricingSection(
   linkElements(section, container);
   elements.push(container);
 
-  const headerBlock = createElement("block", container.id, {
+  const headerBlock = createElement("div", container.id, {
     _display: "flex",
     _direction: "column",
     _alignItems: "center",
@@ -622,7 +622,7 @@ export function generatePricingSection(
   linkElements(headerBlock, subtitle);
   elements.push(subtitle);
 
-  const grid = createElement("block", container.id, {
+  const grid = createElement("div", container.id, {
     _display: "flex",
     _direction: "row",
     _gap: "24px",
@@ -634,7 +634,7 @@ export function generatePricingSection(
   elements.push(grid);
 
   for (const plan of plans) {
-    const card = createElement("block", grid.id, {
+    const card = createElement("div", grid.id, {
       _display: "flex",
       _direction: "column",
       _padding: { top: "40", bottom: "40", left: "32", right: "32" },
@@ -693,7 +693,7 @@ export function generatePricingSection(
     linkElements(card, planName);
     elements.push(planName);
 
-    const priceBlock = createElement("block", card.id, {
+    const priceBlock = createElement("div", card.id, {
       _display: "flex",
       _direction: "row",
       _alignItems: "baseline",
@@ -725,7 +725,7 @@ export function generatePricingSection(
     linkElements(priceBlock, period);
     elements.push(period);
 
-    const featureList = createElement("block", card.id, {
+    const featureList = createElement("div", card.id, {
       _display: "flex",
       _direction: "column",
       _gap: "12px",
@@ -825,7 +825,7 @@ export function generateTestimonialsSection(
   linkElements(section, container);
   elements.push(container);
 
-  const headerBlock = createElement("block", container.id, {
+  const headerBlock = createElement("div", container.id, {
     _display: "flex",
     _direction: "column",
     _alignItems: "center",
@@ -848,7 +848,7 @@ export function generateTestimonialsSection(
   linkElements(headerBlock, title);
   elements.push(title);
 
-  const grid = createElement("block", container.id, {
+  const grid = createElement("div", container.id, {
     _display: "flex",
     _direction: "row",
     _gap: "24px",
@@ -858,7 +858,7 @@ export function generateTestimonialsSection(
   elements.push(grid);
 
   for (const testimonial of testimonials) {
-    const card = createElement("block", grid.id, {
+    const card = createElement("div", grid.id, {
       _display: "flex",
       _direction: "column",
       _padding: { top: "32", bottom: "32", left: "32", right: "32" },
@@ -896,7 +896,7 @@ export function generateTestimonialsSection(
     linkElements(card, quote);
     elements.push(quote);
 
-    const authorBlock = createElement("block", card.id, {
+    const authorBlock = createElement("div", card.id, {
       _display: "flex",
       _direction: "column",
       _gap: "4px",
@@ -991,7 +991,7 @@ export function generateFooterSection(
   linkElements(section, container);
   elements.push(container);
 
-  const topRow = createElement("block", container.id, {
+  const topRow = createElement("div", container.id, {
     _display: "flex",
     _direction: "row",
     _justifyContent: "space-between",
@@ -1001,7 +1001,7 @@ export function generateFooterSection(
   linkElements(container, topRow);
   elements.push(topRow);
 
-  const brandBlock = createElement("block", topRow.id, {
+  const brandBlock = createElement("div", topRow.id, {
     _display: "flex",
     _direction: "column",
     _gap: "16px",
@@ -1034,7 +1034,7 @@ export function generateFooterSection(
   elements.push(brandDesc);
 
   for (const column of columns) {
-    const colBlock = createElement("block", topRow.id, {
+    const colBlock = createElement("div", topRow.id, {
       _display: "flex",
       _direction: "column",
       _gap: "16px",
@@ -1073,7 +1073,7 @@ export function generateFooterSection(
     }
   }
 
-  const divider = createElement("block", container.id, {
+  const divider = createElement("div", container.id, {
     _width: "100%",
     _height: "1px",
     _background: { color: { hex: "#1e293b" } },
@@ -1081,7 +1081,7 @@ export function generateFooterSection(
   linkElements(container, divider);
   elements.push(divider);
 
-  const bottomRow = createElement("block", container.id, {
+  const bottomRow = createElement("div", container.id, {
     _display: "flex",
     _direction: "row",
     _justifyContent: "space-between",
@@ -1210,7 +1210,7 @@ export function generateContactSection(): BricksElement[] {
   elements.push(container);
 
   // Left info
-  const infoBlock = createElement("block", container.id, {
+  const infoBlock = createElement("div", container.id, {
     _display: "flex",
     _direction: "column",
     _width: "40%",
@@ -1249,7 +1249,7 @@ export function generateContactSection(): BricksElement[] {
   ];
 
   for (const item of contactItems) {
-    const itemBlock = createElement("block", infoBlock.id, {
+    const itemBlock = createElement("div", infoBlock.id, {
       _display: "flex",
       _direction: "column",
       _gap: "4px",
@@ -1280,7 +1280,7 @@ export function generateContactSection(): BricksElement[] {
   }
 
   // Right form
-  const formBlock = createElement("block", container.id, {
+  const formBlock = createElement("div", container.id, {
     _display: "flex",
     _direction: "column",
     _width: "60%",
