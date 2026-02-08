@@ -21,18 +21,21 @@ export default function Home() {
     elementCount: number;
     sections: string[];
   } | null>(null);
+  const [aiAvailable, setAiAvailable] = useState<boolean | undefined>(undefined);
+  const [lastMode, setLastMode] = useState<"ai" | "builtin" | null>(null);
 
-  const handleGenerate = useCallback(async (prompt: string) => {
+  const handleGenerate = useCallback(async (prompt: string, useAI: boolean = true) => {
     setIsLoading(true);
     setGeneratedTemplate(null);
     setGeneratedElements([]);
     setGenerationInfo(null);
+    setLastMode(null);
 
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, useAI }),
       });
 
       const data = await response.json();
@@ -44,6 +47,8 @@ export default function Home() {
           elementCount: data.elementCount,
           sections: data.sections,
         });
+        setAiAvailable(data.aiAvailable);
+        setLastMode(data.mode);
       }
     } catch (error) {
       console.error("Generation failed:", error);
@@ -158,7 +163,7 @@ export default function Home() {
 
             {/* Generator form */}
             <div className="max-w-4xl mx-auto mb-10">
-              <GeneratorForm onGenerate={handleGenerate} isLoading={isLoading} />
+              <GeneratorForm onGenerate={handleGenerate} isLoading={isLoading} aiAvailable={aiAvailable} lastMode={lastMode} />
             </div>
 
             {/* Loading state */}

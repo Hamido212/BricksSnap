@@ -8,15 +8,11 @@ import {
   generateFooterSection,
   generateCTASection,
   generateContactSection,
-  generateFullPage,
   wrapTemplate,
   BricksElement,
 } from "@/lib/bricks-engine";
 
-// Intelligent template generation based on text description
-// This works without any external API - it uses keyword matching
-// to generate appropriate Bricks Builder templates
-
+// Generation config that both built-in and AI modes produce
 interface GenerationConfig {
   sections: string[];
   brandName: string;
@@ -45,74 +41,29 @@ interface GenerationConfig {
   ctaButtonText: string;
 }
 
+// ============================================================
+// BUILT-IN: Keyword-based prompt analysis (works without API)
+// ============================================================
 function analyzePrompt(prompt: string): GenerationConfig {
   const lower = prompt.toLowerCase();
 
-  // Detect brand name
   let brandName = "BrandName";
   const brandMatch = prompt.match(
     /(?:brand|company|firma|name|marke|website|seite)\s*(?:name|:)?\s*["']?([A-Z][a-zA-Z0-9\s]{1,20})["']?/i
   );
   if (brandMatch) brandName = brandMatch[1].trim();
 
-  // Detect sections to include
   const sections: string[] = [];
 
-  const hasNavbar =
-    lower.includes("nav") ||
-    lower.includes("menu") ||
-    lower.includes("header") ||
-    lower.includes("navigation") ||
-    lower.includes("menü");
-  const hasHero =
-    lower.includes("hero") ||
-    lower.includes("banner") ||
-    lower.includes("landing") ||
-    lower.includes("header") ||
-    lower.includes("startseite") ||
-    lower.includes("hauptbereich");
-  const hasFeatures =
-    lower.includes("feature") ||
-    lower.includes("service") ||
-    lower.includes("leistung") ||
-    lower.includes("dienst") ||
-    lower.includes("vorteile") ||
-    lower.includes("funktion");
-  const hasPricing =
-    lower.includes("preis") ||
-    lower.includes("pric") ||
-    lower.includes("plan") ||
-    lower.includes("paket") ||
-    lower.includes("tarif");
-  const hasTestimonials =
-    lower.includes("testimonial") ||
-    lower.includes("review") ||
-    lower.includes("bewertung") ||
-    lower.includes("kundenstimme") ||
-    lower.includes("referenz");
-  const hasCTA =
-    lower.includes("cta") ||
-    lower.includes("call to action") ||
-    lower.includes("aufforderung") ||
-    lower.includes("handlungsaufforderung");
-  const hasContact =
-    lower.includes("contact") ||
-    lower.includes("kontakt") ||
-    lower.includes("form") ||
-    lower.includes("formular");
-  const hasFooter =
-    lower.includes("footer") ||
-    lower.includes("fußzeile") ||
-    lower.includes("fusszeile");
-  const isFullPage =
-    lower.includes("full page") ||
-    lower.includes("complete") ||
-    lower.includes("ganze seite") ||
-    lower.includes("komplette seite") ||
-    lower.includes("landing page") ||
-    lower.includes("landingpage") ||
-    lower.includes("website") ||
-    lower.includes("webseite");
+  const hasNavbar = /nav|menu|header|navigation|menü/i.test(lower);
+  const hasHero = /hero|banner|landing|header|startseite|hauptbereich/i.test(lower);
+  const hasFeatures = /feature|service|leistung|dienst|vorteile|funktion/i.test(lower);
+  const hasPricing = /preis|pric|plan|paket|tarif/i.test(lower);
+  const hasTestimonials = /testimonial|review|bewertung|kundenstimme|referenz/i.test(lower);
+  const hasCTA = /cta|call.to.action|aufforderung|handlungsaufforderung/i.test(lower);
+  const hasContact = /contact|kontakt|form|formular/i.test(lower);
+  const hasFooter = /footer|fußzeile|fusszeile/i.test(lower);
+  const isFullPage = /full.page|complete|ganze.seite|komplette.seite|landing.?page|website|webseite/i.test(lower);
 
   if (isFullPage) {
     sections.push("navbar", "hero", "features", "testimonials", "pricing", "cta", "footer");
@@ -128,34 +79,18 @@ function analyzePrompt(prompt: string): GenerationConfig {
     if (hasFooter) sections.push("footer");
   }
 
-  // Detect hero style
   let heroStyle: "centered" | "split" | "gradient" = "centered";
-  if (
-    lower.includes("split") ||
-    lower.includes("bild") ||
-    lower.includes("image") ||
-    lower.includes("photo") ||
-    lower.includes("foto")
-  ) {
+  if (/split|bild|image|photo|foto/i.test(lower)) {
     heroStyle = "split";
-  } else if (
-    lower.includes("dark") ||
-    lower.includes("dunkel") ||
-    lower.includes("gradient") ||
-    lower.includes("tech") ||
-    lower.includes("modern")
-  ) {
+  } else if (/dark|dunkel|gradient|tech|modern/i.test(lower)) {
     heroStyle = "gradient";
   }
 
-  // Detect industry / niche for content
   let headline = "Build Something Amazing";
-  let subtext =
-    "Create stunning websites with our powerful tools and intuitive design system.";
+  let subtext = "Create stunning websites with our powerful tools and intuitive design system.";
   let buttonText = "Get Started";
   let ctaHeadline = "Ready to Get Started?";
-  let ctaSubtext =
-    "Join thousands of creators who are already building amazing websites.";
+  let ctaSubtext = "Join thousands of creators who are already building amazing websites.";
   let ctaButtonText = "Start Building Now";
 
   let features: Array<{ title: string; description: string }> = [
@@ -169,7 +104,7 @@ function analyzePrompt(prompt: string): GenerationConfig {
 
   let plans = [
     { name: "Starter", price: "$9", period: "/month", features: ["5 Projects", "Basic Analytics", "Email Support"], buttonText: "Start Free" },
-    { name: "Professional", price: "$29", period: "/month", features: ["Unlimited Projects", "Advanced Analytics", "Priority Support", "Custom Domain"], highlighted: true, buttonText: "Get Started" },
+    { name: "Professional", price: "$29", period: "/month", features: ["Unlimited Projects", "Advanced Analytics", "Priority Support", "Custom Domain"], highlighted: true as const, buttonText: "Get Started" },
     { name: "Enterprise", price: "$99", period: "/month", features: ["Everything in Pro", "Dedicated Support", "SLA Guarantee", "Custom Integrations"], buttonText: "Contact Sales" },
   ];
 
@@ -180,7 +115,7 @@ function analyzePrompt(prompt: string): GenerationConfig {
   ];
 
   // Industry detection
-  if (lower.includes("restaurant") || lower.includes("food") || lower.includes("essen") || lower.includes("küche") || lower.includes("gastro")) {
+  if (/restaurant|food|essen|küche|gastro/i.test(lower)) {
     headline = "Exquisite Dining Experience";
     subtext = "Discover culinary excellence with our carefully crafted dishes made from the finest ingredients.";
     buttonText = "Reserve a Table";
@@ -195,7 +130,7 @@ function analyzePrompt(prompt: string): GenerationConfig {
       { title: "Takeout & Delivery", description: "Enjoy our dishes from the comfort of your home." },
       { title: "Wine Selection", description: "Curated wine list to perfectly complement your meal." },
     ];
-  } else if (lower.includes("agency") || lower.includes("agentur") || lower.includes("design") || lower.includes("kreativ")) {
+  } else if (/agency|agentur|design|kreativ/i.test(lower)) {
     headline = "We Craft Digital Experiences";
     subtext = "Award-winning design agency specializing in brand identity, web design, and digital strategy.";
     buttonText = "View Our Work";
@@ -210,7 +145,7 @@ function analyzePrompt(prompt: string): GenerationConfig {
       { title: "Digital Strategy", description: "Data-driven strategies that deliver measurable results." },
       { title: "Content Creation", description: "Compelling content that tells your story and drives engagement." },
     ];
-  } else if (lower.includes("shop") || lower.includes("store") || lower.includes("ecommerce") || lower.includes("e-commerce") || lower.includes("laden") || lower.includes("woocommerce")) {
+  } else if (/shop|store|ecommerce|e-commerce|laden|woocommerce/i.test(lower)) {
     headline = "Shop the Latest Collection";
     subtext = "Discover premium products crafted with care. Free shipping on orders over $50.";
     buttonText = "Shop Now";
@@ -225,7 +160,7 @@ function analyzePrompt(prompt: string): GenerationConfig {
       { title: "Fast Delivery", description: "Express delivery available. Most orders ship within 24 hours." },
       { title: "Customer Support", description: "Our friendly team is here 7 days a week to help you." },
     ];
-  } else if (lower.includes("fitness") || lower.includes("gym") || lower.includes("sport") || lower.includes("training") || lower.includes("health") || lower.includes("gesundheit")) {
+  } else if (/fitness|gym|sport|training|health|gesundheit/i.test(lower)) {
     headline = "Transform Your Body & Mind";
     subtext = "Join our world-class fitness programs and achieve your health goals with expert guidance.";
     buttonText = "Start Training";
@@ -240,14 +175,14 @@ function analyzePrompt(prompt: string): GenerationConfig {
       { title: "Flexible Hours", description: "Open 24/7 so you can train on your schedule." },
       { title: "Progress Tracking", description: "Track your fitness journey with our advanced app." },
     ];
-  } else if (lower.includes("saas") || lower.includes("software") || lower.includes("app") || lower.includes("platform") || lower.includes("plattform") || lower.includes("tool")) {
+  } else if (/saas|software|app|platform|plattform|tool/i.test(lower)) {
     headline = "Streamline Your Workflow";
     subtext = "The all-in-one platform for managing projects, teams, and clients. Built for modern businesses.";
     buttonText = "Start Free Trial";
     ctaHeadline = "Ready to Scale?";
     ctaSubtext = "Join 10,000+ teams already using our platform to work smarter.";
     ctaButtonText = "Try It Free";
-  } else if (lower.includes("immobilien") || lower.includes("real estate") || lower.includes("property") || lower.includes("makler")) {
+  } else if (/immobilien|real.estate|property|makler/i.test(lower)) {
     headline = "Find Your Dream Home";
     subtext = "Premium real estate services with a personal touch. We make finding your perfect home effortless.";
     buttonText = "Browse Properties";
@@ -264,7 +199,6 @@ function analyzePrompt(prompt: string): GenerationConfig {
     ];
   }
 
-  // Extract custom headline from prompt if available
   const headlineMatch = prompt.match(
     /(?:headline|überschrift|titel|heading)\s*[:=]\s*["']([^"']+)["']/i
   );
@@ -278,22 +212,159 @@ function analyzePrompt(prompt: string): GenerationConfig {
   ];
 
   return {
-    sections,
-    brandName,
-    headline,
-    subtext,
-    heroStyle,
-    buttonText,
-    features,
-    plans,
-    testimonials,
-    navLinks,
-    ctaHeadline,
-    ctaSubtext,
-    ctaButtonText,
+    sections, brandName, headline, subtext, heroStyle, buttonText,
+    features, plans, testimonials, navLinks, ctaHeadline, ctaSubtext, ctaButtonText,
   };
 }
 
+// ============================================================
+// AI MODE: AI generates content, our engine builds the structure
+// -> Structure is ALWAYS correct, AI just makes content smarter
+// ============================================================
+async function generateContentWithAI(
+  prompt: string,
+  apiKey: string
+): Promise<GenerationConfig> {
+  const systemPrompt = `Du bist ein Content-Generator für Website-Templates. Der User beschreibt eine Website, du lieferst passende Inhalte als JSON zurück.
+
+Antworte NUR mit einem JSON-Objekt in diesem exakten Format:
+{
+  "sections": ["navbar", "hero", "features", "testimonials", "pricing", "cta", "footer"],
+  "brandName": "Firmenname",
+  "headline": "Hauptüberschrift der Hero-Section",
+  "subtext": "Beschreibungstext unter der Überschrift",
+  "heroStyle": "centered",
+  "buttonText": "Button-Text",
+  "features": [
+    {"title": "Feature 1", "description": "Beschreibung"},
+    {"title": "Feature 2", "description": "Beschreibung"},
+    {"title": "Feature 3", "description": "Beschreibung"},
+    {"title": "Feature 4", "description": "Beschreibung"},
+    {"title": "Feature 5", "description": "Beschreibung"},
+    {"title": "Feature 6", "description": "Beschreibung"}
+  ],
+  "plans": [
+    {"name": "Basic", "price": "$9", "period": "/Monat", "features": ["Feature 1", "Feature 2", "Feature 3"], "buttonText": "Starten"},
+    {"name": "Pro", "price": "$29", "period": "/Monat", "features": ["Alles aus Basic", "Feature 4", "Feature 5", "Feature 6"], "highlighted": true, "buttonText": "Jetzt starten"},
+    {"name": "Enterprise", "price": "$99", "period": "/Monat", "features": ["Alles aus Pro", "Feature 7", "Feature 8", "Feature 9"], "buttonText": "Kontakt"}
+  ],
+  "testimonials": [
+    {"quote": "Zitat 1", "author": "Name", "role": "Position, Firma", "rating": 5},
+    {"quote": "Zitat 2", "author": "Name", "role": "Position, Firma", "rating": 5},
+    {"quote": "Zitat 3", "author": "Name", "role": "Position, Firma", "rating": 5}
+  ],
+  "navLinks": [
+    {"text": "Home", "url": "/"},
+    {"text": "Features", "url": "#features"},
+    {"text": "Preise", "url": "#pricing"},
+    {"text": "Kontakt", "url": "#contact"}
+  ],
+  "ctaHeadline": "CTA Überschrift",
+  "ctaSubtext": "CTA Beschreibung",
+  "ctaButtonText": "CTA Button"
+}
+
+Regeln:
+- "sections" muss ein Array sein mit Werten aus: "navbar", "hero", "features", "testimonials", "pricing", "cta", "contact", "footer"
+- "heroStyle" muss eines von "centered", "split", "gradient" sein
+- Passe ALLE Texte an die beschriebene Branche/Nische an
+- Features sollten genau 6 sein
+- Plans sollten genau 3 sein
+- Testimonials sollten genau 3 sein
+- Wenn der User Deutsch schreibt, antworte mit deutschen Inhalten
+- Antworte NUR mit dem JSON, kein anderer Text`;
+
+  const isAnthropic = apiKey.startsWith("sk-ant-");
+
+  let responseText: string;
+
+  if (isAnthropic) {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Anthropic API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    responseText = data.content[0].text;
+  } else {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 2048,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    responseText = data.choices[0].message.content;
+  }
+
+  // Extract JSON from response
+  const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error("AI response did not contain valid JSON");
+  }
+
+  const parsed = JSON.parse(jsonMatch[0]);
+
+  // Validate and fill defaults for any missing fields
+  return {
+    sections: Array.isArray(parsed.sections) ? parsed.sections : ["hero"],
+    brandName: parsed.brandName || "BrandName",
+    headline: parsed.headline || "Build Something Amazing",
+    subtext: parsed.subtext || "Create stunning websites.",
+    heroStyle: ["centered", "split", "gradient"].includes(parsed.heroStyle) ? parsed.heroStyle : "centered",
+    buttonText: parsed.buttonText || "Get Started",
+    features: Array.isArray(parsed.features) && parsed.features.length > 0
+      ? parsed.features.slice(0, 6)
+      : [{ title: "Feature", description: "Description" }],
+    plans: Array.isArray(parsed.plans) && parsed.plans.length > 0
+      ? parsed.plans
+      : [{ name: "Basic", price: "$9", period: "/month", features: ["Feature 1"], buttonText: "Start" }],
+    testimonials: Array.isArray(parsed.testimonials) && parsed.testimonials.length > 0
+      ? parsed.testimonials
+      : [{ quote: "Great product!", author: "User", role: "Customer", rating: 5 }],
+    navLinks: Array.isArray(parsed.navLinks) && parsed.navLinks.length > 0
+      ? parsed.navLinks
+      : [{ text: "Home", url: "/" }],
+    ctaHeadline: parsed.ctaHeadline || "Ready to Get Started?",
+    ctaSubtext: parsed.ctaSubtext || "Join thousands of happy customers.",
+    ctaButtonText: parsed.ctaButtonText || "Start Now",
+  };
+}
+
+// ============================================================
+// Build Bricks elements from config (ALWAYS used for structure)
+// ============================================================
 function generateFromConfig(config: GenerationConfig): BricksElement[] {
   let elements: BricksElement[] = [];
 
@@ -303,41 +374,19 @@ function generateFromConfig(config: GenerationConfig): BricksElement[] {
         elements = [...elements, ...generateNavbar(config.brandName, config.navLinks)];
         break;
       case "hero":
-        elements = [
-          ...elements,
-          ...generateHeroSection(
-            config.headline,
-            config.subtext,
-            config.buttonText,
-            "#",
-            config.heroStyle
-          ),
-        ];
+        elements = [...elements, ...generateHeroSection(config.headline, config.subtext, config.buttonText, "#", config.heroStyle)];
         break;
       case "features":
-        elements = [
-          ...elements,
-          ...generateFeaturesSection(undefined, undefined, config.features),
-        ];
+        elements = [...elements, ...generateFeaturesSection(undefined, undefined, config.features)];
         break;
       case "pricing":
         elements = [...elements, ...generatePricingSection(config.plans)];
         break;
       case "testimonials":
-        elements = [
-          ...elements,
-          ...generateTestimonialsSection(config.testimonials),
-        ];
+        elements = [...elements, ...generateTestimonialsSection(config.testimonials)];
         break;
       case "cta":
-        elements = [
-          ...elements,
-          ...generateCTASection(
-            config.ctaHeadline,
-            config.ctaSubtext,
-            config.ctaButtonText
-          ),
-        ];
+        elements = [...elements, ...generateCTASection(config.ctaHeadline, config.ctaSubtext, config.ctaButtonText)];
         break;
       case "contact":
         elements = [...elements, ...generateContactSection()];
@@ -351,10 +400,13 @@ function generateFromConfig(config: GenerationConfig): BricksElement[] {
   return elements;
 }
 
+// ============================================================
+// API Endpoint
+// ============================================================
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, type } = body;
+    const { prompt, useAI } = body;
 
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json(
@@ -363,26 +415,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if we should try external AI API
     const apiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY;
+    const aiAvailable = !!(apiKey && apiKey.length > 10);
+    const shouldUseAI = aiAvailable && useAI !== false;
 
-    let elements: BricksElement[];
+    let config: GenerationConfig;
+    let mode: "ai" | "builtin";
 
-    if (apiKey && type === "ai") {
-      // Use external AI to generate more customized templates
+    if (shouldUseAI) {
       try {
-        elements = await generateWithAI(prompt, apiKey);
-      } catch {
-        // Fallback to built-in generation
-        const config = analyzePrompt(prompt);
-        elements = generateFromConfig(config);
+        config = await generateContentWithAI(prompt, apiKey!);
+        mode = "ai";
+      } catch (err) {
+        console.error("AI generation failed, falling back to built-in:", err);
+        config = analyzePrompt(prompt);
+        mode = "builtin";
       }
     } else {
-      // Use built-in intelligent generation
-      const config = analyzePrompt(prompt);
-      elements = generateFromConfig(config);
+      config = analyzePrompt(prompt);
+      mode = "builtin";
     }
 
+    // ALWAYS use our engine for the Bricks structure
+    const elements = generateFromConfig(config);
     const template = wrapTemplate(elements);
 
     return NextResponse.json({
@@ -390,6 +445,8 @@ export async function POST(request: NextRequest) {
       template,
       elementCount: elements.length,
       sections: [...new Set(elements.filter((e) => e.parent === 0).map((e) => e.label || e.name))],
+      mode,
+      aiAvailable,
     });
   } catch (error) {
     console.error("Generation error:", error);
@@ -398,96 +455,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-async function generateWithAI(
-  prompt: string,
-  apiKey: string
-): Promise<BricksElement[]> {
-  const systemPrompt = `You are a Bricks Builder template generator. Given a description, output a JSON array of Bricks Builder elements.
-
-Each element must have:
-- id: 6-character lowercase alphanumeric string (unique)
-- name: element type (section, container, block, heading, text-basic, image, button, form, div, icon, video)
-- parent: parent element's id (string) or 0 for root-level
-- children: array of child element IDs
-- settings: object with element configuration
-
-Common settings:
-- text: HTML text content
-- tag: HTML tag (h1-h6, p, span, a, custom)
-- _typography: { font-size, font-weight, line-height, color: { hex }, font-family, letter-spacing }
-- _background: { color: { hex }, image: { url } }
-- _padding: { top, bottom, left, right } (values as strings in px)
-- _margin: { top, bottom, left, right }
-- _border: { radius: { top, right, bottom, left }, width: { top, right, bottom, left }, style, color: { hex } }
-- _width, _height: CSS values
-- _direction: "row" or "column"
-- _justifyContent, _alignItems: flexbox values
-- _gap: CSS gap value
-- _display: "flex", "grid", etc.
-- link: { type: "external", url: "..." }
-
-Always start with a section (parent: 0), then container, then blocks with content elements.
-Output ONLY the JSON array, no explanation.`;
-
-  const isAnthropic = apiKey.startsWith("sk-ant-");
-
-  if (isAnthropic) {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: `Generate a Bricks Builder template for: ${prompt}`,
-          },
-        ],
-      }),
-    });
-
-    const data = await response.json();
-    const text = data.content[0].text;
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-  } else {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Generate a Bricks Builder template for: ${prompt}`,
-          },
-        ],
-        max_tokens: 4096,
-        temperature: 0.7,
-      }),
-    });
-
-    const data = await response.json();
-    const text = data.choices[0].message.content;
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-  }
-
-  throw new Error("Could not parse AI response");
 }

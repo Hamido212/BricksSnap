@@ -3,8 +3,10 @@
 import { useState, FormEvent } from "react";
 
 interface GeneratorFormProps {
-  onGenerate: (prompt: string) => void;
+  onGenerate: (prompt: string, useAI: boolean) => void;
   isLoading: boolean;
+  aiAvailable?: boolean;
+  lastMode?: "ai" | "builtin" | null;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -18,13 +20,14 @@ const EXAMPLE_PROMPTS = [
   "Freelancer portfolio with services and pricing section",
 ];
 
-export default function GeneratorForm({ onGenerate, isLoading }: GeneratorFormProps) {
+export default function GeneratorForm({ onGenerate, isLoading, aiAvailable, lastMode }: GeneratorFormProps) {
   const [prompt, setPrompt] = useState("");
+  const [useAI, setUseAI] = useState(true);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (prompt.trim() && !isLoading) {
-      onGenerate(prompt.trim());
+      onGenerate(prompt.trim(), useAI);
     }
   };
 
@@ -40,12 +43,46 @@ export default function GeneratorForm({ onGenerate, isLoading }: GeneratorFormPr
             disabled={isLoading}
           />
           <div className="flex items-center justify-between px-5 py-3 border-t border-border/50">
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span>Supports German & English descriptions</span>
+            <div className="flex items-center gap-4">
+              {/* AI Toggle */}
+              <button
+                type="button"
+                onClick={() => setUseAI(!useAI)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 ${
+                  useAI
+                    ? "border-accent/40 bg-accent/10 text-accent"
+                    : "border-border text-muted hover:text-foreground hover:border-border-hover"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                AI Mode {useAI ? "ON" : "OFF"}
+                {/* Toggle indicator */}
+                <div className={`w-7 h-4 rounded-full relative transition-colors ${useAI ? "bg-accent" : "bg-border"}`}>
+                  <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${useAI ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                </div>
+              </button>
+
+              {/* Status */}
+              {aiAvailable !== undefined && (
+                <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                  <span className={`w-1.5 h-1.5 rounded-full ${aiAvailable ? "bg-success" : "bg-muted"}`} />
+                  {aiAvailable ? "API Key connected" : "No API Key (built-in mode)"}
+                </div>
+              )}
+
+              {lastMode && (
+                <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${
+                  lastMode === "ai"
+                    ? "bg-accent/10 text-accent border border-accent/20"
+                    : "bg-border text-muted"
+                }`}>
+                  {lastMode === "ai" ? "AI generated" : "Built-in"}
+                </span>
+              )}
             </div>
+
             <button
               type="submit"
               disabled={!prompt.trim() || isLoading}
