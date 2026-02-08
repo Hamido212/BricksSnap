@@ -8,6 +8,7 @@ import {
   generateFooterSection,
   generateCTASection,
   generateContactSection,
+  generateGallerySection,
   generateFullPage,
   BricksElement,
 } from "./bricks-engine";
@@ -30,6 +31,7 @@ export const CATEGORIES = [
   { id: "pricing", name: "Pricing", icon: "tag" },
   { id: "testimonials", name: "Testimonials", icon: "quote" },
   { id: "cta", name: "Call to Action", icon: "megaphone" },
+  { id: "gallery", name: "Gallery", icon: "image" },
   { id: "contact", name: "Contact", icon: "mail" },
   { id: "footer", name: "Footer", icon: "footer" },
   { id: "fullpage", name: "Full Pages", icon: "file" },
@@ -280,6 +282,37 @@ export const TEMPLATES: TemplateDefinition[] = [
       "No credit card required. Get started in under 2 minutes.",
       "Start Free Trial",
       "simple"
+    ),
+  },
+
+  // Gallery
+  {
+    id: "gallery-portfolio",
+    name: "Gallery - Portfolio",
+    description: "Clean portfolio gallery with 3-column grid, image placeholders, and category tags.",
+    category: "gallery",
+    tags: ["gallery", "portfolio", "grid", "images"],
+    preview: "linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)",
+    generator: () => generateGallerySection("Our Portfolio", "Showcasing our best work and creative projects"),
+  },
+  {
+    id: "gallery-photography",
+    name: "Gallery - Photography",
+    description: "Photography gallery with image grid for showcasing visual work.",
+    category: "gallery",
+    tags: ["gallery", "photography", "images", "visual"],
+    preview: "linear-gradient(135deg, #fdfcfb 0%, #e2d1c3 100%)",
+    generator: () => generateGallerySection(
+      "Photo Gallery",
+      "Capturing moments that tell a story",
+      [
+        { title: "Golden Hour", category: "Landscape" },
+        { title: "Urban Dreams", category: "Street" },
+        { title: "Natural Beauty", category: "Portrait" },
+        { title: "City Lights", category: "Night" },
+        { title: "Wild & Free", category: "Wildlife" },
+        { title: "Abstract Vision", category: "Abstract" },
+      ]
     ),
   },
 

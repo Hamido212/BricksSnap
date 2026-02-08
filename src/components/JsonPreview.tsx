@@ -8,6 +8,26 @@ interface JsonPreviewProps {
   templateName?: string;
 }
 
+// Clipboard fallback for non-secure contexts (HTTP)
+async function copyToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  // Fallback: create textarea, select, execCommand
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "-9999px";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
+
 function syntaxHighlight(json: string): string {
   return json.replace(
     /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
@@ -78,12 +98,11 @@ export default function JsonPreview({ data, maxHeight = "500px", templateName = 
 
   // Copy for Bricks paste (full object with source: bricksCopiedElements)
   const copyForBricks = useCallback(async () => {
-    // Ensure the source is set correctly for Bricks paste
     const bricksData = {
       ...(data as Record<string, unknown>),
       source: "bricksCopiedElements",
     };
-    await navigator.clipboard.writeText(JSON.stringify(bricksData));
+    await copyToClipboard(JSON.stringify(bricksData));
     showCopied("Bricks JSON");
   }, [data, showCopied]);
 
@@ -93,7 +112,7 @@ export default function JsonPreview({ data, maxHeight = "500px", templateName = 
       ...(data as Record<string, unknown>),
       source: "bricksCopiedElements",
     };
-    await navigator.clipboard.writeText(JSON.stringify(bricksData, null, 2));
+    await copyToClipboard(JSON.stringify(bricksData, null, 2));
     showCopied("Full JSON");
   }, [data, showCopied]);
 

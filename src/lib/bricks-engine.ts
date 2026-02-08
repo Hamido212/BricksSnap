@@ -1339,6 +1339,168 @@ export function generateContactSection(): BricksElement[] {
   return elements;
 }
 
+export function generateGallerySection(
+  sectionTitle: string = "Our Gallery",
+  sectionSubtitle: string = "Explore our latest work and projects",
+  items: Array<{
+    title: string;
+    category: string;
+  }> = [
+    { title: "Project Alpha", category: "Web Design" },
+    { title: "Brand Identity", category: "Branding" },
+    { title: "Mobile App UI", category: "UI/UX" },
+    { title: "E-Commerce Store", category: "Development" },
+    { title: "Marketing Campaign", category: "Strategy" },
+    { title: "Product Photography", category: "Photography" },
+  ],
+  columns: number = 3
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "100", bottom: "100", left: "40", right: "40" },
+    _background: { color: { hex: "#ffffff" } },
+  }, "Gallery");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: "1200px",
+    _margin: { left: "auto", right: "auto" },
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  const headerBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _margin: { bottom: "60" },
+    _width: "100%",
+  });
+  linkElements(container, headerBlock);
+  elements.push(headerBlock);
+
+  const title = createElement("heading", headerBlock.id, {
+    text: sectionTitle,
+    tag: "h2",
+    _typography: {
+      "font-size": "40px",
+      "font-weight": "700",
+      "line-height": "1.2",
+      color: { hex: "#0f172a" },
+    },
+    _margin: { bottom: "16" },
+  });
+  linkElements(headerBlock, title);
+  elements.push(title);
+
+  const subtitle = createElement("text-basic", headerBlock.id, {
+    text: `<p>${sectionSubtitle}</p>`,
+    _typography: {
+      "font-size": "18px",
+      "line-height": "1.6",
+      color: { hex: "#64748b" },
+    },
+    _width: "600px",
+  });
+  linkElements(headerBlock, subtitle);
+  elements.push(subtitle);
+
+  const grid = createElement("div", container.id, {
+    _display: "grid",
+    _gridTemplateColumns: `repeat(${columns}, 1fr)`,
+    _gap: "24px",
+    _width: "100%",
+  });
+  linkElements(container, grid);
+  elements.push(grid);
+
+  const placeholderColors = ["#e2e8f0", "#dbeafe", "#fce7f3", "#d1fae5", "#fef3c7", "#ede9fe"];
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+
+    const card = createElement("div", grid.id, {
+      _display: "flex",
+      _direction: "column",
+      _background: { color: { hex: "#ffffff" } },
+      _border: {
+        radius: { top: "12", right: "12", bottom: "12", left: "12" },
+        width: { top: "1", right: "1", bottom: "1", left: "1" },
+        style: "solid",
+        color: { hex: "#e2e8f0" },
+      },
+      _overflow: "hidden",
+    });
+    linkElements(grid, card);
+    elements.push(card);
+
+    // Image placeholder area
+    const imagePlaceholder = createElement("div", card.id, {
+      _width: "100%",
+      _height: "240px",
+      _background: { color: { hex: placeholderColors[i % placeholderColors.length] } },
+      _display: "flex",
+      _justifyContent: "center",
+      _alignItems: "center",
+    });
+    linkElements(card, imagePlaceholder);
+    elements.push(imagePlaceholder);
+
+    const imageIcon = createElement("text-basic", imagePlaceholder.id, {
+      text: "<p>&#128247;</p>",
+      _typography: {
+        "font-size": "48px",
+        color: { hex: "#94a3b8" },
+      },
+      _opacity: "0.4",
+    });
+    linkElements(imagePlaceholder, imageIcon);
+    elements.push(imageIcon);
+
+    // Card content
+    const cardContent = createElement("div", card.id, {
+      _display: "flex",
+      _direction: "column",
+      _padding: { top: "20", bottom: "20", left: "20", right: "20" },
+      _gap: "8px",
+    });
+    linkElements(card, cardContent);
+    elements.push(cardContent);
+
+    const categoryTag = createElement("text-basic", cardContent.id, {
+      text: `<p>${item.category}</p>`,
+      _typography: {
+        "font-size": "12px",
+        "font-weight": "600",
+        color: { hex: "#3b82f6" },
+        "text-transform": "uppercase",
+        "letter-spacing": "0.05em",
+      },
+    });
+    linkElements(cardContent, categoryTag);
+    elements.push(categoryTag);
+
+    const itemTitle = createElement("heading", cardContent.id, {
+      text: item.title,
+      tag: "h3",
+      _typography: {
+        "font-size": "18px",
+        "font-weight": "600",
+        "line-height": "1.4",
+        color: { hex: "#0f172a" },
+      },
+    });
+    linkElements(cardContent, itemTitle);
+    elements.push(itemTitle);
+  }
+
+  return elements;
+}
+
 // Full page generator
 export function generateFullPage(
   config: {

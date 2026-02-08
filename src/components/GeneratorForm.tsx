@@ -13,11 +13,11 @@ const EXAMPLE_PROMPTS = [
   "Modern SaaS landing page with hero, features, pricing, and footer",
   "Dark tech startup website with gradient hero section",
   "Restaurant website with menu, reservations, and testimonials",
-  "Digital agency portfolio with split hero and contact form",
+  "Digital agency portfolio with gallery and contact form",
+  "Photography portfolio with gallery and testimonials",
   "E-Commerce shop landing page with product features",
   "Fitness studio website with training plans and pricing",
   "Real estate agency with property listings and contact",
-  "Freelancer portfolio with services and pricing section",
 ];
 
 export default function GeneratorForm({ onGenerate, isLoading, aiAvailable, lastMode }: GeneratorFormProps) {

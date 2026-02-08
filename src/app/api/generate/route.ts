@@ -8,6 +8,7 @@ import {
   generateFooterSection,
   generateCTASection,
   generateContactSection,
+  generateGallerySection,
   wrapTemplate,
   BricksElement,
 } from "@/lib/bricks-engine";
@@ -39,6 +40,9 @@ interface GenerationConfig {
   ctaHeadline: string;
   ctaSubtext: string;
   ctaButtonText: string;
+  galleryItems: Array<{ title: string; category: string }>;
+  gallerySectionTitle: string;
+  gallerySectionSubtitle: string;
 }
 
 // ============================================================
@@ -63,20 +67,25 @@ function analyzePrompt(prompt: string): GenerationConfig {
   const hasCTA = /cta|call.to.action|aufforderung|handlungsaufforderung/i.test(lower);
   const hasContact = /contact|kontakt|form|formular/i.test(lower);
   const hasFooter = /footer|fußzeile|fusszeile/i.test(lower);
+  const hasGallery = /gallery|galerie|portfolio|showcase|work|projekte|arbeiten|bilder|photos?|fotos?/i.test(lower);
   const isFullPage = /full.page|complete|ganze.seite|komplette.seite|landing.?page|website|webseite/i.test(lower);
 
   if (isFullPage) {
     sections.push("navbar", "hero", "features", "testimonials", "pricing", "cta", "footer");
     if (hasContact) sections.push("contact");
+    if (hasGallery) sections.splice(3, 0, "gallery"); // after features
   } else {
     if (hasNavbar) sections.push("navbar");
-    if (hasHero || sections.length === 0) sections.push("hero");
+    if (hasHero) sections.push("hero");
     if (hasFeatures) sections.push("features");
+    if (hasGallery) sections.push("gallery");
     if (hasTestimonials) sections.push("testimonials");
     if (hasPricing) sections.push("pricing");
     if (hasCTA) sections.push("cta");
     if (hasContact) sections.push("contact");
     if (hasFooter) sections.push("footer");
+    // Default: if nothing matched, generate gallery for gallery-like prompts, otherwise hero
+    if (sections.length === 0) sections.push("hero");
   }
 
   let heroStyle: "centered" | "split" | "gradient" = "centered";
@@ -92,6 +101,16 @@ function analyzePrompt(prompt: string): GenerationConfig {
   let ctaHeadline = "Ready to Get Started?";
   let ctaSubtext = "Join thousands of creators who are already building amazing websites.";
   let ctaButtonText = "Start Building Now";
+  let gallerySectionTitle = "Our Gallery";
+  let gallerySectionSubtitle = "Explore our latest work and projects";
+  let galleryItems: Array<{ title: string; category: string }> = [
+    { title: "Project Alpha", category: "Web Design" },
+    { title: "Brand Identity", category: "Branding" },
+    { title: "Mobile App UI", category: "UI/UX" },
+    { title: "E-Commerce Store", category: "Development" },
+    { title: "Marketing Campaign", category: "Strategy" },
+    { title: "Product Photography", category: "Photography" },
+  ];
 
   let features: Array<{ title: string; description: string }> = [
     { title: "Lightning Fast", description: "Optimized for speed with instant load times and smooth interactions." },
@@ -214,6 +233,7 @@ function analyzePrompt(prompt: string): GenerationConfig {
   return {
     sections, brandName, headline, subtext, heroStyle, buttonText,
     features, plans, testimonials, navLinks, ctaHeadline, ctaSubtext, ctaButtonText,
+    galleryItems, gallerySectionTitle, gallerySectionSubtitle,
   };
 }
 
@@ -230,7 +250,7 @@ async function generateContentWithAI(
 
 Antworte NUR mit einem JSON-Objekt in diesem exakten Format:
 {
-  "sections": ["navbar", "hero", "features", "testimonials", "pricing", "cta", "footer"],
+  "sections": ["navbar", "hero", "gallery", "features", "testimonials", "pricing", "cta", "footer"],
   "brandName": "Firmenname",
   "headline": "Hauptüberschrift der Hero-Section",
   "subtext": "Beschreibungstext unter der Überschrift",
@@ -244,6 +264,16 @@ Antworte NUR mit einem JSON-Objekt in diesem exakten Format:
     {"title": "Feature 5", "description": "Beschreibung"},
     {"title": "Feature 6", "description": "Beschreibung"}
   ],
+  "galleryItems": [
+    {"title": "Projekt 1", "category": "Kategorie"},
+    {"title": "Projekt 2", "category": "Kategorie"},
+    {"title": "Projekt 3", "category": "Kategorie"},
+    {"title": "Projekt 4", "category": "Kategorie"},
+    {"title": "Projekt 5", "category": "Kategorie"},
+    {"title": "Projekt 6", "category": "Kategorie"}
+  ],
+  "gallerySectionTitle": "Galerie-Überschrift",
+  "gallerySectionSubtitle": "Galerie-Beschreibung",
   "plans": [
     {"name": "Basic", "price": "$9", "period": "/Monat", "features": ["Feature 1", "Feature 2", "Feature 3"], "buttonText": "Starten"},
     {"name": "Pro", "price": "$29", "period": "/Monat", "features": ["Alles aus Basic", "Feature 4", "Feature 5", "Feature 6"], "highlighted": true, "buttonText": "Jetzt starten"},
@@ -266,12 +296,13 @@ Antworte NUR mit einem JSON-Objekt in diesem exakten Format:
 }
 
 Regeln:
-- "sections" muss ein Array sein mit Werten aus: "navbar", "hero", "features", "testimonials", "pricing", "cta", "contact", "footer"
+- "sections" muss ein Array sein mit Werten aus: "navbar", "hero", "gallery", "features", "testimonials", "pricing", "cta", "contact", "footer"
+- Wähle NUR die Sections, die zum Prompt des Users passen! Wenn der User z.B. nur "gallery" will, gib nur ["gallery"] zurück
+- Wenn der User "gallery", "portfolio", "showcase", "Galerie", "Bilder", "Fotos" erwähnt, MUSS "gallery" in sections enthalten sein
 - "heroStyle" muss eines von "centered", "split", "gradient" sein
 - Passe ALLE Texte an die beschriebene Branche/Nische an
-- Features sollten genau 6 sein
-- Plans sollten genau 3 sein
-- Testimonials sollten genau 3 sein
+- Features sollten genau 6 sein, galleryItems genau 6
+- Plans sollten genau 3 sein, Testimonials genau 3
 - Wenn der User Deutsch schreibt, antworte mit deutschen Inhalten
 - Antworte NUR mit dem JSON, kein anderer Text`;
 
@@ -358,6 +389,18 @@ Regeln:
     ctaHeadline: parsed.ctaHeadline || "Ready to Get Started?",
     ctaSubtext: parsed.ctaSubtext || "Join thousands of happy customers.",
     ctaButtonText: parsed.ctaButtonText || "Start Now",
+    galleryItems: Array.isArray(parsed.galleryItems) && parsed.galleryItems.length > 0
+      ? parsed.galleryItems.slice(0, 6)
+      : [
+          { title: "Project Alpha", category: "Web Design" },
+          { title: "Brand Identity", category: "Branding" },
+          { title: "Mobile App UI", category: "UI/UX" },
+          { title: "E-Commerce Store", category: "Development" },
+          { title: "Marketing Campaign", category: "Strategy" },
+          { title: "Product Photography", category: "Photography" },
+        ],
+    gallerySectionTitle: parsed.gallerySectionTitle || "Our Gallery",
+    gallerySectionSubtitle: parsed.gallerySectionSubtitle || "Explore our latest work and projects",
   };
 }
 
@@ -377,6 +420,9 @@ function generateFromConfig(config: GenerationConfig): BricksElement[] {
         break;
       case "features":
         elements = [...elements, ...generateFeaturesSection(undefined, undefined, config.features)];
+        break;
+      case "gallery":
+        elements = [...elements, ...generateGallerySection(config.gallerySectionTitle, config.gallerySectionSubtitle, config.galleryItems)];
         break;
       case "pricing":
         elements = [...elements, ...generatePricingSection(config.plans)];
