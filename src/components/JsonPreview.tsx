@@ -76,16 +76,24 @@ export default function JsonPreview({ data, maxHeight = "500px", templateName = 
     URL.revokeObjectURL(url);
   }, [data, templateName]);
 
-  // Copy content array
-  const copyContentArray = useCallback(async () => {
-    const contentArray = (data as { content?: unknown[] })?.content || [];
-    await navigator.clipboard.writeText(JSON.stringify(contentArray));
-    showCopied("JSON");
+  // Copy for Bricks paste (full object with source: bricksCopiedElements)
+  const copyForBricks = useCallback(async () => {
+    // Ensure the source is set correctly for Bricks paste
+    const bricksData = {
+      ...(data as Record<string, unknown>),
+      source: "bricksCopiedElements",
+    };
+    await navigator.clipboard.writeText(JSON.stringify(bricksData));
+    showCopied("Bricks JSON");
   }, [data, showCopied]);
 
-  // Copy full template JSON
+  // Copy full formatted JSON (for debugging/inspection)
   const copyFullJson = useCallback(async () => {
-    await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    const bricksData = {
+      ...(data as Record<string, unknown>),
+      source: "bricksCopiedElements",
+    };
+    await navigator.clipboard.writeText(JSON.stringify(bricksData, null, 2));
     showCopied("Full JSON");
   }, [data, showCopied]);
 
@@ -133,15 +141,15 @@ export default function JsonPreview({ data, maxHeight = "500px", templateName = 
             Download for Bricks Import
           </button>
 
-          {/* Copy content array */}
+          {/* Copy for Bricks paste */}
           <button
-            onClick={copyContentArray}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-border hover:bg-card-hover text-foreground transition-colors"
+            onClick={copyForBricks}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-primary/50 bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-            Copy JSON
+            Copy for Bricks (Ctrl+V)
           </button>
 
           {/* Copy full */}

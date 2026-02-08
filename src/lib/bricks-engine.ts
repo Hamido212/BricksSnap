@@ -65,9 +65,9 @@ export function wrapTemplate(
 ): BricksTemplate {
   return {
     content: elements,
-    source: "bricksgenerator",
+    source: "bricksCopiedElements",
     sourceUrl: "",
-    version: "1.9.9",
+    version: "1.12.2",
     globalClasses,
     globalElements: [],
   };
@@ -134,6 +134,7 @@ export function generateHeroSection(
   elements.push(container);
 
   const contentBlock = createElement("block", container.id, {
+    _display: "flex",
     _direction: "column",
     _alignItems: style === "split" ? "flex-start" : "center",
     _gap: "24px",
@@ -175,6 +176,7 @@ export function generateHeroSection(
   elements.push(text);
 
   const buttonWrapper = createElement("block", contentBlock.id, {
+    _display: "flex",
     _direction: "row",
     _gap: "16px",
     _justifyContent: style === "split" ? "flex-start" : "center",
@@ -303,6 +305,7 @@ export function generateNavbar(
   elements.push(brand);
 
   const navBlock = createElement("block", container.id, {
+    _display: "flex",
     _direction: "row",
     _gap: "32px",
     _alignItems: "center",
@@ -396,6 +399,7 @@ export function generateFeaturesSection(
   elements.push(container);
 
   const headerBlock = createElement("block", container.id, {
+    _display: "flex",
     _direction: "column",
     _alignItems: "center",
     _textAlign: "center",
@@ -445,6 +449,7 @@ export function generateFeaturesSection(
   for (let i = 0; i < features.length; i++) {
     const feature = features[i];
     const card = createElement("block", grid.id, {
+      _display: "flex",
       _direction: "column",
       _padding: { top: "32", bottom: "32", left: "32", right: "32" },
       _background: { color: { hex: "#ffffff" } },
@@ -564,6 +569,7 @@ export function generatePricingSection(
   elements.push(container);
 
   const headerBlock = createElement("block", container.id, {
+    _display: "flex",
     _direction: "column",
     _alignItems: "center",
     _textAlign: "center",
@@ -617,6 +623,7 @@ export function generatePricingSection(
   elements.push(subtitle);
 
   const grid = createElement("block", container.id, {
+    _display: "flex",
     _direction: "row",
     _gap: "24px",
     _justifyContent: "center",
@@ -628,6 +635,7 @@ export function generatePricingSection(
 
   for (const plan of plans) {
     const card = createElement("block", grid.id, {
+      _display: "flex",
       _direction: "column",
       _padding: { top: "40", bottom: "40", left: "32", right: "32" },
       _background: {
@@ -686,6 +694,7 @@ export function generatePricingSection(
     elements.push(planName);
 
     const priceBlock = createElement("block", card.id, {
+      _display: "flex",
       _direction: "row",
       _alignItems: "baseline",
       _gap: "4px",
@@ -717,6 +726,7 @@ export function generatePricingSection(
     elements.push(period);
 
     const featureList = createElement("block", card.id, {
+      _display: "flex",
       _direction: "column",
       _gap: "12px",
       _margin: { top: "8", bottom: "8" },
@@ -816,6 +826,7 @@ export function generateTestimonialsSection(
   elements.push(container);
 
   const headerBlock = createElement("block", container.id, {
+    _display: "flex",
     _direction: "column",
     _alignItems: "center",
     _textAlign: "center",
@@ -838,6 +849,7 @@ export function generateTestimonialsSection(
   elements.push(title);
 
   const grid = createElement("block", container.id, {
+    _display: "flex",
     _direction: "row",
     _gap: "24px",
     _width: "100%",
@@ -847,6 +859,7 @@ export function generateTestimonialsSection(
 
   for (const testimonial of testimonials) {
     const card = createElement("block", grid.id, {
+      _display: "flex",
       _direction: "column",
       _padding: { top: "32", bottom: "32", left: "32", right: "32" },
       _background: { color: { hex: "#f8fafc" } },
@@ -884,6 +897,7 @@ export function generateTestimonialsSection(
     elements.push(quote);
 
     const authorBlock = createElement("block", card.id, {
+      _display: "flex",
       _direction: "column",
       _gap: "4px",
       _margin: { top: "auto" },
@@ -978,6 +992,7 @@ export function generateFooterSection(
   elements.push(container);
 
   const topRow = createElement("block", container.id, {
+    _display: "flex",
     _direction: "row",
     _justifyContent: "space-between",
     _gap: "40px",
@@ -987,6 +1002,7 @@ export function generateFooterSection(
   elements.push(topRow);
 
   const brandBlock = createElement("block", topRow.id, {
+    _display: "flex",
     _direction: "column",
     _gap: "16px",
     _width: "280px",
@@ -1019,6 +1035,7 @@ export function generateFooterSection(
 
   for (const column of columns) {
     const colBlock = createElement("block", topRow.id, {
+      _display: "flex",
       _direction: "column",
       _gap: "16px",
     });
@@ -1065,6 +1082,7 @@ export function generateFooterSection(
   elements.push(divider);
 
   const bottomRow = createElement("block", container.id, {
+    _display: "flex",
     _direction: "row",
     _justifyContent: "space-between",
     _alignItems: "center",
@@ -1193,6 +1211,7 @@ export function generateContactSection(): BricksElement[] {
 
   // Left info
   const infoBlock = createElement("block", container.id, {
+    _display: "flex",
     _direction: "column",
     _width: "40%",
     _gap: "24px",
@@ -1231,6 +1250,7 @@ export function generateContactSection(): BricksElement[] {
 
   for (const item of contactItems) {
     const itemBlock = createElement("block", infoBlock.id, {
+      _display: "flex",
       _direction: "column",
       _gap: "4px",
     });
@@ -1261,6 +1281,7 @@ export function generateContactSection(): BricksElement[] {
 
   // Right form
   const formBlock = createElement("block", container.id, {
+    _display: "flex",
     _direction: "column",
     _width: "60%",
     _padding: { top: "40", bottom: "40", left: "40", right: "40" },
