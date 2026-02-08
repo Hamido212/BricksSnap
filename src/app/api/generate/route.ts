@@ -341,7 +341,12 @@ function generateFromConfig(config: GenerationConfig): BricksElement[] {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { prompt, useAI } = body;
+    const { prompt, useAI, apiKey: requestApiKey, provider } = body as {
+      prompt?: string;
+      useAI?: boolean;
+      apiKey?: string;
+      provider?: "openai" | "anthropic";
+    };
 
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json(
@@ -350,14 +355,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Detect API keys
+    // Detect API keys (request key has priority, then environment variables)
     const anthropicKey = process.env.ANTHROPIC_API_KEY?.trim();
     const openaiKey = process.env.OPENAI_API_KEY?.trim();
+    const bodyApiKey = requestApiKey?.trim();
 
     let apiKey: string | undefined;
     let isAnthropicKey = false;
 
-    if (anthropicKey && anthropicKey.length > 10) {
+    if (bodyApiKey && bodyApiKey.length > 10) {
+      apiKey = bodyApiKey;
+      if (provider === "anthropic") {
+        isAnthropicKey = true;
+      } else if (provider === "openai") {
+        isAnthropicKey = false;
+      } else {
+        // Auto-detect by key prefix for BYOK payloads
+        isAnthropicKey = bodyApiKey.startsWith("sk-ant-");
+      }
+    } else if (provider === "anthropic" && anthropicKey && anthropicKey.length > 10) {
+      apiKey = anthropicKey;
+      isAnthropicKey = true;
+    } else if (provider === "openai" && openaiKey && openaiKey.length > 10) {
+      apiKey = openaiKey;
+      isAnthropicKey = false;
+    } else if (anthropicKey && anthropicKey.length > 10) {
       apiKey = anthropicKey;
       isAnthropicKey = true;
     } else if (openaiKey && openaiKey.length > 10) {
