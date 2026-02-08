@@ -25,7 +25,130 @@ export interface BricksGlobalClass {
   settings: Record<string, unknown>;
 }
 
-// Generate a random 6-character hex ID (Bricks format)
+// ============================================================
+// DESIGN TOKENS - Customizable colors, shadows, radius, etc.
+// ============================================================
+export interface DesignTokens {
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+  surfaceColor: string;
+  textColor: string;
+  headingColor: string;
+  mutedTextColor: string;
+  borderColor: string;
+  borderRadius: "none" | "small" | "medium" | "large" | "full";
+  shadow: "none" | "small" | "medium" | "large";
+  darkMode: boolean;
+}
+
+const LIGHT_DEFAULTS: DesignTokens = {
+  primaryColor: "#3b82f6",
+  secondaryColor: "#8b5cf6",
+  backgroundColor: "#ffffff",
+  surfaceColor: "#f8fafc",
+  textColor: "#334155",
+  headingColor: "#0f172a",
+  mutedTextColor: "#64748b",
+  borderColor: "#e2e8f0",
+  borderRadius: "medium",
+  shadow: "none",
+  darkMode: false,
+};
+
+const DARK_DEFAULTS: DesignTokens = {
+  primaryColor: "#3b82f6",
+  secondaryColor: "#8b5cf6",
+  backgroundColor: "#0f172a",
+  surfaceColor: "#1e293b",
+  textColor: "#e2e8f0",
+  headingColor: "#ffffff",
+  mutedTextColor: "#94a3b8",
+  borderColor: "#334155",
+  borderRadius: "medium",
+  shadow: "none",
+  darkMode: true,
+};
+
+/** Merge partial tokens with smart defaults based on darkMode */
+export function resolveDesignTokens(partial: Partial<DesignTokens> = {}): DesignTokens {
+  const isDark = partial.darkMode ?? false;
+  const base = isDark ? { ...DARK_DEFAULTS } : { ...LIGHT_DEFAULTS };
+  // Only override non-undefined values
+  for (const key of Object.keys(partial) as (keyof DesignTokens)[]) {
+    if (partial[key] !== undefined) {
+      (base as Record<string, unknown>)[key] = partial[key];
+    }
+  }
+  return base;
+}
+
+// ============================================================
+// DESIGN TOKEN HELPERS
+// ============================================================
+
+/** Get border-radius value string from token */
+function rad(tokens: DesignTokens, scale: number = 1): string {
+  const baseMap: Record<string, number> = {
+    none: 0,
+    small: 4,
+    medium: 8,
+    large: 16,
+    full: 9999,
+  };
+  const base = baseMap[tokens.borderRadius] ?? 8;
+  return String(Math.round(base * scale));
+}
+
+/** Get radius object { top, right, bottom, left } */
+function radObj(tokens: DesignTokens, scale: number = 1): Record<string, string> {
+  const v = rad(tokens, scale);
+  return { top: v, right: v, bottom: v, left: v };
+}
+
+/** Get box-shadow settings or undefined */
+function shadowSettings(tokens: DesignTokens): Record<string, unknown> | undefined {
+  switch (tokens.shadow) {
+    case "small":
+      return { values: { offsetY: "2", blur: "8", spread: "-2" }, color: { hex: tokens.darkMode ? "#00000040" : "#00000010" } };
+    case "medium":
+      return { values: { offsetY: "4", blur: "20", spread: "-4" }, color: { hex: tokens.darkMode ? "#00000050" : "#00000015" } };
+    case "large":
+      return { values: { offsetY: "8", blur: "40", spread: "-8" }, color: { hex: tokens.darkMode ? "#00000060" : "#00000020" } };
+    default:
+      return undefined;
+  }
+}
+
+/** Lighten/darken a hex color by mixing with white/black */
+function adjustColor(hex: string, amount: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  const clamp = (v: number) => Math.min(255, Math.max(0, Math.round(v)));
+  if (amount > 0) {
+    // lighten (mix with white)
+    return `#${clamp(r + (255 - r) * amount).toString(16).padStart(2, "0")}${clamp(g + (255 - g) * amount).toString(16).padStart(2, "0")}${clamp(b + (255 - b) * amount).toString(16).padStart(2, "0")}`;
+  } else {
+    // darken (mix with black)
+    const a = Math.abs(amount);
+    return `#${clamp(r * (1 - a)).toString(16).padStart(2, "0")}${clamp(g * (1 - a)).toString(16).padStart(2, "0")}${clamp(b * (1 - a)).toString(16).padStart(2, "0")}`;
+  }
+}
+
+/** Add alpha to hex color (returns hex8 format) */
+function withAlpha(hex: string, alpha: number): string {
+  const h = hex.replace("#", "").substring(0, 6);
+  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
+  return `#${h}${a}`;
+}
+
+// ============================================================
+// CORE HELPERS
+// ============================================================
+
+/** Generate a random 6-character ID (Bricks format) */
 export function generateId(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
   let result = "";
@@ -35,7 +158,7 @@ export function generateId(): string {
   return result;
 }
 
-// Helper to create a Bricks element
+/** Create a Bricks element */
 export function createElement(
   name: string,
   parent: string | 0,
@@ -52,13 +175,13 @@ export function createElement(
   };
 }
 
-// Link parent and child elements
+/** Link parent and child elements */
 function linkElements(parent: BricksElement, child: BricksElement): void {
   parent.children.push(child.id);
   child.parent = parent.id;
 }
 
-// Wrap content in a template export format
+/** Wrap content in a template export format */
 export function wrapTemplate(
   elements: BricksElement[],
   globalClasses: BricksGlobalClass[] = []
@@ -73,50 +196,34 @@ export function wrapTemplate(
   };
 }
 
-// ----- TEMPLATE GENERATORS -----
+// ============================================================
+// SECTION GENERATORS
+// ============================================================
 
 export function generateHeroSection(
   headline: string = "Build Something Amazing",
   subtext: string = "Create stunning websites with our powerful tools and intuitive design system.",
   buttonText: string = "Get Started",
   buttonLink: string = "#",
-  style: "centered" | "split" | "gradient" = "centered"
+  style: "centered" | "split" | "gradient" = "centered",
+  tokens: DesignTokens = LIGHT_DEFAULTS
 ): BricksElement[] {
   const elements: BricksElement[] = [];
 
+  const isGradient = style === "gradient";
+  const sectionBg = isGradient
+    ? (tokens.darkMode ? tokens.backgroundColor : "#0f172a")
+    : tokens.backgroundColor;
+  const headingClr = isGradient
+    ? (tokens.darkMode ? tokens.headingColor : "#ffffff")
+    : tokens.headingColor;
+  const subtextClr = isGradient
+    ? (tokens.darkMode ? tokens.mutedTextColor : "#94a3b8")
+    : tokens.mutedTextColor;
+
   const section = createElement("section", 0, {
-    _padding: {
-      top: "100",
-      bottom: "100",
-      left: "40",
-      right: "40",
-    },
-    ...(style === "gradient"
-      ? {
-          _background: {
-            color: {
-              hex: "#0f172a",
-            },
-            image: {
-              url: "",
-            },
-          },
-        }
-      : style === "centered"
-      ? {
-          _background: {
-            color: {
-              hex: "#ffffff",
-            },
-          },
-        }
-      : {
-          _background: {
-            color: {
-              hex: "#f8fafc",
-            },
-          },
-        }),
+    _padding: { top: "100", bottom: "100", left: "40", right: "40" },
+    _background: { color: { hex: sectionBg } },
   }, "Hero Section");
   elements.push(section);
 
@@ -126,9 +233,7 @@ export function generateHeroSection(
     _alignItems: "center",
     _width: "1200px",
     _margin: { left: "auto", right: "auto" },
-    ...(style === "split"
-      ? { _gap: "60px" }
-      : {}),
+    ...(style === "split" ? { _gap: "60px" } : {}),
   });
   linkElements(section, container);
   elements.push(container);
@@ -147,13 +252,11 @@ export function generateHeroSection(
     text: headline,
     tag: "h1",
     _typography: {
-      "font-size": style === "gradient" ? "56px" : "48px",
+      "font-size": isGradient ? "56px" : "48px",
       "font-weight": "800",
       "line-height": "1.1",
       "letter-spacing": "-0.02em",
-      color: {
-        hex: style === "gradient" ? "#ffffff" : "#0f172a",
-      },
+      color: { hex: headingClr },
     },
     _margin: { bottom: "16" },
   });
@@ -165,9 +268,7 @@ export function generateHeroSection(
     _typography: {
       "font-size": "20px",
       "line-height": "1.6",
-      color: {
-        hex: style === "gradient" ? "#94a3b8" : "#64748b",
-      },
+      color: { hex: subtextClr },
     },
     _width: style === "split" ? "100%" : "600px",
     _margin: { bottom: "16" },
@@ -180,6 +281,7 @@ export function generateHeroSection(
     _direction: "row",
     _gap: "16px",
     _justifyContent: style === "split" ? "flex-start" : "center",
+    _flexWrap: "wrap",
   });
   linkElements(contentBlock, buttonWrapper);
   elements.push(buttonWrapper);
@@ -189,12 +291,8 @@ export function generateHeroSection(
     tag: "a",
     link: { type: "external", url: buttonLink },
     _padding: { top: "16", bottom: "16", left: "32", right: "32" },
-    _background: {
-      color: { hex: "#3b82f6" },
-    },
-    _border: {
-      radius: { top: "8", right: "8", bottom: "8", left: "8" },
-    },
+    _background: { color: { hex: tokens.primaryColor } },
+    _border: { radius: radObj(tokens) },
     _typography: {
       "font-size": "16px",
       "font-weight": "600",
@@ -206,24 +304,29 @@ export function generateHeroSection(
   linkElements(buttonWrapper, primaryBtn);
   elements.push(primaryBtn);
 
+  const secondaryBorderColor = isGradient
+    ? (tokens.darkMode ? tokens.borderColor : "#475569")
+    : tokens.borderColor;
+  const secondaryTextColor = isGradient
+    ? (tokens.darkMode ? tokens.textColor : "#e2e8f0")
+    : tokens.textColor;
+
   const secondaryBtn = createElement("text-basic", buttonWrapper.id, {
     text: "<p>Learn More</p>",
     tag: "a",
     link: { type: "external", url: "#" },
     _padding: { top: "16", bottom: "16", left: "32", right: "32" },
-    _background: {
-      color: { hex: "transparent" },
-    },
+    _background: { color: { hex: "transparent" } },
     _border: {
-      radius: { top: "8", right: "8", bottom: "8", left: "8" },
+      radius: radObj(tokens),
       width: { top: "2", right: "2", bottom: "2", left: "2" },
       style: "solid",
-      color: { hex: style === "gradient" ? "#475569" : "#e2e8f0" },
+      color: { hex: secondaryBorderColor },
     },
     _typography: {
       "font-size": "16px",
       "font-weight": "600",
-      color: { hex: style === "gradient" ? "#e2e8f0" : "#334155" },
+      color: { hex: secondaryTextColor },
       "text-decoration": "none",
     },
   });
@@ -242,9 +345,7 @@ export function generateHeroSection(
         url: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800",
         filename: "hero-image.jpg",
       },
-      _border: {
-        radius: { top: "16", right: "16", bottom: "16", left: "16" },
-      },
+      _border: { radius: radObj(tokens, 2) },
       _width: "100%",
       _objectFit: "cover",
     });
@@ -263,17 +364,18 @@ export function generateNavbar(
     { text: "Pricing", url: "#pricing" },
     { text: "Contact", url: "#contact" },
   ],
-  ctaText: string = "Sign Up"
+  ctaText: string = "Sign Up",
+  tokens: DesignTokens = LIGHT_DEFAULTS
 ): BricksElement[] {
   const elements: BricksElement[] = [];
 
   const section = createElement("section", 0, {
     _padding: { top: "0", bottom: "0", left: "0", right: "0" },
-    _background: { color: { hex: "#ffffff" } },
+    _background: { color: { hex: tokens.backgroundColor } },
     _border: {
       width: { bottom: "1" },
       style: "solid",
-      color: { hex: "#e2e8f0" },
+      color: { hex: tokens.borderColor },
     },
     _position: "sticky",
     _top: "0",
@@ -298,7 +400,7 @@ export function generateNavbar(
     _typography: {
       "font-size": "24px",
       "font-weight": "700",
-      color: { hex: "#0f172a" },
+      color: { hex: tokens.headingColor },
     },
   });
   linkElements(container, brand);
@@ -321,7 +423,7 @@ export function generateNavbar(
       _typography: {
         "font-size": "15px",
         "font-weight": "500",
-        color: { hex: "#475569" },
+        color: { hex: tokens.mutedTextColor },
         "text-decoration": "none",
       },
     });
@@ -334,10 +436,8 @@ export function generateNavbar(
     tag: "a",
     link: { type: "external", url: "#" },
     _padding: { top: "10", bottom: "10", left: "24", right: "24" },
-    _background: { color: { hex: "#3b82f6" } },
-    _border: {
-      radius: { top: "8", right: "8", bottom: "8", left: "8" },
-    },
+    _background: { color: { hex: tokens.primaryColor } },
+    _border: { radius: radObj(tokens) },
     _typography: {
       "font-size": "15px",
       "font-weight": "600",
@@ -355,37 +455,20 @@ export function generateFeaturesSection(
   sectionTitle: string = "Why Choose Us",
   sectionSubtitle: string = "Everything you need to build modern websites",
   features: Array<{ title: string; description: string; icon?: string }> = [
-    {
-      title: "Lightning Fast",
-      description: "Optimized for speed with instant load times and smooth interactions.",
-    },
-    {
-      title: "Fully Responsive",
-      description: "Looks perfect on every device, from mobile to desktop.",
-    },
-    {
-      title: "Easy to Customize",
-      description: "Modify colors, fonts, and layouts with a few clicks.",
-    },
-    {
-      title: "SEO Optimized",
-      description: "Built with best practices for search engine visibility.",
-    },
-    {
-      title: "Secure by Default",
-      description: "Enterprise-grade security built into every component.",
-    },
-    {
-      title: "24/7 Support",
-      description: "Our team is always here to help you succeed.",
-    },
-  ]
+    { title: "Lightning Fast", description: "Optimized for speed with instant load times and smooth interactions." },
+    { title: "Fully Responsive", description: "Looks perfect on every device, from mobile to desktop." },
+    { title: "Easy to Customize", description: "Modify colors, fonts, and layouts with a few clicks." },
+    { title: "SEO Optimized", description: "Built with best practices for search engine visibility." },
+    { title: "Secure by Default", description: "Enterprise-grade security built into every component." },
+    { title: "24/7 Support", description: "Our team is always here to help you succeed." },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
 ): BricksElement[] {
   const elements: BricksElement[] = [];
 
   const section = createElement("section", 0, {
     _padding: { top: "100", bottom: "100", left: "40", right: "40" },
-    _background: { color: { hex: "#f8fafc" } },
+    _background: { color: { hex: tokens.surfaceColor } },
   }, "Features Section");
   elements.push(section);
 
@@ -416,7 +499,7 @@ export function generateFeaturesSection(
       "font-size": "40px",
       "font-weight": "700",
       "line-height": "1.2",
-      color: { hex: "#0f172a" },
+      color: { hex: tokens.headingColor },
     },
     _margin: { bottom: "16" },
   });
@@ -428,23 +511,25 @@ export function generateFeaturesSection(
     _typography: {
       "font-size": "18px",
       "line-height": "1.6",
-      color: { hex: "#64748b" },
+      color: { hex: tokens.mutedTextColor },
     },
     _width: "600px",
   });
   linkElements(headerBlock, subtitle);
   elements.push(subtitle);
 
+  // Responsive grid: auto-fill with minmax so it wraps automatically
   const grid = createElement("div", container.id, {
     _display: "grid",
-    _gridTemplateColumns: "repeat(3, 1fr)",
+    _gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
     _gap: "32px",
     _width: "100%",
   });
   linkElements(container, grid);
   elements.push(grid);
 
-  const iconColors = ["#3b82f6", "#8b5cf6", "#06b6d4", "#f59e0b", "#10b981", "#ef4444"];
+  const cardShadow = shadowSettings(tokens);
+  const iconColors = [tokens.primaryColor, tokens.secondaryColor, "#06b6d4", "#f59e0b", "#10b981", "#ef4444"];
 
   for (let i = 0; i < features.length; i++) {
     const feature = features[i];
@@ -452,27 +537,25 @@ export function generateFeaturesSection(
       _display: "flex",
       _direction: "column",
       _padding: { top: "32", bottom: "32", left: "32", right: "32" },
-      _background: { color: { hex: "#ffffff" } },
+      _background: { color: { hex: tokens.backgroundColor } },
       _border: {
-        radius: { top: "12", right: "12", bottom: "12", left: "12" },
+        radius: radObj(tokens, 1.5),
         width: { top: "1", right: "1", bottom: "1", left: "1" },
         style: "solid",
-        color: { hex: "#e2e8f0" },
+        color: { hex: tokens.borderColor },
       },
       _gap: "16px",
+      ...(cardShadow ? { _boxShadow: cardShadow } : {}),
     });
     linkElements(grid, card);
     elements.push(card);
 
+    const iconColor = iconColors[i % iconColors.length];
     const iconWrapper = createElement("div", card.id, {
       _width: "48px",
       _height: "48px",
-      _background: {
-        color: { hex: iconColors[i % iconColors.length] + "15" },
-      },
-      _border: {
-        radius: { top: "10", right: "10", bottom: "10", left: "10" },
-      },
+      _background: { color: { hex: withAlpha(iconColor, 0.1) } },
+      _border: { radius: radObj(tokens, 1.25) },
       _justifyContent: "center",
       _alignItems: "center",
       _display: "flex",
@@ -484,7 +567,7 @@ export function generateFeaturesSection(
       text: `<p style="font-size:24px">&#9733;</p>`,
       _typography: {
         "font-size": "24px",
-        color: { hex: iconColors[i % iconColors.length] },
+        color: { hex: iconColor },
       },
     });
     linkElements(iconWrapper, iconText);
@@ -497,7 +580,7 @@ export function generateFeaturesSection(
         "font-size": "20px",
         "font-weight": "600",
         "line-height": "1.4",
-        color: { hex: "#0f172a" },
+        color: { hex: tokens.headingColor },
       },
     });
     linkElements(card, featureTitle);
@@ -508,7 +591,7 @@ export function generateFeaturesSection(
       _typography: {
         "font-size": "15px",
         "line-height": "1.6",
-        color: { hex: "#64748b" },
+        color: { hex: tokens.mutedTextColor },
       },
     });
     linkElements(card, featureDesc);
@@ -527,35 +610,27 @@ export function generatePricingSection(
     highlighted?: boolean;
     buttonText?: string;
   }> = [
-    {
-      name: "Starter",
-      price: "$9",
-      period: "/month",
-      features: ["5 Projects", "Basic Analytics", "Email Support", "1GB Storage"],
-      buttonText: "Start Free",
-    },
-    {
-      name: "Professional",
-      price: "$29",
-      period: "/month",
-      features: ["Unlimited Projects", "Advanced Analytics", "Priority Support", "50GB Storage", "Custom Domain", "API Access"],
-      highlighted: true,
-      buttonText: "Get Started",
-    },
-    {
-      name: "Enterprise",
-      price: "$99",
-      period: "/month",
-      features: ["Everything in Pro", "Dedicated Support", "Unlimited Storage", "SSO & SAML", "SLA Guarantee", "Custom Integrations"],
-      buttonText: "Contact Sales",
-    },
-  ]
+    { name: "Starter", price: "$9", period: "/month", features: ["5 Projects", "Basic Analytics", "Email Support", "1GB Storage"], buttonText: "Start Free" },
+    { name: "Professional", price: "$29", period: "/month", features: ["Unlimited Projects", "Advanced Analytics", "Priority Support", "50GB Storage", "Custom Domain", "API Access"], highlighted: true, buttonText: "Get Started" },
+    { name: "Enterprise", price: "$99", period: "/month", features: ["Everything in Pro", "Dedicated Support", "Unlimited Storage", "SSO & SAML", "SLA Guarantee", "Custom Integrations"], buttonText: "Contact Sales" },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
 ): BricksElement[] {
   const elements: BricksElement[] = [];
 
+  // Pricing always uses a dark-ish look - but respects tokens
+  const pricingBg = tokens.darkMode ? tokens.backgroundColor : "#0f172a";
+  const pricingHeading = tokens.darkMode ? tokens.headingColor : "#ffffff";
+  const pricingMuted = tokens.darkMode ? tokens.mutedTextColor : "#94a3b8";
+  const cardBg = tokens.darkMode ? tokens.surfaceColor : "#111827";
+  const cardHighlightBg = tokens.darkMode ? adjustColor(tokens.surfaceColor, 0.1) : "#1e293b";
+  const cardBorder = tokens.darkMode ? tokens.borderColor : "#1e293b";
+  const cardText = tokens.darkMode ? tokens.textColor : "#cbd5e1";
+  const cardHeading = tokens.darkMode ? tokens.headingColor : "#e2e8f0";
+
   const section = createElement("section", 0, {
     _padding: { top: "100", bottom: "100", left: "40", right: "40" },
-    _background: { color: { hex: "#0f172a" } },
+    _background: { color: { hex: pricingBg } },
   }, "Pricing Section");
   elements.push(section);
 
@@ -581,14 +656,12 @@ export function generatePricingSection(
   const badge = createElement("text-basic", headerBlock.id, {
     text: "<p>Pricing</p>",
     _padding: { top: "6", bottom: "6", left: "16", right: "16" },
-    _background: { color: { hex: "#1e3a5f" } },
-    _border: {
-      radius: { top: "100", right: "100", bottom: "100", left: "100" },
-    },
+    _background: { color: { hex: withAlpha(tokens.primaryColor, 0.15) } },
+    _border: { radius: { top: "100", right: "100", bottom: "100", left: "100" } },
     _typography: {
       "font-size": "13px",
       "font-weight": "600",
-      color: { hex: "#60a5fa" },
+      color: { hex: tokens.primaryColor },
       "text-transform": "uppercase",
       "letter-spacing": "0.05em",
     },
@@ -604,7 +677,7 @@ export function generatePricingSection(
       "font-size": "40px",
       "font-weight": "700",
       "line-height": "1.2",
-      color: { hex: "#ffffff" },
+      color: { hex: pricingHeading },
     },
     _margin: { bottom: "16" },
   });
@@ -616,15 +689,16 @@ export function generatePricingSection(
     _typography: {
       "font-size": "18px",
       "line-height": "1.6",
-      color: { hex: "#94a3b8" },
+      color: { hex: pricingMuted },
     },
   });
   linkElements(headerBlock, subtitle);
   elements.push(subtitle);
 
+  // Responsive grid for pricing cards
   const grid = createElement("div", container.id, {
-    _display: "flex",
-    _direction: "row",
+    _display: "grid",
+    _gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
     _gap: "24px",
     _justifyContent: "center",
     _alignItems: "stretch",
@@ -638,26 +712,17 @@ export function generatePricingSection(
       _display: "flex",
       _direction: "column",
       _padding: { top: "40", bottom: "40", left: "32", right: "32" },
-      _background: {
-        color: { hex: plan.highlighted ? "#1e293b" : "#111827" },
-      },
+      _background: { color: { hex: plan.highlighted ? cardHighlightBg : cardBg } },
       _border: {
-        radius: { top: "16", right: "16", bottom: "16", left: "16" },
+        radius: radObj(tokens, 2),
         width: { top: "1", right: "1", bottom: "1", left: "1" },
         style: "solid",
-        color: { hex: plan.highlighted ? "#3b82f6" : "#1e293b" },
+        color: { hex: plan.highlighted ? tokens.primaryColor : cardBorder },
       },
-      _width: "33.333%",
       _gap: "24px",
-      ...(plan.highlighted
-        ? {
-            _boxShadow: {
-              values: { offsetY: "8", blur: "40", spread: "-12" },
-              color: { hex: "#3b82f680" },
-            },
-            _transform: "scale(1.05)",
-          }
-        : {}),
+      ...(plan.highlighted ? {
+        _boxShadow: { values: { offsetY: "8", blur: "40", spread: "-12" }, color: { hex: withAlpha(tokens.primaryColor, 0.3) } },
+      } : {}),
     });
     linkElements(grid, card);
     elements.push(card);
@@ -666,10 +731,8 @@ export function generatePricingSection(
       const popularBadge = createElement("text-basic", card.id, {
         text: "<p>Most Popular</p>",
         _padding: { top: "4", bottom: "4", left: "12", right: "12" },
-        _background: { color: { hex: "#3b82f6" } },
-        _border: {
-          radius: { top: "6", right: "6", bottom: "6", left: "6" },
-        },
+        _background: { color: { hex: tokens.primaryColor } },
+        _border: { radius: radObj(tokens, 0.75) },
         _typography: {
           "font-size": "12px",
           "font-weight": "600",
@@ -687,7 +750,7 @@ export function generatePricingSection(
       _typography: {
         "font-size": "20px",
         "font-weight": "600",
-        color: { hex: "#e2e8f0" },
+        color: { hex: cardHeading },
       },
     });
     linkElements(card, planName);
@@ -709,7 +772,7 @@ export function generatePricingSection(
       _typography: {
         "font-size": "48px",
         "font-weight": "800",
-        color: { hex: "#ffffff" },
+        color: { hex: pricingHeading },
       },
     });
     linkElements(priceBlock, price);
@@ -719,7 +782,7 @@ export function generatePricingSection(
       text: `<p>${plan.period}</p>`,
       _typography: {
         "font-size": "16px",
-        color: { hex: "#94a3b8" },
+        color: { hex: pricingMuted },
       },
     });
     linkElements(priceBlock, period);
@@ -740,7 +803,7 @@ export function generatePricingSection(
         _typography: {
           "font-size": "15px",
           "line-height": "1.6",
-          color: { hex: "#cbd5e1" },
+          color: { hex: cardText },
         },
       });
       linkElements(featureList, featureItem);
@@ -752,18 +815,14 @@ export function generatePricingSection(
       tag: "a",
       link: { type: "external", url: "#" },
       _padding: { top: "14", bottom: "14", left: "24", right: "24" },
-      _background: {
-        color: { hex: plan.highlighted ? "#3b82f6" : "transparent" },
-      },
+      _background: { color: { hex: plan.highlighted ? tokens.primaryColor : "transparent" } },
       _border: {
-        radius: { top: "10", right: "10", bottom: "10", left: "10" },
-        ...(plan.highlighted
-          ? {}
-          : {
-              width: { top: "1", right: "1", bottom: "1", left: "1" },
-              style: "solid",
-              color: { hex: "#334155" },
-            }),
+        radius: radObj(tokens, 1.25),
+        ...(plan.highlighted ? {} : {
+          width: { top: "1", right: "1", bottom: "1", left: "1" },
+          style: "solid",
+          color: { hex: cardBorder },
+        }),
       },
       _typography: {
         "font-size": "16px",
@@ -788,31 +847,17 @@ export function generateTestimonialsSection(
     role: string;
     rating?: number;
   }> = [
-    {
-      quote: "This product completely transformed how we build websites. The speed and quality are unmatched.",
-      author: "Sarah Johnson",
-      role: "CEO, TechStart",
-      rating: 5,
-    },
-    {
-      quote: "I've tried dozens of tools, but nothing comes close to the flexibility and power offered here.",
-      author: "Michael Chen",
-      role: "Lead Developer, Acme Corp",
-      rating: 5,
-    },
-    {
-      quote: "The templates saved us weeks of development time. Our clients are thrilled with the results.",
-      author: "Emily Rodriguez",
-      role: "Design Director, Creative Labs",
-      rating: 5,
-    },
-  ]
+    { quote: "This product completely transformed how we build websites. The speed and quality are unmatched.", author: "Sarah Johnson", role: "CEO, TechStart", rating: 5 },
+    { quote: "I've tried dozens of tools, but nothing comes close to the flexibility and power offered here.", author: "Michael Chen", role: "Lead Developer, Acme Corp", rating: 5 },
+    { quote: "The templates saved us weeks of development time. Our clients are thrilled with the results.", author: "Emily Rodriguez", role: "Design Director, Creative Labs", rating: 5 },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
 ): BricksElement[] {
   const elements: BricksElement[] = [];
 
   const section = createElement("section", 0, {
     _padding: { top: "100", bottom: "100", left: "40", right: "40" },
-    _background: { color: { hex: "#ffffff" } },
+    _background: { color: { hex: tokens.backgroundColor } },
   }, "Testimonials");
   elements.push(section);
 
@@ -842,32 +887,40 @@ export function generateTestimonialsSection(
       "font-size": "40px",
       "font-weight": "700",
       "line-height": "1.2",
-      color: { hex: "#0f172a" },
+      color: { hex: tokens.headingColor },
     },
   });
   linkElements(headerBlock, title);
   elements.push(title);
 
+  // RESPONSIVE GRID: uses auto-fill + minmax to wrap cards automatically
   const grid = createElement("div", container.id, {
-    _display: "flex",
-    _direction: "row",
+    _display: "grid",
+    _gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
     _gap: "24px",
     _width: "100%",
   });
   linkElements(container, grid);
   elements.push(grid);
 
+  const cardShadow = shadowSettings(tokens);
+
   for (const testimonial of testimonials) {
     const card = createElement("div", grid.id, {
       _display: "flex",
       _direction: "column",
       _padding: { top: "32", bottom: "32", left: "32", right: "32" },
-      _background: { color: { hex: "#f8fafc" } },
+      _background: { color: { hex: tokens.surfaceColor } },
       _border: {
-        radius: { top: "16", right: "16", bottom: "16", left: "16" },
+        radius: radObj(tokens, 2),
+        ...(tokens.darkMode ? {
+          width: { top: "1", right: "1", bottom: "1", left: "1" },
+          style: "solid",
+          color: { hex: tokens.borderColor },
+        } : {}),
       },
-      _width: "33.333%",
       _gap: "20px",
+      ...(cardShadow ? { _boxShadow: cardShadow } : {}),
     });
     linkElements(grid, card);
     elements.push(card);
@@ -889,7 +942,7 @@ export function generateTestimonialsSection(
       _typography: {
         "font-size": "16px",
         "line-height": "1.7",
-        color: { hex: "#334155" },
+        color: { hex: tokens.textColor },
         "font-style": "italic",
       },
     });
@@ -911,7 +964,7 @@ export function generateTestimonialsSection(
       _typography: {
         "font-size": "16px",
         "font-weight": "600",
-        color: { hex: "#0f172a" },
+        color: { hex: tokens.headingColor },
       },
     });
     linkElements(authorBlock, authorName);
@@ -921,7 +974,7 @@ export function generateTestimonialsSection(
       text: `<p>${testimonial.role}</p>`,
       _typography: {
         "font-size": "14px",
-        color: { hex: "#64748b" },
+        color: { hex: tokens.mutedTextColor },
       },
     });
     linkElements(authorBlock, authorRole);
@@ -937,48 +990,25 @@ export function generateFooterSection(
     title: string;
     links: Array<{ text: string; url: string }>;
   }> = [
-    {
-      title: "Product",
-      links: [
-        { text: "Features", url: "#" },
-        { text: "Pricing", url: "#" },
-        { text: "Templates", url: "#" },
-        { text: "Integrations", url: "#" },
-      ],
-    },
-    {
-      title: "Company",
-      links: [
-        { text: "About", url: "#" },
-        { text: "Blog", url: "#" },
-        { text: "Careers", url: "#" },
-        { text: "Contact", url: "#" },
-      ],
-    },
-    {
-      title: "Resources",
-      links: [
-        { text: "Documentation", url: "#" },
-        { text: "Help Center", url: "#" },
-        { text: "Community", url: "#" },
-        { text: "Status", url: "#" },
-      ],
-    },
-    {
-      title: "Legal",
-      links: [
-        { text: "Privacy", url: "#" },
-        { text: "Terms", url: "#" },
-        { text: "Cookie Policy", url: "#" },
-      ],
-    },
-  ]
+    { title: "Product", links: [{ text: "Features", url: "#" }, { text: "Pricing", url: "#" }, { text: "Templates", url: "#" }, { text: "Integrations", url: "#" }] },
+    { title: "Company", links: [{ text: "About", url: "#" }, { text: "Blog", url: "#" }, { text: "Careers", url: "#" }, { text: "Contact", url: "#" }] },
+    { title: "Resources", links: [{ text: "Documentation", url: "#" }, { text: "Help Center", url: "#" }, { text: "Community", url: "#" }, { text: "Status", url: "#" }] },
+    { title: "Legal", links: [{ text: "Privacy", url: "#" }, { text: "Terms", url: "#" }, { text: "Cookie Policy", url: "#" }] },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
 ): BricksElement[] {
   const elements: BricksElement[] = [];
 
+  // Footer always dark-ish
+  const footerBg = tokens.darkMode ? tokens.backgroundColor : "#0f172a";
+  const footerHeading = tokens.darkMode ? tokens.headingColor : "#ffffff";
+  const footerText = tokens.darkMode ? tokens.mutedTextColor : "#94a3b8";
+  const footerSubheading = tokens.darkMode ? tokens.textColor : "#e2e8f0";
+  const footerDivider = tokens.darkMode ? tokens.borderColor : "#1e293b";
+
   const section = createElement("section", 0, {
     _padding: { top: "80", bottom: "40", left: "40", right: "40" },
-    _background: { color: { hex: "#0f172a" } },
+    _background: { color: { hex: footerBg } },
   }, "Footer");
   elements.push(section);
 
@@ -991,10 +1021,10 @@ export function generateFooterSection(
   linkElements(section, container);
   elements.push(container);
 
+  // Responsive top row: wraps on smaller screens
   const topRow = createElement("div", container.id, {
-    _display: "flex",
-    _direction: "row",
-    _justifyContent: "space-between",
+    _display: "grid",
+    _gridTemplateColumns: "280px repeat(auto-fill, minmax(140px, 1fr))",
     _gap: "40px",
     _width: "100%",
   });
@@ -1005,7 +1035,6 @@ export function generateFooterSection(
     _display: "flex",
     _direction: "column",
     _gap: "16px",
-    _width: "280px",
   });
   linkElements(topRow, brandBlock);
   elements.push(brandBlock);
@@ -1016,7 +1045,7 @@ export function generateFooterSection(
     _typography: {
       "font-size": "24px",
       "font-weight": "700",
-      color: { hex: "#ffffff" },
+      color: { hex: footerHeading },
     },
   });
   linkElements(brandBlock, brand);
@@ -1027,7 +1056,7 @@ export function generateFooterSection(
     _typography: {
       "font-size": "15px",
       "line-height": "1.6",
-      color: { hex: "#94a3b8" },
+      color: { hex: footerText },
     },
   });
   linkElements(brandBlock, brandDesc);
@@ -1048,7 +1077,7 @@ export function generateFooterSection(
       _typography: {
         "font-size": "14px",
         "font-weight": "600",
-        color: { hex: "#e2e8f0" },
+        color: { hex: footerSubheading },
         "text-transform": "uppercase",
         "letter-spacing": "0.05em",
       },
@@ -1064,7 +1093,7 @@ export function generateFooterSection(
         link: { type: "external", url: link.url },
         _typography: {
           "font-size": "15px",
-          color: { hex: "#94a3b8" },
+          color: { hex: footerText },
           "text-decoration": "none",
         },
       });
@@ -1076,7 +1105,7 @@ export function generateFooterSection(
   const divider = createElement("div", container.id, {
     _width: "100%",
     _height: "1px",
-    _background: { color: { hex: "#1e293b" } },
+    _background: { color: { hex: footerDivider } },
   });
   linkElements(container, divider);
   elements.push(divider);
@@ -1087,6 +1116,8 @@ export function generateFooterSection(
     _justifyContent: "space-between",
     _alignItems: "center",
     _width: "100%",
+    _flexWrap: "wrap",
+    _gap: "16px",
   });
   linkElements(container, bottomRow);
   elements.push(bottomRow);
@@ -1095,7 +1126,7 @@ export function generateFooterSection(
     text: `<p>&copy; 2026 ${brandName}. All rights reserved.</p>`,
     _typography: {
       "font-size": "14px",
-      color: { hex: "#64748b" },
+      color: { hex: footerText },
     },
   });
   linkElements(bottomRow, copyright);
@@ -1108,34 +1139,26 @@ export function generateCTASection(
   headline: string = "Ready to Get Started?",
   subtext: string = "Join thousands of creators who are already building amazing websites.",
   buttonText: string = "Start Building Now",
-  style: "simple" | "gradient-card" = "gradient-card"
+  tokens: DesignTokens = LIGHT_DEFAULTS
 ): BricksElement[] {
   const elements: BricksElement[] = [];
 
   const section = createElement("section", 0, {
     _padding: { top: "100", bottom: "100", left: "40", right: "40" },
-    _background: {
-      color: { hex: style === "gradient-card" ? "#f8fafc" : "#3b82f6" },
-    },
+    _background: { color: { hex: tokens.surfaceColor } },
   }, "CTA Section");
   elements.push(section);
+
+  const ctaBg = tokens.darkMode ? adjustColor(tokens.surfaceColor, 0.15) : "#1e293b";
 
   const container = createElement("container", section.id, {
     _direction: "column",
     _alignItems: "center",
     _width: "900px",
     _margin: { left: "auto", right: "auto" },
-    ...(style === "gradient-card"
-      ? {
-          _padding: { top: "80", bottom: "80", left: "60", right: "60" },
-          _background: {
-            color: { hex: "#1e293b" },
-          },
-          _border: {
-            radius: { top: "24", right: "24", bottom: "24", left: "24" },
-          },
-        }
-      : {}),
+    _padding: { top: "80", bottom: "80", left: "60", right: "60" },
+    _background: { color: { hex: ctaBg } },
+    _border: { radius: radObj(tokens, 3) },
     _textAlign: "center",
     _gap: "24px",
   });
@@ -1172,10 +1195,8 @@ export function generateCTASection(
     tag: "a",
     link: { type: "external", url: "#" },
     _padding: { top: "16", bottom: "16", left: "40", right: "40" },
-    _background: { color: { hex: "#3b82f6" } },
-    _border: {
-      radius: { top: "10", right: "10", bottom: "10", left: "10" },
-    },
+    _background: { color: { hex: tokens.primaryColor } },
+    _border: { radius: radObj(tokens, 1.25) },
     _typography: {
       "font-size": "18px",
       "font-weight": "600",
@@ -1190,12 +1211,14 @@ export function generateCTASection(
   return elements;
 }
 
-export function generateContactSection(): BricksElement[] {
+export function generateContactSection(
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
   const elements: BricksElement[] = [];
 
   const section = createElement("section", 0, {
     _padding: { top: "100", bottom: "100", left: "40", right: "40" },
-    _background: { color: { hex: "#ffffff" } },
+    _background: { color: { hex: tokens.backgroundColor } },
   }, "Contact Section");
   elements.push(section);
 
@@ -1205,15 +1228,16 @@ export function generateContactSection(): BricksElement[] {
     _margin: { left: "auto", right: "auto" },
     _gap: "60px",
     _alignItems: "flex-start",
+    _flexWrap: "wrap",
   });
   linkElements(section, container);
   elements.push(container);
 
-  // Left info
   const infoBlock = createElement("div", container.id, {
     _display: "flex",
     _direction: "column",
     _width: "40%",
+    _minWidth: "280px",
     _gap: "24px",
   });
   linkElements(container, infoBlock);
@@ -1225,7 +1249,7 @@ export function generateContactSection(): BricksElement[] {
     _typography: {
       "font-size": "36px",
       "font-weight": "700",
-      color: { hex: "#0f172a" },
+      color: { hex: tokens.headingColor },
     },
   });
   linkElements(infoBlock, title);
@@ -1236,7 +1260,7 @@ export function generateContactSection(): BricksElement[] {
     _typography: {
       "font-size": "16px",
       "line-height": "1.7",
-      color: { hex: "#64748b" },
+      color: { hex: tokens.mutedTextColor },
     },
   });
   linkElements(infoBlock, desc);
@@ -1262,7 +1286,7 @@ export function generateContactSection(): BricksElement[] {
       _typography: {
         "font-size": "14px",
         "font-weight": "600",
-        color: { hex: "#0f172a" },
+        color: { hex: tokens.headingColor },
       },
     });
     linkElements(itemBlock, label);
@@ -1272,23 +1296,21 @@ export function generateContactSection(): BricksElement[] {
       text: `<p>${item.value}</p>`,
       _typography: {
         "font-size": "15px",
-        color: { hex: "#64748b" },
+        color: { hex: tokens.mutedTextColor },
       },
     });
     linkElements(itemBlock, value);
     elements.push(value);
   }
 
-  // Right form
   const formBlock = createElement("div", container.id, {
     _display: "flex",
     _direction: "column",
-    _width: "60%",
+    _width: "55%",
+    _minWidth: "300px",
     _padding: { top: "40", bottom: "40", left: "40", right: "40" },
-    _background: { color: { hex: "#f8fafc" } },
-    _border: {
-      radius: { top: "16", right: "16", bottom: "16", left: "16" },
-    },
+    _background: { color: { hex: tokens.surfaceColor } },
+    _border: { radius: radObj(tokens, 2) },
     _gap: "20px",
   });
   linkElements(container, formBlock);
@@ -1303,30 +1325,28 @@ export function generateContactSection(): BricksElement[] {
     ],
     submitButtonText: "Send Message",
     submitButtonStyle: "primary",
-    submitButtonBackgroundColor: { hex: "#3b82f6" },
+    submitButtonBackgroundColor: { hex: tokens.primaryColor },
     submitButtonTypography: {
       "font-size": "16px",
       "font-weight": "600",
       color: { hex: "#ffffff" },
     },
-    submitButtonBorder: {
-      radius: { top: "8", right: "8", bottom: "8", left: "8" },
-    },
-    fieldBackgroundColor: { hex: "#ffffff" },
+    submitButtonBorder: { radius: radObj(tokens) },
+    fieldBackgroundColor: { hex: tokens.backgroundColor },
     fieldBorder: {
-      radius: { top: "8", right: "8", bottom: "8", left: "8" },
+      radius: radObj(tokens),
       width: { top: "1", right: "1", bottom: "1", left: "1" },
       style: "solid",
-      color: { hex: "#e2e8f0" },
+      color: { hex: tokens.borderColor },
     },
     fieldTypography: {
       "font-size": "15px",
-      color: { hex: "#334155" },
+      color: { hex: tokens.textColor },
     },
     labelTypography: {
       "font-size": "14px",
       "font-weight": "500",
-      color: { hex: "#334155" },
+      color: { hex: tokens.textColor },
     },
     showLabels: true,
     actions: ["email"],
@@ -1342,10 +1362,7 @@ export function generateContactSection(): BricksElement[] {
 export function generateGallerySection(
   sectionTitle: string = "Our Gallery",
   sectionSubtitle: string = "Explore our latest work and projects",
-  items: Array<{
-    title: string;
-    category: string;
-  }> = [
+  items: Array<{ title: string; category: string }> = [
     { title: "Project Alpha", category: "Web Design" },
     { title: "Brand Identity", category: "Branding" },
     { title: "Mobile App UI", category: "UI/UX" },
@@ -1353,13 +1370,13 @@ export function generateGallerySection(
     { title: "Marketing Campaign", category: "Strategy" },
     { title: "Product Photography", category: "Photography" },
   ],
-  columns: number = 3
+  tokens: DesignTokens = LIGHT_DEFAULTS
 ): BricksElement[] {
   const elements: BricksElement[] = [];
 
   const section = createElement("section", 0, {
     _padding: { top: "100", bottom: "100", left: "40", right: "40" },
-    _background: { color: { hex: "#ffffff" } },
+    _background: { color: { hex: tokens.backgroundColor } },
   }, "Gallery");
   elements.push(section);
 
@@ -1390,7 +1407,7 @@ export function generateGallerySection(
       "font-size": "40px",
       "font-weight": "700",
       "line-height": "1.2",
-      color: { hex: "#0f172a" },
+      color: { hex: tokens.headingColor },
     },
     _margin: { bottom: "16" },
   });
@@ -1402,23 +1419,32 @@ export function generateGallerySection(
     _typography: {
       "font-size": "18px",
       "line-height": "1.6",
-      color: { hex: "#64748b" },
+      color: { hex: tokens.mutedTextColor },
     },
     _width: "600px",
   });
   linkElements(headerBlock, subtitle);
   elements.push(subtitle);
 
+  // Responsive grid
   const grid = createElement("div", container.id, {
     _display: "grid",
-    _gridTemplateColumns: `repeat(${columns}, 1fr)`,
+    _gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
     _gap: "24px",
     _width: "100%",
   });
   linkElements(container, grid);
   elements.push(grid);
 
-  const placeholderColors = ["#e2e8f0", "#dbeafe", "#fce7f3", "#d1fae5", "#fef3c7", "#ede9fe"];
+  const placeholderColors = [
+    withAlpha(tokens.primaryColor, 0.12),
+    withAlpha(tokens.secondaryColor, 0.12),
+    "#fce7f3",
+    "#d1fae5",
+    "#fef3c7",
+    "#ede9fe",
+  ];
+  const cardShadow = shadowSettings(tokens);
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
@@ -1426,19 +1452,19 @@ export function generateGallerySection(
     const card = createElement("div", grid.id, {
       _display: "flex",
       _direction: "column",
-      _background: { color: { hex: "#ffffff" } },
+      _background: { color: { hex: tokens.surfaceColor } },
       _border: {
-        radius: { top: "12", right: "12", bottom: "12", left: "12" },
+        radius: radObj(tokens, 1.5),
         width: { top: "1", right: "1", bottom: "1", left: "1" },
         style: "solid",
-        color: { hex: "#e2e8f0" },
+        color: { hex: tokens.borderColor },
       },
       _overflow: "hidden",
+      ...(cardShadow ? { _boxShadow: cardShadow } : {}),
     });
     linkElements(grid, card);
     elements.push(card);
 
-    // Image placeholder area
     const imagePlaceholder = createElement("div", card.id, {
       _width: "100%",
       _height: "240px",
@@ -1454,14 +1480,13 @@ export function generateGallerySection(
       text: "<p>&#128247;</p>",
       _typography: {
         "font-size": "48px",
-        color: { hex: "#94a3b8" },
+        color: { hex: tokens.mutedTextColor },
       },
       _opacity: "0.4",
     });
     linkElements(imagePlaceholder, imageIcon);
     elements.push(imageIcon);
 
-    // Card content
     const cardContent = createElement("div", card.id, {
       _display: "flex",
       _direction: "column",
@@ -1476,7 +1501,7 @@ export function generateGallerySection(
       _typography: {
         "font-size": "12px",
         "font-weight": "600",
-        color: { hex: "#3b82f6" },
+        color: { hex: tokens.primaryColor },
         "text-transform": "uppercase",
         "letter-spacing": "0.05em",
       },
@@ -1491,7 +1516,7 @@ export function generateGallerySection(
         "font-size": "18px",
         "font-weight": "600",
         "line-height": "1.4",
-        color: { hex: "#0f172a" },
+        color: { hex: tokens.headingColor },
       },
     });
     linkElements(cardContent, itemTitle);
@@ -1501,7 +1526,7 @@ export function generateGallerySection(
   return elements;
 }
 
-// Full page generator
+// Full page generator (uses default tokens if none provided)
 export function generateFullPage(
   config: {
     brandName?: string;
@@ -1515,6 +1540,7 @@ export function generateFullPage(
     includeCTA?: boolean;
     includeContact?: boolean;
     includeFooter?: boolean;
+    tokens?: DesignTokens;
   } = {}
 ): BricksElement[] {
   const {
@@ -1529,18 +1555,19 @@ export function generateFullPage(
     includeCTA = true,
     includeContact = false,
     includeFooter = true,
+    tokens = LIGHT_DEFAULTS,
   } = config;
 
   let elements: BricksElement[] = [];
 
-  if (includeNavbar) elements = [...elements, ...generateNavbar(brandName)];
-  if (includeHero) elements = [...elements, ...generateHeroSection(headline, subtext)];
-  if (includeFeatures) elements = [...elements, ...generateFeaturesSection()];
-  if (includeTestimonials) elements = [...elements, ...generateTestimonialsSection()];
-  if (includePricing) elements = [...elements, ...generatePricingSection()];
-  if (includeCTA) elements = [...elements, ...generateCTASection()];
-  if (includeContact) elements = [...elements, ...generateContactSection()];
-  if (includeFooter) elements = [...elements, ...generateFooterSection(brandName)];
+  if (includeNavbar) elements = [...elements, ...generateNavbar(brandName, undefined, undefined, tokens)];
+  if (includeHero) elements = [...elements, ...generateHeroSection(headline, subtext, undefined, undefined, undefined, tokens)];
+  if (includeFeatures) elements = [...elements, ...generateFeaturesSection(undefined, undefined, undefined, tokens)];
+  if (includeTestimonials) elements = [...elements, ...generateTestimonialsSection(undefined, tokens)];
+  if (includePricing) elements = [...elements, ...generatePricingSection(undefined, tokens)];
+  if (includeCTA) elements = [...elements, ...generateCTASection(undefined, undefined, undefined, tokens)];
+  if (includeContact) elements = [...elements, ...generateContactSection(tokens)];
+  if (includeFooter) elements = [...elements, ...generateFooterSection(brandName, undefined, tokens)];
 
   return elements;
 }

@@ -280,8 +280,7 @@ export const TEMPLATES: TemplateDefinition[] = [
     generator: () => generateCTASection(
       "Start Your Free Trial Today",
       "No credit card required. Get started in under 2 minutes.",
-      "Start Free Trial",
-      "simple"
+      "Start Free Trial"
     ),
   },
 

@@ -10,7 +10,9 @@ import {
   generateContactSection,
   generateGallerySection,
   wrapTemplate,
+  resolveDesignTokens,
   BricksElement,
+  DesignTokens,
 } from "@/lib/bricks-engine";
 
 // Generation config that both built-in and AI modes produce
@@ -43,6 +45,112 @@ interface GenerationConfig {
   galleryItems: Array<{ title: string; category: string }>;
   gallerySectionTitle: string;
   gallerySectionSubtitle: string;
+  designTokens: Partial<DesignTokens>;
+}
+
+// ============================================================
+// COLOR & DESIGN DETECTION (for built-in mode)
+// ============================================================
+
+const COLOR_MAP: Record<string, string> = {
+  // German
+  schwarz: "#000000", weiß: "#ffffff", weiss: "#ffffff", rot: "#ef4444",
+  blau: "#3b82f6", grün: "#10b981", gruen: "#10b981", gelb: "#f59e0b",
+  lila: "#8b5cf6", violett: "#7c3aed", pink: "#ec4899", rosa: "#f472b6",
+  orange: "#f97316", türkis: "#06b6d4", tuerkis: "#06b6d4", grau: "#6b7280",
+  braun: "#92400e", gold: "#d97706", silber: "#9ca3af",
+  // English
+  black: "#000000", white: "#ffffff", red: "#ef4444",
+  blue: "#3b82f6", green: "#10b981", yellow: "#f59e0b",
+  purple: "#8b5cf6", violet: "#7c3aed", teal: "#14b8a6",
+  cyan: "#06b6d4", gray: "#6b7280", grey: "#6b7280",
+  brown: "#92400e", silver: "#9ca3af", navy: "#1e3a5f",
+  indigo: "#4f46e5", lime: "#84cc16", emerald: "#059669",
+  amber: "#d97706", slate: "#475569", zinc: "#71717a",
+  coral: "#f97316", crimson: "#dc2626", magenta: "#d946ef",
+};
+
+function detectDesignTokens(prompt: string): Partial<DesignTokens> {
+  const lower = prompt.toLowerCase();
+  const tokens: Partial<DesignTokens> = {};
+
+  // Detect dark mode
+  if (/dunkel|dark\s*mode|dark\s*theme|dunkler?\s*hintergrund|schwarzer?\s*hintergrund|dark\s*background/i.test(lower)) {
+    tokens.darkMode = true;
+  }
+
+  // Detect hex colors in prompt: #RRGGBB or #RGB
+  const hexMatches = prompt.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g);
+  if (hexMatches && hexMatches.length > 0) {
+    tokens.primaryColor = hexMatches[0];
+    if (hexMatches.length > 1) tokens.secondaryColor = hexMatches[1];
+    if (hexMatches.length > 2) tokens.backgroundColor = hexMatches[2];
+  }
+
+  // Detect named colors with context
+  // "primary/haupt color/farbe: blue/blau" or "in blau" or "blaue buttons"
+  const primaryColorMatch = lower.match(/(?:primary|haupt|accent|akzent|brand|marken)[\s-]*(?:color|farbe|colour)[\s:]*(\w+)/i)
+    || lower.match(/(?:buttons?|knöpfe?|cta)\s+(?:in\s+)?(\w+)/i);
+  if (primaryColorMatch && COLOR_MAP[primaryColorMatch[1]]) {
+    tokens.primaryColor = COLOR_MAP[primaryColorMatch[1]];
+  }
+
+  const bgColorMatch = lower.match(/(?:background|hintergrund|bg)[\s-]*(?:color|farbe|colour)?[\s:]*(\w+)/i);
+  if (bgColorMatch && COLOR_MAP[bgColorMatch[1]]) {
+    const bgColor = COLOR_MAP[bgColorMatch[1]];
+    tokens.backgroundColor = bgColor;
+    // If bg is dark, auto-enable dark mode
+    if (["#000000", "#0f172a", "#1e293b", "#111827"].includes(bgColor) || bgColorMatch[1].match(/schwarz|black|dunkel|dark/)) {
+      tokens.darkMode = true;
+    }
+  }
+
+  const textColorMatch = lower.match(/(?:text|schrift|font)[\s-]*(?:color|farbe|colour)?[\s:]*(\w+)/i);
+  if (textColorMatch && COLOR_MAP[textColorMatch[1]]) {
+    tokens.textColor = COLOR_MAP[textColorMatch[1]];
+    tokens.headingColor = COLOR_MAP[textColorMatch[1]];
+  }
+
+  // Detect general color mentions (without context) as primary color fallback
+  if (!tokens.primaryColor) {
+    for (const [name, hex] of Object.entries(COLOR_MAP)) {
+      if (name.length >= 3 && new RegExp(`\\b${name}\\b`, "i").test(lower)) {
+        tokens.primaryColor = hex;
+        break;
+      }
+    }
+  }
+
+  // Detect border radius
+  if (/eckig|sharp|kantig|keine?\s*rundung|no\s*radius|square/i.test(lower)) {
+    tokens.borderRadius = "none";
+  } else if (/leicht\s*rund|slightly\s*round|subtle\s*radius/i.test(lower)) {
+    tokens.borderRadius = "small";
+  } else if (/sehr\s*rund|very\s*round|stark\s*gerundet|pill|rounded/i.test(lower)) {
+    tokens.borderRadius = "large";
+  } else if (/voll\s*rund|fully\s*round|komplett\s*rund|kreisförmig/i.test(lower)) {
+    tokens.borderRadius = "full";
+  } else if (/rund|round/i.test(lower)) {
+    tokens.borderRadius = "large";
+  }
+
+  // Detect shadows
+  if (/schatten|shadow/i.test(lower)) {
+    if (/großer?\s*schatten|large\s*shadow|starker?\s*schatten|strong\s*shadow/i.test(lower)) {
+      tokens.shadow = "large";
+    } else if (/leichter?\s*schatten|subtle\s*shadow|kleiner?\s*schatten|small\s*shadow/i.test(lower)) {
+      tokens.shadow = "small";
+    } else {
+      tokens.shadow = "medium";
+    }
+  }
+
+  // Detect "no shadow" explicitly
+  if (/kein(?:e|en)?\s*schatten|no\s*shadow|flat|flach/i.test(lower)) {
+    tokens.shadow = "none";
+  }
+
+  return tokens;
 }
 
 // ============================================================
@@ -73,7 +181,7 @@ function analyzePrompt(prompt: string): GenerationConfig {
   if (isFullPage) {
     sections.push("navbar", "hero", "features", "testimonials", "pricing", "cta", "footer");
     if (hasContact) sections.push("contact");
-    if (hasGallery) sections.splice(3, 0, "gallery"); // after features
+    if (hasGallery) sections.splice(3, 0, "gallery");
   } else {
     if (hasNavbar) sections.push("navbar");
     if (hasHero) sections.push("hero");
@@ -84,7 +192,6 @@ function analyzePrompt(prompt: string): GenerationConfig {
     if (hasCTA) sections.push("cta");
     if (hasContact) sections.push("contact");
     if (hasFooter) sections.push("footer");
-    // Default: if nothing matched, generate gallery for gallery-like prompts, otherwise hero
     if (sections.length === 0) sections.push("hero");
   }
 
@@ -127,11 +234,26 @@ function analyzePrompt(prompt: string): GenerationConfig {
     { name: "Enterprise", price: "$99", period: "/month", features: ["Everything in Pro", "Dedicated Support", "SLA Guarantee", "Custom Integrations"], buttonText: "Contact Sales" },
   ];
 
-  let testimonials = [
+  // Detect testimonial count from prompt
+  let testimonialCount = 3;
+  const countMatch = lower.match(/(\d+)\s*(?:testimonials?|bewertungen?|kundenstimmen?|reviews?)/i);
+  if (countMatch) testimonialCount = Math.min(12, Math.max(1, parseInt(countMatch[1])));
+
+  const defaultTestimonials = [
     { quote: "This product completely transformed how we work. The results are incredible.", author: "Sarah Johnson", role: "CEO, TechStart", rating: 5 },
     { quote: "Best investment we've made this year. The ROI has been phenomenal.", author: "Michael Chen", role: "Marketing Director", rating: 5 },
     { quote: "Outstanding quality and support. Highly recommended for any business.", author: "Emily Rodriguez", role: "Founder, Creative Labs", rating: 5 },
+    { quote: "The level of detail and craftsmanship is absolutely outstanding.", author: "David Park", role: "CTO, InnovateTech", rating: 5 },
+    { quote: "Exceeded all our expectations. A game-changer for our workflow.", author: "Lisa Mueller", role: "Product Manager, DataFlow", rating: 5 },
+    { quote: "Incredible value and performance. Our team productivity has doubled.", author: "James Wilson", role: "VP Engineering, CloudBase", rating: 5 },
+    { quote: "Simply the best solution we've ever used. Five stars without hesitation.", author: "Anna Schmidt", role: "Director, DesignHub", rating: 5 },
+    { quote: "Transformed our entire approach to digital. Couldn't be happier.", author: "Robert Kim", role: "CEO, NextLevel Agency", rating: 5 },
+    { quote: "Fast, reliable, and beautiful. Everything we needed and more.", author: "Maria Garcia", role: "Lead Designer, Artistry Co", rating: 5 },
+    { quote: "The support team alone makes this worth every penny. Truly exceptional.", author: "Thomas Anderson", role: "Founder, MatrixApps", rating: 5 },
+    { quote: "We saw immediate results after implementing this solution.", author: "Sophie Laurent", role: "CMO, BrightPath", rating: 5 },
+    { quote: "Professional, polished, and powerful. The trifecta of great software.", author: "Carlos Rivera", role: "Tech Lead, Zenith Labs", rating: 5 },
   ];
+  const testimonials = defaultTestimonials.slice(0, testimonialCount);
 
   // Industry detection
   if (/restaurant|food|essen|küche|gastro/i.test(lower)) {
@@ -230,23 +352,26 @@ function analyzePrompt(prompt: string): GenerationConfig {
     { text: "Contact", url: "#contact" },
   ];
 
+  // Detect design tokens from prompt
+  const designTokens = detectDesignTokens(prompt);
+
   return {
     sections, brandName, headline, subtext, heroStyle, buttonText,
     features, plans, testimonials, navLinks, ctaHeadline, ctaSubtext, ctaButtonText,
     galleryItems, gallerySectionTitle, gallerySectionSubtitle,
+    designTokens,
   };
 }
 
 // ============================================================
-// AI MODE: AI generates content, our engine builds the structure
-// -> Structure is ALWAYS correct, AI just makes content smarter
+// AI MODE: AI generates content + design tokens
 // ============================================================
 async function generateContentWithAI(
   prompt: string,
   apiKey: string,
   isAnthropic: boolean
 ): Promise<GenerationConfig> {
-  const systemPrompt = `Du bist ein Content-Generator für Website-Templates. Der User beschreibt eine Website, du lieferst passende Inhalte als JSON zurück.
+  const systemPrompt = `Du bist ein Content- und Design-Generator für Website-Templates. Der User beschreibt eine Website (inkl. Farben, Stil, Design-Vorgaben), du lieferst passende Inhalte UND Design-Tokens als JSON zurück.
 
 Antworte NUR mit einem JSON-Objekt in diesem exakten Format:
 {
@@ -292,17 +417,52 @@ Antworte NUR mit einem JSON-Objekt in diesem exakten Format:
   ],
   "ctaHeadline": "CTA Überschrift",
   "ctaSubtext": "CTA Beschreibung",
-  "ctaButtonText": "CTA Button"
+  "ctaButtonText": "CTA Button",
+  "designTokens": {
+    "primaryColor": "#3b82f6",
+    "secondaryColor": "#8b5cf6",
+    "backgroundColor": "#ffffff",
+    "surfaceColor": "#f8fafc",
+    "textColor": "#334155",
+    "headingColor": "#0f172a",
+    "mutedTextColor": "#64748b",
+    "borderColor": "#e2e8f0",
+    "borderRadius": "medium",
+    "shadow": "none",
+    "darkMode": false
+  }
 }
 
-Regeln:
+DESIGN TOKEN REGELN:
+- "primaryColor": Hauptfarbe für Buttons, Links, Akzente (Hex)
+- "secondaryColor": Zweite Akzentfarbe (Hex)
+- "backgroundColor": Seitenhintergrund (Hex)
+- "surfaceColor": Hintergrund für Karten/Panels (Hex) - etwas anders als backgroundColor
+- "textColor": Fließtext-Farbe (Hex)
+- "headingColor": Überschriften-Farbe (Hex)
+- "mutedTextColor": Dezente/sekundäre Textfarbe (Hex)
+- "borderColor": Rahmenfarbe (Hex)
+- "borderRadius": "none" | "small" | "medium" | "large" | "full" - Rundung der Ecken
+- "shadow": "none" | "small" | "medium" | "large" - Schatten-Stärke
+- "darkMode": true/false - Wenn true werden Hintergrundfarben dunkel und Textfarben hell
+- WICHTIG: Wenn der User Farben nennt (z.B. "schwarz", "rot", "blau", "#FF0000"), setze diese als passende designTokens!
+- Wenn der User "schwarzer Hintergrund" oder "dark" sagt → darkMode: true, backgroundColor: "#000000" oder "#0f172a"
+- Wenn der User "weiße Texte" sagt → textColor: "#ffffff", headingColor: "#ffffff"
+- Wenn der User "runde Ecken" oder "rounded" sagt → borderRadius: "large" oder "full"
+- Wenn der User "Schatten" oder "shadow" sagt → shadow: "medium" oder "large"
+- Alle Farben als Hex-Werte (#RRGGBB)
+
+SECTION REGELN:
 - "sections" muss ein Array sein mit Werten aus: "navbar", "hero", "gallery", "features", "testimonials", "pricing", "cta", "contact", "footer"
 - Wähle NUR die Sections, die zum Prompt des Users passen! Wenn der User z.B. nur "gallery" will, gib nur ["gallery"] zurück
 - Wenn der User "gallery", "portfolio", "showcase", "Galerie", "Bilder", "Fotos" erwähnt, MUSS "gallery" in sections enthalten sein
 - "heroStyle" muss eines von "centered", "split", "gradient" sein
+
+CONTENT REGELN:
 - Passe ALLE Texte an die beschriebene Branche/Nische an
 - Features sollten genau 6 sein, galleryItems genau 6
-- Plans sollten genau 3 sein, Testimonials genau 3
+- Plans sollten genau 3 sein
+- Testimonials: Die Anzahl muss zum Prompt passen. Wenn der User "6 Testimonials" sagt, gib 6 zurück. Standardmäßig 3.
 - Wenn der User Deutsch schreibt, antworte mit deutschen Inhalten
 - Antworte NUR mit dem JSON, kein anderer Text`;
 
@@ -366,6 +526,23 @@ Regeln:
 
   const parsed = JSON.parse(jsonMatch[0]);
 
+  // Parse design tokens from AI response
+  const aiDesignTokens: Partial<DesignTokens> = {};
+  if (parsed.designTokens && typeof parsed.designTokens === "object") {
+    const dt = parsed.designTokens;
+    if (typeof dt.primaryColor === "string" && dt.primaryColor.startsWith("#")) aiDesignTokens.primaryColor = dt.primaryColor;
+    if (typeof dt.secondaryColor === "string" && dt.secondaryColor.startsWith("#")) aiDesignTokens.secondaryColor = dt.secondaryColor;
+    if (typeof dt.backgroundColor === "string" && dt.backgroundColor.startsWith("#")) aiDesignTokens.backgroundColor = dt.backgroundColor;
+    if (typeof dt.surfaceColor === "string" && dt.surfaceColor.startsWith("#")) aiDesignTokens.surfaceColor = dt.surfaceColor;
+    if (typeof dt.textColor === "string" && dt.textColor.startsWith("#")) aiDesignTokens.textColor = dt.textColor;
+    if (typeof dt.headingColor === "string" && dt.headingColor.startsWith("#")) aiDesignTokens.headingColor = dt.headingColor;
+    if (typeof dt.mutedTextColor === "string" && dt.mutedTextColor.startsWith("#")) aiDesignTokens.mutedTextColor = dt.mutedTextColor;
+    if (typeof dt.borderColor === "string" && dt.borderColor.startsWith("#")) aiDesignTokens.borderColor = dt.borderColor;
+    if (["none", "small", "medium", "large", "full"].includes(dt.borderRadius)) aiDesignTokens.borderRadius = dt.borderRadius;
+    if (["none", "small", "medium", "large"].includes(dt.shadow)) aiDesignTokens.shadow = dt.shadow;
+    if (typeof dt.darkMode === "boolean") aiDesignTokens.darkMode = dt.darkMode;
+  }
+
   // Validate and fill defaults for any missing fields
   return {
     sections: Array.isArray(parsed.sections) ? parsed.sections : ["hero"],
@@ -381,7 +558,7 @@ Regeln:
       ? parsed.plans
       : [{ name: "Basic", price: "$9", period: "/month", features: ["Feature 1"], buttonText: "Start" }],
     testimonials: Array.isArray(parsed.testimonials) && parsed.testimonials.length > 0
-      ? parsed.testimonials
+      ? parsed.testimonials.slice(0, 12)
       : [{ quote: "Great product!", author: "User", role: "Customer", rating: 5 }],
     navLinks: Array.isArray(parsed.navLinks) && parsed.navLinks.length > 0
       ? parsed.navLinks
@@ -390,7 +567,7 @@ Regeln:
     ctaSubtext: parsed.ctaSubtext || "Join thousands of happy customers.",
     ctaButtonText: parsed.ctaButtonText || "Start Now",
     galleryItems: Array.isArray(parsed.galleryItems) && parsed.galleryItems.length > 0
-      ? parsed.galleryItems.slice(0, 6)
+      ? parsed.galleryItems.slice(0, 12)
       : [
           { title: "Project Alpha", category: "Web Design" },
           { title: "Brand Identity", category: "Branding" },
@@ -401,6 +578,7 @@ Regeln:
         ],
     gallerySectionTitle: parsed.gallerySectionTitle || "Our Gallery",
     gallerySectionSubtitle: parsed.gallerySectionSubtitle || "Explore our latest work and projects",
+    designTokens: aiDesignTokens,
   };
 }
 
@@ -409,35 +587,36 @@ Regeln:
 // ============================================================
 function generateFromConfig(config: GenerationConfig): BricksElement[] {
   let elements: BricksElement[] = [];
+  const tokens = resolveDesignTokens(config.designTokens);
 
   for (const section of config.sections) {
     switch (section) {
       case "navbar":
-        elements = [...elements, ...generateNavbar(config.brandName, config.navLinks)];
+        elements = [...elements, ...generateNavbar(config.brandName, config.navLinks, undefined, tokens)];
         break;
       case "hero":
-        elements = [...elements, ...generateHeroSection(config.headline, config.subtext, config.buttonText, "#", config.heroStyle)];
+        elements = [...elements, ...generateHeroSection(config.headline, config.subtext, config.buttonText, "#", config.heroStyle, tokens)];
         break;
       case "features":
-        elements = [...elements, ...generateFeaturesSection(undefined, undefined, config.features)];
+        elements = [...elements, ...generateFeaturesSection(undefined, undefined, config.features, tokens)];
         break;
       case "gallery":
-        elements = [...elements, ...generateGallerySection(config.gallerySectionTitle, config.gallerySectionSubtitle, config.galleryItems)];
+        elements = [...elements, ...generateGallerySection(config.gallerySectionTitle, config.gallerySectionSubtitle, config.galleryItems, tokens)];
         break;
       case "pricing":
-        elements = [...elements, ...generatePricingSection(config.plans)];
+        elements = [...elements, ...generatePricingSection(config.plans, tokens)];
         break;
       case "testimonials":
-        elements = [...elements, ...generateTestimonialsSection(config.testimonials)];
+        elements = [...elements, ...generateTestimonialsSection(config.testimonials, tokens)];
         break;
       case "cta":
-        elements = [...elements, ...generateCTASection(config.ctaHeadline, config.ctaSubtext, config.ctaButtonText)];
+        elements = [...elements, ...generateCTASection(config.ctaHeadline, config.ctaSubtext, config.ctaButtonText, tokens)];
         break;
       case "contact":
-        elements = [...elements, ...generateContactSection()];
+        elements = [...elements, ...generateContactSection(tokens)];
         break;
       case "footer":
-        elements = [...elements, ...generateFooterSection(config.brandName)];
+        elements = [...elements, ...generateFooterSection(config.brandName, undefined, tokens)];
         break;
     }
   }
