@@ -1526,6 +1526,886 @@ export function generateGallerySection(
   return elements;
 }
 
+// ============================================================
+// TEAM SECTION
+// ============================================================
+export function generateTeamSection(
+  sectionTitle: string = "Meet Our Team",
+  sectionSubtitle: string = "The talented people behind our success",
+  members: Array<{
+    name: string;
+    role: string;
+    bio?: string;
+  }> = [
+    { name: "Sarah Johnson", role: "CEO & Founder", bio: "Visionary leader with 15+ years in tech." },
+    { name: "Michael Chen", role: "CTO", bio: "Full-stack architect passionate about scalable systems." },
+    { name: "Emily Rodriguez", role: "Design Director", bio: "Award-winning designer crafting pixel-perfect experiences." },
+    { name: "David Park", role: "Head of Marketing", bio: "Data-driven strategist growing brands globally." },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "100", bottom: "100", left: "40", right: "40" },
+    _background: { color: { hex: tokens.surfaceColor } },
+  }, "Team Section");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: "1200px",
+    _margin: { left: "auto", right: "auto" },
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  const headerBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _margin: { bottom: "60" },
+    _width: "100%",
+  });
+  linkElements(container, headerBlock);
+  elements.push(headerBlock);
+
+  const title = createElement("heading", headerBlock.id, {
+    text: sectionTitle,
+    tag: "h2",
+    _typography: {
+      "font-size": "40px",
+      "font-weight": "700",
+      "line-height": "1.2",
+      color: { hex: tokens.headingColor },
+    },
+    _margin: { bottom: "16" },
+  });
+  linkElements(headerBlock, title);
+  elements.push(title);
+
+  const subtitle = createElement("text-basic", headerBlock.id, {
+    text: `<p>${sectionSubtitle}</p>`,
+    _typography: {
+      "font-size": "18px",
+      "line-height": "1.6",
+      color: { hex: tokens.mutedTextColor },
+    },
+    _width: "600px",
+  });
+  linkElements(headerBlock, subtitle);
+  elements.push(subtitle);
+
+  const grid = createElement("div", container.id, {
+    _display: "grid",
+    _gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+    _gap: "32px",
+    _width: "100%",
+  });
+  linkElements(container, grid);
+  elements.push(grid);
+
+  const cardShadow = shadowSettings(tokens);
+  const avatarColors = [tokens.primaryColor, tokens.secondaryColor, "#06b6d4", "#f59e0b", "#10b981", "#ef4444"];
+
+  for (let i = 0; i < members.length; i++) {
+    const member = members[i];
+
+    const card = createElement("div", grid.id, {
+      _display: "flex",
+      _direction: "column",
+      _alignItems: "center",
+      _padding: { top: "40", bottom: "40", left: "32", right: "32" },
+      _background: { color: { hex: tokens.backgroundColor } },
+      _border: {
+        radius: radObj(tokens, 2),
+        width: { top: "1", right: "1", bottom: "1", left: "1" },
+        style: "solid",
+        color: { hex: tokens.borderColor },
+      },
+      _gap: "16px",
+      _textAlign: "center",
+      ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+    });
+    linkElements(grid, card);
+    elements.push(card);
+
+    // Avatar placeholder circle
+    const avatar = createElement("div", card.id, {
+      _width: "96px",
+      _height: "96px",
+      _background: { color: { hex: withAlpha(avatarColors[i % avatarColors.length], 0.15) } },
+      _border: {
+        radius: { top: "9999", right: "9999", bottom: "9999", left: "9999" },
+      },
+      _display: "flex",
+      _justifyContent: "center",
+      _alignItems: "center",
+    });
+    linkElements(card, avatar);
+    elements.push(avatar);
+
+    const initials = createElement("text-basic", avatar.id, {
+      text: `<p>${member.name.split(" ").map(n => n[0]).join("")}</p>`,
+      _typography: {
+        "font-size": "28px",
+        "font-weight": "700",
+        color: { hex: avatarColors[i % avatarColors.length] },
+      },
+    });
+    linkElements(avatar, initials);
+    elements.push(initials);
+
+    const memberName = createElement("heading", card.id, {
+      text: member.name,
+      tag: "h3",
+      _typography: {
+        "font-size": "20px",
+        "font-weight": "600",
+        color: { hex: tokens.headingColor },
+      },
+    });
+    linkElements(card, memberName);
+    elements.push(memberName);
+
+    const memberRole = createElement("text-basic", card.id, {
+      text: `<p>${member.role}</p>`,
+      _typography: {
+        "font-size": "14px",
+        "font-weight": "600",
+        color: { hex: tokens.primaryColor },
+        "text-transform": "uppercase",
+        "letter-spacing": "0.05em",
+      },
+    });
+    linkElements(card, memberRole);
+    elements.push(memberRole);
+
+    if (member.bio) {
+      const memberBio = createElement("text-basic", card.id, {
+        text: `<p>${member.bio}</p>`,
+        _typography: {
+          "font-size": "15px",
+          "line-height": "1.6",
+          color: { hex: tokens.mutedTextColor },
+        },
+      });
+      linkElements(card, memberBio);
+      elements.push(memberBio);
+    }
+  }
+
+  return elements;
+}
+
+// ============================================================
+// STATS / COUNTER SECTION
+// ============================================================
+export function generateStatsSection(
+  sectionTitle: string = "Our Impact in Numbers",
+  stats: Array<{
+    value: string;
+    label: string;
+    description?: string;
+  }> = [
+    { value: "10,000+", label: "Active Users", description: "Growing every day" },
+    { value: "99.9%", label: "Uptime", description: "Enterprise reliability" },
+    { value: "150+", label: "Countries", description: "Global presence" },
+    { value: "4.9/5", label: "Rating", description: "Customer satisfaction" },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "80", bottom: "80", left: "40", right: "40" },
+    _background: { color: { hex: tokens.darkMode ? tokens.surfaceColor : tokens.primaryColor } },
+  }, "Stats Section");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: "1200px",
+    _margin: { left: "auto", right: "auto" },
+    _gap: "48px",
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  if (sectionTitle) {
+    const title = createElement("heading", container.id, {
+      text: sectionTitle,
+      tag: "h2",
+      _typography: {
+        "font-size": "36px",
+        "font-weight": "700",
+        "line-height": "1.2",
+        color: { hex: tokens.darkMode ? tokens.headingColor : "#ffffff" },
+      },
+      _textAlign: "center",
+    });
+    linkElements(container, title);
+    elements.push(title);
+  }
+
+  const grid = createElement("div", container.id, {
+    _display: "grid",
+    _gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    _gap: "40px",
+    _width: "100%",
+  });
+  linkElements(container, grid);
+  elements.push(grid);
+
+  for (const stat of stats) {
+    const statBlock = createElement("div", grid.id, {
+      _display: "flex",
+      _direction: "column",
+      _alignItems: "center",
+      _textAlign: "center",
+      _gap: "8px",
+    });
+    linkElements(grid, statBlock);
+    elements.push(statBlock);
+
+    const value = createElement("heading", statBlock.id, {
+      text: stat.value,
+      tag: "custom",
+      customTag: "span",
+      _typography: {
+        "font-size": "48px",
+        "font-weight": "800",
+        "line-height": "1.1",
+        color: { hex: tokens.darkMode ? tokens.primaryColor : "#ffffff" },
+      },
+    });
+    linkElements(statBlock, value);
+    elements.push(value);
+
+    const label = createElement("heading", statBlock.id, {
+      text: stat.label,
+      tag: "h4",
+      _typography: {
+        "font-size": "18px",
+        "font-weight": "600",
+        color: { hex: tokens.darkMode ? tokens.headingColor : "#ffffff" },
+      },
+    });
+    linkElements(statBlock, label);
+    elements.push(label);
+
+    if (stat.description) {
+      const desc = createElement("text-basic", statBlock.id, {
+        text: `<p>${stat.description}</p>`,
+        _typography: {
+          "font-size": "14px",
+          color: { hex: tokens.darkMode ? tokens.mutedTextColor : "rgba(255,255,255,0.7)" },
+        },
+      });
+      linkElements(statBlock, desc);
+      elements.push(desc);
+    }
+  }
+
+  return elements;
+}
+
+// ============================================================
+// FAQ SECTION
+// ============================================================
+export function generateFaqSection(
+  sectionTitle: string = "Frequently Asked Questions",
+  sectionSubtitle: string = "Everything you need to know",
+  items: Array<{
+    question: string;
+    answer: string;
+  }> = [
+    { question: "How do I get started?", answer: "Simply sign up for a free account and follow our quick-start guide. You'll be up and running in under 5 minutes." },
+    { question: "Is there a free plan?", answer: "Yes! We offer a generous free plan that includes all core features. Upgrade anytime for advanced functionality." },
+    { question: "Can I cancel my subscription?", answer: "Absolutely. You can cancel your subscription at any time with no questions asked. No hidden fees or lock-in periods." },
+    { question: "Do you offer customer support?", answer: "We provide 24/7 email support for all plans. Priority and live chat support are available on Professional and Enterprise plans." },
+    { question: "Is my data secure?", answer: "Security is our top priority. We use bank-level encryption, are SOC 2 certified, and perform regular security audits." },
+    { question: "Can I import my existing data?", answer: "Yes, we support imports from all major platforms. Our migration team can also assist with custom data transfers." },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "100", bottom: "100", left: "40", right: "40" },
+    _background: { color: { hex: tokens.backgroundColor } },
+  }, "FAQ Section");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: "900px",
+    _margin: { left: "auto", right: "auto" },
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  const headerBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _margin: { bottom: "60" },
+    _width: "100%",
+  });
+  linkElements(container, headerBlock);
+  elements.push(headerBlock);
+
+  const title = createElement("heading", headerBlock.id, {
+    text: sectionTitle,
+    tag: "h2",
+    _typography: {
+      "font-size": "40px",
+      "font-weight": "700",
+      "line-height": "1.2",
+      color: { hex: tokens.headingColor },
+    },
+    _margin: { bottom: "16" },
+  });
+  linkElements(headerBlock, title);
+  elements.push(title);
+
+  const subtitle = createElement("text-basic", headerBlock.id, {
+    text: `<p>${sectionSubtitle}</p>`,
+    _typography: {
+      "font-size": "18px",
+      "line-height": "1.6",
+      color: { hex: tokens.mutedTextColor },
+    },
+  });
+  linkElements(headerBlock, subtitle);
+  elements.push(subtitle);
+
+  const faqList = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _width: "100%",
+    _gap: "0px",
+  });
+  linkElements(container, faqList);
+  elements.push(faqList);
+
+  for (const item of items) {
+    const faqItem = createElement("div", faqList.id, {
+      _display: "flex",
+      _direction: "column",
+      _padding: { top: "24", bottom: "24", left: "0", right: "0" },
+      _border: {
+        width: { bottom: "1" },
+        style: "solid",
+        color: { hex: tokens.borderColor },
+      },
+      _gap: "12px",
+    });
+    linkElements(faqList, faqItem);
+    elements.push(faqItem);
+
+    const question = createElement("heading", faqItem.id, {
+      text: item.question,
+      tag: "h3",
+      _typography: {
+        "font-size": "18px",
+        "font-weight": "600",
+        "line-height": "1.4",
+        color: { hex: tokens.headingColor },
+      },
+    });
+    linkElements(faqItem, question);
+    elements.push(question);
+
+    const answer = createElement("text-basic", faqItem.id, {
+      text: `<p>${item.answer}</p>`,
+      _typography: {
+        "font-size": "16px",
+        "line-height": "1.7",
+        color: { hex: tokens.mutedTextColor },
+      },
+    });
+    linkElements(faqItem, answer);
+    elements.push(answer);
+  }
+
+  return elements;
+}
+
+// ============================================================
+// LOGO CLOUD SECTION
+// ============================================================
+export function generateLogoCloudSection(
+  sectionTitle: string = "Trusted by Industry Leaders",
+  logos: Array<{ name: string }> = [
+    { name: "TechCorp" },
+    { name: "InnovateLab" },
+    { name: "CloudBase" },
+    { name: "DataFlow" },
+    { name: "ScaleUp" },
+    { name: "NextGen" },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "60", bottom: "60", left: "40", right: "40" },
+    _background: { color: { hex: tokens.surfaceColor } },
+  }, "Logo Cloud");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: "1200px",
+    _margin: { left: "auto", right: "auto" },
+    _gap: "40px",
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  const title = createElement("text-basic", container.id, {
+    text: `<p>${sectionTitle}</p>`,
+    _typography: {
+      "font-size": "15px",
+      "font-weight": "500",
+      color: { hex: tokens.mutedTextColor },
+      "text-transform": "uppercase",
+      "letter-spacing": "0.08em",
+    },
+    _textAlign: "center",
+  });
+  linkElements(container, title);
+  elements.push(title);
+
+  const logoRow = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "row",
+    _justifyContent: "center",
+    _alignItems: "center",
+    _gap: "48px",
+    _flexWrap: "wrap",
+    _width: "100%",
+  });
+  linkElements(container, logoRow);
+  elements.push(logoRow);
+
+  for (const logo of logos) {
+    const logoBox = createElement("div", logoRow.id, {
+      _display: "flex",
+      _justifyContent: "center",
+      _alignItems: "center",
+      _padding: { top: "12", bottom: "12", left: "20", right: "20" },
+      _opacity: "0.5",
+    });
+    linkElements(logoRow, logoBox);
+    elements.push(logoBox);
+
+    const logoText = createElement("heading", logoBox.id, {
+      text: logo.name,
+      tag: "custom",
+      customTag: "span",
+      _typography: {
+        "font-size": "22px",
+        "font-weight": "700",
+        "letter-spacing": "-0.02em",
+        color: { hex: tokens.headingColor },
+      },
+    });
+    linkElements(logoBox, logoText);
+    elements.push(logoText);
+  }
+
+  return elements;
+}
+
+// ============================================================
+// BLOG GRID SECTION
+// ============================================================
+export function generateBlogSection(
+  sectionTitle: string = "Latest from Our Blog",
+  sectionSubtitle: string = "Insights, tutorials, and updates from our team",
+  posts: Array<{
+    title: string;
+    excerpt: string;
+    category: string;
+    date: string;
+    readTime?: string;
+  }> = [
+    { title: "10 Tips for Better Web Design", excerpt: "Learn the fundamental principles that separate good web design from great web design.", category: "Design", date: "Feb 5, 2026", readTime: "5 min read" },
+    { title: "The Future of No-Code Tools", excerpt: "How no-code platforms are democratizing web development and what it means for developers.", category: "Technology", date: "Feb 2, 2026", readTime: "8 min read" },
+    { title: "SEO Best Practices for 2026", excerpt: "Stay ahead of the curve with these essential SEO strategies for the new year.", category: "Marketing", date: "Jan 28, 2026", readTime: "6 min read" },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "100", bottom: "100", left: "40", right: "40" },
+    _background: { color: { hex: tokens.backgroundColor } },
+  }, "Blog Section");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: "1200px",
+    _margin: { left: "auto", right: "auto" },
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  const headerBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _margin: { bottom: "60" },
+    _width: "100%",
+  });
+  linkElements(container, headerBlock);
+  elements.push(headerBlock);
+
+  const title = createElement("heading", headerBlock.id, {
+    text: sectionTitle,
+    tag: "h2",
+    _typography: {
+      "font-size": "40px",
+      "font-weight": "700",
+      "line-height": "1.2",
+      color: { hex: tokens.headingColor },
+    },
+    _margin: { bottom: "16" },
+  });
+  linkElements(headerBlock, title);
+  elements.push(title);
+
+  const subtitle = createElement("text-basic", headerBlock.id, {
+    text: `<p>${sectionSubtitle}</p>`,
+    _typography: {
+      "font-size": "18px",
+      "line-height": "1.6",
+      color: { hex: tokens.mutedTextColor },
+    },
+  });
+  linkElements(headerBlock, subtitle);
+  elements.push(subtitle);
+
+  const grid = createElement("div", container.id, {
+    _display: "grid",
+    _gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+    _gap: "32px",
+    _width: "100%",
+  });
+  linkElements(container, grid);
+  elements.push(grid);
+
+  const cardShadow = shadowSettings(tokens);
+  const imgColors = [
+    withAlpha(tokens.primaryColor, 0.1),
+    withAlpha(tokens.secondaryColor, 0.1),
+    "#fef3c7",
+  ];
+
+  for (let i = 0; i < posts.length; i++) {
+    const post = posts[i];
+
+    const card = createElement("div", grid.id, {
+      _display: "flex",
+      _direction: "column",
+      _background: { color: { hex: tokens.surfaceColor } },
+      _border: {
+        radius: radObj(tokens, 2),
+        width: { top: "1", right: "1", bottom: "1", left: "1" },
+        style: "solid",
+        color: { hex: tokens.borderColor },
+      },
+      _overflow: "hidden",
+      ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+    });
+    linkElements(grid, card);
+    elements.push(card);
+
+    // Image placeholder
+    const imgPlaceholder = createElement("div", card.id, {
+      _width: "100%",
+      _height: "200px",
+      _background: { color: { hex: imgColors[i % imgColors.length] } },
+      _display: "flex",
+      _justifyContent: "center",
+      _alignItems: "center",
+    });
+    linkElements(card, imgPlaceholder);
+    elements.push(imgPlaceholder);
+
+    const imgIcon = createElement("text-basic", imgPlaceholder.id, {
+      text: "<p>&#128196;</p>",
+      _typography: { "font-size": "40px", color: { hex: tokens.mutedTextColor } },
+      _opacity: "0.3",
+    });
+    linkElements(imgPlaceholder, imgIcon);
+    elements.push(imgIcon);
+
+    // Content
+    const content = createElement("div", card.id, {
+      _display: "flex",
+      _direction: "column",
+      _padding: { top: "24", bottom: "24", left: "24", right: "24" },
+      _gap: "12px",
+    });
+    linkElements(card, content);
+    elements.push(content);
+
+    // Meta row: category + date
+    const meta = createElement("div", content.id, {
+      _display: "flex",
+      _direction: "row",
+      _justifyContent: "space-between",
+      _alignItems: "center",
+    });
+    linkElements(content, meta);
+    elements.push(meta);
+
+    const category = createElement("text-basic", meta.id, {
+      text: `<p>${post.category}</p>`,
+      _typography: {
+        "font-size": "12px",
+        "font-weight": "600",
+        color: { hex: tokens.primaryColor },
+        "text-transform": "uppercase",
+        "letter-spacing": "0.05em",
+      },
+    });
+    linkElements(meta, category);
+    elements.push(category);
+
+    const date = createElement("text-basic", meta.id, {
+      text: `<p>${post.date}</p>`,
+      _typography: {
+        "font-size": "13px",
+        color: { hex: tokens.mutedTextColor },
+      },
+    });
+    linkElements(meta, date);
+    elements.push(date);
+
+    const postTitle = createElement("heading", content.id, {
+      text: post.title,
+      tag: "h3",
+      _typography: {
+        "font-size": "20px",
+        "font-weight": "600",
+        "line-height": "1.4",
+        color: { hex: tokens.headingColor },
+      },
+    });
+    linkElements(content, postTitle);
+    elements.push(postTitle);
+
+    const excerpt = createElement("text-basic", content.id, {
+      text: `<p>${post.excerpt}</p>`,
+      _typography: {
+        "font-size": "15px",
+        "line-height": "1.6",
+        color: { hex: tokens.mutedTextColor },
+      },
+    });
+    linkElements(content, excerpt);
+    elements.push(excerpt);
+
+    // Read more + read time
+    const bottomRow = createElement("div", content.id, {
+      _display: "flex",
+      _direction: "row",
+      _justifyContent: "space-between",
+      _alignItems: "center",
+      _margin: { top: "8" },
+    });
+    linkElements(content, bottomRow);
+    elements.push(bottomRow);
+
+    const readMore = createElement("text-basic", bottomRow.id, {
+      text: "<p>Read More &rarr;</p>",
+      tag: "a",
+      link: { type: "external", url: "#" },
+      _typography: {
+        "font-size": "15px",
+        "font-weight": "600",
+        color: { hex: tokens.primaryColor },
+        "text-decoration": "none",
+      },
+    });
+    linkElements(bottomRow, readMore);
+    elements.push(readMore);
+
+    if (post.readTime) {
+      const readTime = createElement("text-basic", bottomRow.id, {
+        text: `<p>${post.readTime}</p>`,
+        _typography: {
+          "font-size": "13px",
+          color: { hex: tokens.mutedTextColor },
+        },
+      });
+      linkElements(bottomRow, readTime);
+      elements.push(readTime);
+    }
+  }
+
+  return elements;
+}
+
+// ============================================================
+// STEPS / PROCESS SECTION
+// ============================================================
+export function generateStepsSection(
+  sectionTitle: string = "How It Works",
+  sectionSubtitle: string = "Get started in just a few simple steps",
+  steps: Array<{
+    title: string;
+    description: string;
+  }> = [
+    { title: "Create Account", description: "Sign up for free in seconds. No credit card required." },
+    { title: "Choose Template", description: "Pick from hundreds of professionally designed templates." },
+    { title: "Customize", description: "Make it yours with our intuitive drag-and-drop editor." },
+    { title: "Launch", description: "Publish your website and share it with the world." },
+  ],
+  tokens: DesignTokens = LIGHT_DEFAULTS
+): BricksElement[] {
+  const elements: BricksElement[] = [];
+
+  const section = createElement("section", 0, {
+    _padding: { top: "100", bottom: "100", left: "40", right: "40" },
+    _background: { color: { hex: tokens.surfaceColor } },
+  }, "Steps Section");
+  elements.push(section);
+
+  const container = createElement("container", section.id, {
+    _direction: "column",
+    _alignItems: "center",
+    _width: "1200px",
+    _margin: { left: "auto", right: "auto" },
+  });
+  linkElements(section, container);
+  elements.push(container);
+
+  const headerBlock = createElement("div", container.id, {
+    _display: "flex",
+    _direction: "column",
+    _alignItems: "center",
+    _textAlign: "center",
+    _margin: { bottom: "60" },
+    _width: "100%",
+  });
+  linkElements(container, headerBlock);
+  elements.push(headerBlock);
+
+  const title = createElement("heading", headerBlock.id, {
+    text: sectionTitle,
+    tag: "h2",
+    _typography: {
+      "font-size": "40px",
+      "font-weight": "700",
+      "line-height": "1.2",
+      color: { hex: tokens.headingColor },
+    },
+    _margin: { bottom: "16" },
+  });
+  linkElements(headerBlock, title);
+  elements.push(title);
+
+  const subtitle = createElement("text-basic", headerBlock.id, {
+    text: `<p>${sectionSubtitle}</p>`,
+    _typography: {
+      "font-size": "18px",
+      "line-height": "1.6",
+      color: { hex: tokens.mutedTextColor },
+    },
+  });
+  linkElements(headerBlock, subtitle);
+  elements.push(subtitle);
+
+  const grid = createElement("div", container.id, {
+    _display: "grid",
+    _gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+    _gap: "32px",
+    _width: "100%",
+  });
+  linkElements(container, grid);
+  elements.push(grid);
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+
+    const stepBlock = createElement("div", grid.id, {
+      _display: "flex",
+      _direction: "column",
+      _alignItems: "center",
+      _textAlign: "center",
+      _gap: "16px",
+      _padding: { top: "24", bottom: "24", left: "16", right: "16" },
+    });
+    linkElements(grid, stepBlock);
+    elements.push(stepBlock);
+
+    // Step number circle
+    const numberCircle = createElement("div", stepBlock.id, {
+      _width: "56px",
+      _height: "56px",
+      _background: { color: { hex: tokens.primaryColor } },
+      _border: {
+        radius: { top: "9999", right: "9999", bottom: "9999", left: "9999" },
+      },
+      _display: "flex",
+      _justifyContent: "center",
+      _alignItems: "center",
+    });
+    linkElements(stepBlock, numberCircle);
+    elements.push(numberCircle);
+
+    const number = createElement("text-basic", numberCircle.id, {
+      text: `<p>${i + 1}</p>`,
+      _typography: {
+        "font-size": "22px",
+        "font-weight": "700",
+        color: { hex: "#ffffff" },
+      },
+    });
+    linkElements(numberCircle, number);
+    elements.push(number);
+
+    const stepTitle = createElement("heading", stepBlock.id, {
+      text: step.title,
+      tag: "h3",
+      _typography: {
+        "font-size": "20px",
+        "font-weight": "600",
+        color: { hex: tokens.headingColor },
+      },
+    });
+    linkElements(stepBlock, stepTitle);
+    elements.push(stepTitle);
+
+    const stepDesc = createElement("text-basic", stepBlock.id, {
+      text: `<p>${step.description}</p>`,
+      _typography: {
+        "font-size": "15px",
+        "line-height": "1.6",
+        color: { hex: tokens.mutedTextColor },
+      },
+    });
+    linkElements(stepBlock, stepDesc);
+    elements.push(stepDesc);
+  }
+
+  return elements;
+}
+
 // Full page generator (uses default tokens if none provided)
 export function generateFullPage(
   config: {

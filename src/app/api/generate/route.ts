@@ -9,6 +9,12 @@ import {
   generateCTASection,
   generateContactSection,
   generateGallerySection,
+  generateTeamSection,
+  generateStatsSection,
+  generateFaqSection,
+  generateLogoCloudSection,
+  generateBlogSection,
+  generateStepsSection,
   wrapTemplate,
   resolveDesignTokens,
   BricksElement,
@@ -45,6 +51,12 @@ interface GenerationConfig {
   galleryItems: Array<{ title: string; category: string }>;
   gallerySectionTitle: string;
   gallerySectionSubtitle: string;
+  teamMembers: Array<{ name: string; role: string; bio?: string }>;
+  stats: Array<{ value: string; label: string; description?: string }>;
+  faqItems: Array<{ question: string; answer: string }>;
+  logoNames: Array<{ name: string }>;
+  blogPosts: Array<{ title: string; excerpt: string; category: string; date: string; readTime?: string }>;
+  steps: Array<{ title: string; description: string }>;
   designTokens: Partial<DesignTokens>;
 }
 
@@ -176,18 +188,40 @@ function analyzePrompt(prompt: string): GenerationConfig {
   const hasContact = /contact|kontakt|form|formular/i.test(lower);
   const hasFooter = /footer|fußzeile|fusszeile/i.test(lower);
   const hasGallery = /gallery|galerie|portfolio|showcase|work|projekte|arbeiten|bilder|photos?|fotos?/i.test(lower);
+  const hasTeam = /team|mitarbeiter|über\s*uns|about\s*us|people|leute|mannschaft/i.test(lower);
+  const hasStats = /stats?|statistik|counter|zähler|zahlen|numbers?|kennzahlen|impact/i.test(lower);
+  const hasFaq = /faq|häufige?\s*fragen?|frequently|fragen?\s*und\s*antworten?|q\s*&\s*a/i.test(lower);
+  const hasLogos = /logos?|brands?|marken|partner|kunden|clients?|trusted/i.test(lower);
+  const hasBlog = /blog|artikel|articles?|news|nachrichten|posts?|beiträge?|magazine?/i.test(lower);
+  const hasSteps = /steps?|schritte?|prozess|process|how\s*it\s*works|ablauf|anleitung|wie\s*(es\s*)?funktioniert/i.test(lower);
   const isFullPage = /full.page|complete|ganze.seite|komplette.seite|landing.?page|website|webseite/i.test(lower);
 
   if (isFullPage) {
-    sections.push("navbar", "hero", "features", "testimonials", "pricing", "cta", "footer");
+    sections.push("navbar", "hero");
+    if (hasLogos) sections.push("logos");
+    sections.push("features");
+    if (hasSteps) sections.push("steps");
+    if (hasGallery) sections.push("gallery");
+    if (hasStats) sections.push("stats");
+    sections.push("testimonials");
+    if (hasTeam) sections.push("team");
+    if (hasFaq) sections.push("faq");
+    if (hasBlog) sections.push("blog");
+    sections.push("pricing", "cta");
     if (hasContact) sections.push("contact");
-    if (hasGallery) sections.splice(3, 0, "gallery");
+    sections.push("footer");
   } else {
     if (hasNavbar) sections.push("navbar");
     if (hasHero) sections.push("hero");
+    if (hasLogos) sections.push("logos");
     if (hasFeatures) sections.push("features");
+    if (hasSteps) sections.push("steps");
     if (hasGallery) sections.push("gallery");
+    if (hasStats) sections.push("stats");
     if (hasTestimonials) sections.push("testimonials");
+    if (hasTeam) sections.push("team");
+    if (hasFaq) sections.push("faq");
+    if (hasBlog) sections.push("blog");
     if (hasPricing) sections.push("pricing");
     if (hasCTA) sections.push("cta");
     if (hasContact) sections.push("contact");
@@ -355,10 +389,52 @@ function analyzePrompt(prompt: string): GenerationConfig {
   // Detect design tokens from prompt
   const designTokens = detectDesignTokens(prompt);
 
+  // Defaults for new section types
+  const teamMembers = [
+    { name: "Sarah Johnson", role: "CEO & Founder", bio: "Visionary leader with 15+ years in tech." },
+    { name: "Michael Chen", role: "CTO", bio: "Full-stack architect passionate about scalable systems." },
+    { name: "Emily Rodriguez", role: "Design Director", bio: "Award-winning designer crafting pixel-perfect experiences." },
+    { name: "David Park", role: "Head of Marketing", bio: "Data-driven strategist growing brands globally." },
+  ];
+
+  const stats = [
+    { value: "10,000+", label: "Active Users", description: "Growing every day" },
+    { value: "99.9%", label: "Uptime", description: "Enterprise reliability" },
+    { value: "150+", label: "Countries", description: "Global presence" },
+    { value: "4.9/5", label: "Rating", description: "Customer satisfaction" },
+  ];
+
+  const faqItems = [
+    { question: "How do I get started?", answer: "Simply sign up for a free account and follow our quick-start guide. You'll be up and running in under 5 minutes." },
+    { question: "Is there a free plan?", answer: "Yes! We offer a generous free plan that includes all core features. Upgrade anytime for advanced functionality." },
+    { question: "Can I cancel my subscription?", answer: "Absolutely. You can cancel your subscription at any time with no questions asked." },
+    { question: "Do you offer customer support?", answer: "We provide 24/7 email support for all plans. Priority support is available on Professional and Enterprise plans." },
+    { question: "Is my data secure?", answer: "Security is our top priority. We use bank-level encryption and are SOC 2 certified." },
+  ];
+
+  const logoNames = [
+    { name: "TechCorp" }, { name: "InnovateLab" }, { name: "CloudBase" },
+    { name: "DataFlow" }, { name: "ScaleUp" }, { name: "NextGen" },
+  ];
+
+  const blogPosts = [
+    { title: "10 Tips for Better Web Design", excerpt: "Learn the fundamental principles that separate good web design from great.", category: "Design", date: "Feb 5, 2026", readTime: "5 min" },
+    { title: "The Future of No-Code Tools", excerpt: "How no-code platforms are democratizing web development.", category: "Technology", date: "Feb 2, 2026", readTime: "8 min" },
+    { title: "SEO Best Practices for 2026", excerpt: "Stay ahead with these essential SEO strategies for the new year.", category: "Marketing", date: "Jan 28, 2026", readTime: "6 min" },
+  ];
+
+  const steps = [
+    { title: "Create Account", description: "Sign up for free in seconds. No credit card required." },
+    { title: "Choose Template", description: "Pick from hundreds of professionally designed templates." },
+    { title: "Customize", description: "Make it yours with our intuitive drag-and-drop editor." },
+    { title: "Launch", description: "Publish your website and share it with the world." },
+  ];
+
   return {
     sections, brandName, headline, subtext, heroStyle, buttonText,
     features, plans, testimonials, navLinks, ctaHeadline, ctaSubtext, ctaButtonText,
     galleryItems, gallerySectionTitle, gallerySectionSubtitle,
+    teamMembers, stats, faqItems, logoNames, blogPosts, steps,
     designTokens,
   };
 }
@@ -418,6 +494,24 @@ Antworte NUR mit einem JSON-Objekt in diesem exakten Format:
   "ctaHeadline": "CTA Überschrift",
   "ctaSubtext": "CTA Beschreibung",
   "ctaButtonText": "CTA Button",
+  "teamMembers": [
+    {"name": "Name", "role": "Position", "bio": "Kurze Beschreibung"}
+  ],
+  "stats": [
+    {"value": "10.000+", "label": "Kunden", "description": "Weltweit"}
+  ],
+  "faqItems": [
+    {"question": "Frage?", "answer": "Antwort"}
+  ],
+  "logoNames": [
+    {"name": "Firmenname"}
+  ],
+  "blogPosts": [
+    {"title": "Titel", "excerpt": "Kurzbeschreibung", "category": "Kategorie", "date": "Feb 2026", "readTime": "5 min"}
+  ],
+  "steps": [
+    {"title": "Schritt", "description": "Beschreibung"}
+  ],
   "designTokens": {
     "primaryColor": "#3b82f6",
     "secondaryColor": "#8b5cf6",
@@ -453,16 +547,21 @@ DESIGN TOKEN REGELN:
 - Alle Farben als Hex-Werte (#RRGGBB)
 
 SECTION REGELN:
-- "sections" muss ein Array sein mit Werten aus: "navbar", "hero", "gallery", "features", "testimonials", "pricing", "cta", "contact", "footer"
-- Wähle NUR die Sections, die zum Prompt des Users passen! Wenn der User z.B. nur "gallery" will, gib nur ["gallery"] zurück
-- Wenn der User "gallery", "portfolio", "showcase", "Galerie", "Bilder", "Fotos" erwähnt, MUSS "gallery" in sections enthalten sein
+- "sections" muss ein Array sein mit Werten aus: "navbar", "hero", "logos", "features", "steps", "gallery", "stats", "testimonials", "team", "faq", "blog", "pricing", "cta", "contact", "footer"
+- Wähle NUR die Sections, die zum Prompt des Users passen!
+- "gallery/portfolio/showcase/Galerie/Bilder/Fotos" → "gallery" in sections
+- "team/Mitarbeiter/über uns/about" → "team" in sections
+- "FAQ/Fragen" → "faq" in sections
+- "stats/Zahlen/counter" → "stats" in sections
+- "blog/Artikel/news" → "blog" in sections
+- "steps/Schritte/Prozess/how it works" → "steps" in sections
+- "logos/Partner/Kunden/trusted" → "logos" in sections
 - "heroStyle" muss eines von "centered", "split", "gradient" sein
 
 CONTENT REGELN:
 - Passe ALLE Texte an die beschriebene Branche/Nische an
-- Features sollten genau 6 sein, galleryItems genau 6
-- Plans sollten genau 3 sein
-- Testimonials: Die Anzahl muss zum Prompt passen. Wenn der User "6 Testimonials" sagt, gib 6 zurück. Standardmäßig 3.
+- Features: 6, galleryItems: 6, Plans: 3, teamMembers: 4, stats: 4, faqItems: 5, logoNames: 6, blogPosts: 3, steps: 3-4
+- Testimonials: Anzahl passend zum Prompt (Standard: 3, max 12)
 - Wenn der User Deutsch schreibt, antworte mit deutschen Inhalten
 - Antworte NUR mit dem JSON, kein anderer Text`;
 
@@ -578,6 +677,24 @@ CONTENT REGELN:
         ],
     gallerySectionTitle: parsed.gallerySectionTitle || "Our Gallery",
     gallerySectionSubtitle: parsed.gallerySectionSubtitle || "Explore our latest work and projects",
+    teamMembers: Array.isArray(parsed.teamMembers) && parsed.teamMembers.length > 0
+      ? parsed.teamMembers.slice(0, 8)
+      : [{ name: "Team Member", role: "Role", bio: "Description" }],
+    stats: Array.isArray(parsed.stats) && parsed.stats.length > 0
+      ? parsed.stats.slice(0, 8)
+      : [{ value: "1000+", label: "Users", description: "Growing" }],
+    faqItems: Array.isArray(parsed.faqItems) && parsed.faqItems.length > 0
+      ? parsed.faqItems.slice(0, 12)
+      : [{ question: "How do I get started?", answer: "Sign up and follow our guide." }],
+    logoNames: Array.isArray(parsed.logoNames) && parsed.logoNames.length > 0
+      ? parsed.logoNames.slice(0, 10)
+      : [{ name: "TechCorp" }, { name: "InnovateLab" }, { name: "CloudBase" }],
+    blogPosts: Array.isArray(parsed.blogPosts) && parsed.blogPosts.length > 0
+      ? parsed.blogPosts.slice(0, 6)
+      : [{ title: "Latest Post", excerpt: "Read more...", category: "News", date: "Feb 2026", readTime: "5 min" }],
+    steps: Array.isArray(parsed.steps) && parsed.steps.length > 0
+      ? parsed.steps.slice(0, 6)
+      : [{ title: "Step 1", description: "Get started" }],
     designTokens: aiDesignTokens,
   };
 }
@@ -614,6 +731,24 @@ function generateFromConfig(config: GenerationConfig): BricksElement[] {
         break;
       case "contact":
         elements = [...elements, ...generateContactSection(tokens)];
+        break;
+      case "team":
+        elements = [...elements, ...generateTeamSection(undefined, undefined, config.teamMembers, tokens)];
+        break;
+      case "stats":
+        elements = [...elements, ...generateStatsSection(undefined, config.stats, tokens)];
+        break;
+      case "faq":
+        elements = [...elements, ...generateFaqSection(undefined, undefined, config.faqItems, tokens)];
+        break;
+      case "logos":
+        elements = [...elements, ...generateLogoCloudSection(undefined, config.logoNames, tokens)];
+        break;
+      case "blog":
+        elements = [...elements, ...generateBlogSection(undefined, undefined, config.blogPosts, tokens)];
+        break;
+      case "steps":
+        elements = [...elements, ...generateStepsSection(undefined, undefined, config.steps, tokens)];
         break;
       case "footer":
         elements = [...elements, ...generateFooterSection(config.brandName, undefined, tokens)];
