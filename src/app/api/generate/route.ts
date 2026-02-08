@@ -113,6 +113,39 @@ The user describes a website. You generate DIRECT valid Bricks Builder JSON.
 - Prefer explicit values over empty objects.
 - NEVER invent unsupported element names.
 
+### 3a. REQUIRED SETTINGS FOR EVERY ELEMENT:
+- _padding: { top, bottom, left, right } (strings like "100", "40")
+- _background: { color: { hex: "#HEX" } }
+- _typography: { "font-size", "font-weight", "color": { hex: "#HEX" }, "text-decoration" (for links: "none"), ... }
+- _border: { radius: { top, right, bottom, left }, width, style, color: { hex } }
+- _margin: { ... }
+- _display: "flex" | "grid" | "block"
+- _direction: "row" | "column"
+- _justifyContent: "center" | "flex-start" | "space-between" | "flex-end"
+- _alignItems: "center" | "flex-start" | "stretch"
+- _gap: String (e.g., "32")
+- _width: "100%" | "50%" | "auto" | "1200px"
+- _height: String (e.g., "100vh", "48px")
+- _gridTemplateColumns: CSS grid template (e.g., "repeat(auto-fill, minmax(320px, 1fr))")
+- _textAlign: "center" | "left" | "right"
+- _minHeight: String (e.g., "100vh")
+- _zIndex: String (e.g., "50")
+
+### 3b. LAYOUT QUALITY GUARDRAILS (CRITICAL):
+- Build clean, usable layouts first. Avoid experimental compositions that break readability.
+- Hero content must stay readable on desktop: do NOT split text into very narrow columns.
+- Never place CTA buttons as full-height vertical bars.
+- Use practical widths:
+  - content columns in hero: around 45-60% + 40-55% for split layouts
+  - text blocks should generally have max width around 520-680px
+  - button elements should use auto width and clear horizontal padding
+- Keep spacing balanced with clear hierarchy (headline > subtext > CTA).
+- Use display:flex or grid only when it improves clarity.
+
+### 3c. EXTEND INSTEAD OF REMOVE:
+- If the user asks to improve/enhance an existing concept, preserve the concept and visual direction.
+- Improve layout, hierarchy, spacing, and polish; do not replace the whole idea with a different structure.
+
 ### 4. BUTTON/LINK STRUCTURE (CRITICAL!):
 - name: "text-basic"
 - text: "<p>Button Text</p>"
@@ -143,6 +176,12 @@ Choose appropriate sections: navbar, hero, features, pricing, testimonials, cta,
 - **cta**: H2, Subtext, Button
 - **footer**: Brand, 4 Columns Links, Copyright
 
+### 8. INDUSTRY-SPECIFIC DIRECTION:
+- For restaurants/pizzerias, prefer warm premium palette (e.g. deep red, tomato, basil green, mozzarella cream, charcoal).
+- Use appetizing, modern hero composition with one strong focal image.
+- Optional animation feel should be subtle and elegant (hover emphasis, glow/shadow depth, gentle visual rhythm), never chaotic.
+- Keep copy coherent to the requested brand and language.
+
 ## CREATIVE FREEDOM - YOU DECIDE:
 - All colors (primary, background, text, accent) - HEX values
 - All font sizes and font weights
@@ -166,6 +205,7 @@ No markdown, no comments, no prose, no code fences.
 - Colors as HEX (#RRGGBB)
 - "tag": "a" MAKES A BUTTON when used with text-basic
 - "link": { "type": "external", "url": "#" } for buttons/links
+- Prioritize readability and UX quality over visual gimmicks
 
 Answer ONLY with the JSON array!`;
 
@@ -516,6 +556,12 @@ function analyzePromptWithBasicDetection(prompt: string): GenerationConfig {
   if (/coming soon|launch soon|waitlist/i.test(lower)) sections.push("coming-soon");
   if (/login|sign in|auth/i.test(lower)) sections.push("login");
   if (/footer/i.test(lower)) sections.push("footer");
+  if (/restaurant|pizzeria|pizza/i.test(lower)) {
+    if (!sections.includes("hero")) sections.push("hero");
+    if (!sections.includes("gallery")) sections.push("gallery");
+    if (!sections.includes("testimonials")) sections.push("testimonials");
+    if (!sections.includes("cta")) sections.push("cta");
+  }
   if (sections.length === 0) sections.push("hero");
 
   // Basic design tokens from keywords
@@ -527,6 +573,14 @@ function analyzePromptWithBasicDetection(prompt: string): GenerationConfig {
   }
   if (/rounded|round/i.test(lower)) {
     designTokens.borderRadius = "large";
+  }
+  if (/restaurant|pizzeria|pizza/i.test(lower)) {
+    designTokens.darkMode = true;
+    designTokens.backgroundColor = "#130908";
+    designTokens.primaryColor = "#D62828";
+    designTokens.accentColor = "#F4B400";
+    designTokens.headingColor = "#FFF4E6";
+    designTokens.textColor = "#F6EAD9";
   }
 
   return {
