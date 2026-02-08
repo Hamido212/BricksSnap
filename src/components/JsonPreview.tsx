@@ -61,14 +61,14 @@ function buildBricksImportJson(data: unknown, title: string): object {
     name: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     title,
     date: dateStr,
-    author: { name: "BricksForge" },
+    author: { name: "BricksSnap" },
     type: "section",
     content,
     templateType: "section",
   };
 }
 
-export default function JsonPreview({ data, maxHeight = "500px", templateName = "BricksForge Template" }: JsonPreviewProps) {
+export default function JsonPreview({ data, maxHeight = "500px", templateName = "BricksSnap Template" }: JsonPreviewProps) {
   const [copied, setCopied] = useState(false);
   const [copiedWhat, setCopiedWhat] = useState("");
   const [viewMode, setViewMode] = useState<"formatted" | "compact">("formatted");

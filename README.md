@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BricksSnap
 
-## Getting Started
+BricksSnap ist ein Next.js Tool, das sofort importierbare **Bricks Builder JSON-Templates** generiert.
+Du kannst vorgefertigte Sections nutzen oder per Prompt ganze Layouts erzeugen und direkt als Bricks-kompatible JSON exportieren.
 
-First, run the development server:
+## Features
+
+- Vorgefertigte Template-Bibliothek (Hero, Navbar, Features, Pricing, Testimonials, Footer u.v.m.)
+- Vollständige Seiten-Presets
+- Design Tokens (Farben, Radius, Schatten, Spacing, Typografie, Dark Mode)
+- API-Route für KI-gestützte Generierung (`/api/generate`)
+- Export als Bricks Import JSON + Copy-to-Clipboard für Bricks
+
+## Voraussetzungen
+
+- Node.js 20+
+- npm 10+
+
+## Setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Danach im Browser öffnen:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `http://localhost:3000`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Produktions-Build
 
-## Learn More
+```bash
+npm run lint
+npm run build
+npm run start
+```
 
-To learn more about Next.js, take a look at the following resources:
+## KI-Modus (optional)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Die API-Route unterstützt OpenAI und Anthropic. Sende den Key im Request an `/api/generate`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Beispiel-Felder:
 
-## Deploy on Vercel
+- `prompt` (string)
+- `apiKey` (string)
+- `useAi` (boolean)
+- `provider` (`"openai" | "anthropic"`)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Projektstruktur
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/app/page.tsx` – Haupt-UI
+- `src/app/api/generate/route.ts` – Generierungs-API
+- `src/lib/bricks-engine.ts` – Bricks JSON Engine + Section Generatoren
+- `src/lib/templates.ts` – Template-Katalog
+- `src/components/*` – UI-Komponenten (Form, Vorschau, Cards)
+
+## Hinweise
+
+- Das Projekt nutzt den App Router von Next.js.
+- Für stabile Produktion empfiehlt sich das Hinterlegen von API-Limits/Rate-Limits vor öffentlichem Rollout.
