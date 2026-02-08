@@ -222,19 +222,20 @@ export default function Home() {
 
                 {/* How to use */}
                 <div className="max-w-4xl mx-auto">
-                  <div className="p-4 rounded-xl border border-primary/20 bg-primary/5">
+                  <div className="p-4 rounded-xl border border-success/20 bg-success/5">
                     <div className="flex items-start gap-3">
-                      <svg className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <div className="text-xs text-muted leading-relaxed">
-                        <p className="font-medium text-foreground mb-1">How to paste into Bricks Builder:</p>
+                        <p className="font-medium text-foreground mb-1">So verwendest du das Template in Bricks Builder:</p>
                         <ol className="list-decimal list-inside space-y-1">
-                          <li>Click <strong className="text-primary">&quot;Copy for Bricks&quot;</strong> above the JSON code</li>
-                          <li>Open your page in Bricks Builder editor</li>
-                          <li>Open the <strong>Structure Panel</strong> (left sidebar)</li>
-                          <li>Click in the empty area of the Structure Panel, then press <strong>Esc</strong></li>
-                          <li>Press <strong>Ctrl+V</strong> (Windows) or <strong>Cmd+V</strong> (Mac) to paste</li>
+                          <li>Klicke auf den gr&uuml;nen <strong className="text-success">&quot;Download for Bricks Import&quot;</strong> Button</li>
+                          <li>&Ouml;ffne den Bricks Builder Editor auf deiner Seite</li>
+                          <li>Klicke oben links auf das <strong>+</strong> Zeichen &rarr; <strong>Templates</strong></li>
+                          <li>W&auml;hle &quot;My Templates&quot; und klicke auf den <strong>Import</strong> Button (Pfeil nach oben)</li>
+                          <li>W&auml;hle die heruntergeladene JSON-Datei aus</li>
+                          <li>Klicke auf <strong>&quot;Insert&quot;</strong> um das Template einzuf&uuml;gen</li>
                         </ol>
                       </div>
                     </div>
