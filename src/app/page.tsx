@@ -87,7 +87,7 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-foreground tracking-tight">
-                BricksForge
+                BricksSnap
               </h1>
               <p className="text-[11px] text-muted -mt-0.5">
                 Template Generator for Bricks Builder
@@ -405,7 +405,7 @@ export default function Home() {
       <footer className="border-t border-border mt-16">
         <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-muted">
-            BricksForge - Free Open Source Template Generator for Bricks Builder
+            BricksSnap - Free Open Source Template Generator for Bricks Builder
           </div>
           <div className="flex items-center gap-4 text-xs text-muted">
             <span>
