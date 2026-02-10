@@ -21,5 +21,19 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "description": "A Next.js tool that generates instantly importable Bricks Builder JSON templates. Use pre-built sections or create entire layouts via prompt and export them as Bricks-compatible JSON.",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hamido212/BricksSnap.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Hamido212/BricksSnap/issues"
+  },
+  "homepage": "https://github.com/Hamido212/BricksSnap#readme"
 }

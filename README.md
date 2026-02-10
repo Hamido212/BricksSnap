@@ -1,33 +1,35 @@
 # BricksSnap
 
-BricksSnap ist ein Next.js Tool, das sofort importierbare **Bricks Builder JSON-Templates** generiert.
-Du kannst vorgefertigte Sections nutzen oder per Prompt ganze Layouts erzeugen und direkt als Bricks-kompatible JSON exportieren.
+[![npm](https://img.shields.io/npm/v/brickssnap)](https://www.npmjs.com/package/brickssnap)
+[![GitHub](https://img.shields.io/github/license/Hamido212/BricksSnap)](https://github.com/Hamido212/BricksSnap)
+
+A Next.js tool that generates ready-to-import **Bricks Builder JSON templates**. Use pre-built sections or generate full page layouts via prompt and export them as Bricks-compatible JSON.
 
 ## Features
 
-- Vorgefertigte Template-Bibliothek (Hero, Navbar, Features, Pricing, Testimonials, Footer u.v.m.)
-- Vollständige Seiten-Presets
-- Design Tokens (Farben, Radius, Schatten, Spacing, Typografie, Dark Mode)
-- API-Route für KI-gestützte Generierung (`/api/generate`)
-- Export als Bricks Import JSON + Copy-to-Clipboard für Bricks
+- Pre-built template library (Hero, Navbar, Features, Pricing, Testimonials, Footer and more)
+- Full page presets
+- Design tokens (colors, border-radius, shadows, spacing, typography, dark mode)
+- API route for AI-powered generation (`/api/generate`)
+- Export as Bricks Import JSON + copy-to-clipboard
 
-## Voraussetzungen
+## Prerequisites
 
 - Node.js 20+
 - npm 10+
 
-## Setup
+## Getting Started
 
 ```bash
 npm install
 npm run dev
 ```
 
-Danach im Browser öffnen:
+Then open in your browser:
 
 - `http://localhost:3000`
 
-## Produktions-Build
+## Production Build
 
 ```bash
 npm run lint
@@ -35,26 +37,26 @@ npm run build
 npm run start
 ```
 
-## KI-Modus (optional)
+## AI Mode (optional)
 
-Die API-Route unterstützt OpenAI und Anthropic. Sende den Key im Request an `/api/generate`.
+The API route supports OpenAI and Anthropic. Send your API key in the request to `/api/generate`.
 
-Beispiel-Felder:
+Request fields:
 
 - `prompt` (string)
 - `apiKey` (string)
 - `useAi` (boolean)
 - `provider` (`"openai" | "anthropic"`)
 
-## Projektstruktur
+## Project Structure
 
-- `src/app/page.tsx` – Haupt-UI
-- `src/app/api/generate/route.ts` – Generierungs-API
-- `src/lib/bricks-engine.ts` – Bricks JSON Engine + Section Generatoren
-- `src/lib/templates.ts` – Template-Katalog
-- `src/components/*` – UI-Komponenten (Form, Vorschau, Cards)
+- `src/app/page.tsx` – Main UI
+- `src/app/api/generate/route.ts` – Generation API
+- `src/lib/bricks-engine.ts` – Bricks JSON engine + section generators
+- `src/lib/templates.ts` – Template catalog
+- `src/components/*` – UI components (form, preview, cards)
 
-## Hinweise
+## Notes
 
-- Das Projekt nutzt den App Router von Next.js.
-- Für stabile Produktion empfiehlt sich das Hinterlegen von API-Limits/Rate-Limits vor öffentlichem Rollout.
+- Built with the Next.js App Router.
+- For production deployments, consider adding API rate limits before going public.
