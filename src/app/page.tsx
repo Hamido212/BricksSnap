@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import GeneratorForm from "@/components/GeneratorForm";
+import { useState, useCallback, useEffect } from "react";
+import GeneratorForm, { GeneratorConfig } from "@/components/GeneratorForm";
 import JsonPreview from "@/components/JsonPreview";
 import StructurePreview from "@/components/StructurePreview";
+import VisualPreview from "@/components/VisualPreview";
 import TemplateCard from "@/components/TemplateCard";
+import SettingsPanel from "@/components/SettingsPanel";
 import { TEMPLATES, CATEGORIES, TemplateDefinition, searchTemplates, getTemplatesByCategory } from "@/lib/templates";
 import { wrapTemplate, BricksElement, BricksTemplate } from "@/lib/bricks-engine";
 
@@ -24,7 +26,22 @@ export default function Home() {
   const [aiAvailable, setAiAvailable] = useState<boolean | undefined>(undefined);
   const [lastMode, setLastMode] = useState<"ai" | "builtin" | null>(null);
 
-  const handleGenerate = useCallback(async (prompt: string, useAI: boolean = true) => {
+  // BYOK state
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [provider, setProvider] = useState<"openai" | "anthropic">("openai");
+
+  // Load saved settings from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedKey = localStorage.getItem("brickssnap_apikey") || "";
+      const savedProvider = localStorage.getItem("brickssnap_provider") as "openai" | "anthropic" | null;
+      if (savedKey) setApiKey(savedKey);
+      if (savedProvider) setProvider(savedProvider);
+    }
+  }, []);
+
+  const handleGenerate = useCallback(async (config: GeneratorConfig) => {
     setIsLoading(true);
     setGeneratedTemplate(null);
     setGeneratedElements([]);
@@ -35,7 +52,24 @@ export default function Home() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, useAI }),
+        body: JSON.stringify({
+          prompt: config.prompt,
+          useAI: config.useAI,
+          apiKey: apiKey || undefined,
+          provider: provider,
+          sections: config.sections.length > 0 ? config.sections : undefined,
+          stylePreset: config.stylePreset ? {
+            id: config.stylePreset.id,
+            name: config.stylePreset.name,
+            aiDirective: config.stylePreset.aiDirective,
+            tokens: config.stylePreset.tokens,
+          } : undefined,
+          colorPalette: config.colorPalette ? {
+            id: config.colorPalette.id,
+            name: config.colorPalette.name,
+            colors: config.colorPalette.colors,
+          } : undefined,
+        }),
       });
 
       const data = await response.json();
@@ -55,7 +89,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [apiKey, provider]);
 
   const handleTemplateSelect = useCallback((template: TemplateDefinition) => {
     const elements = template.generator();
@@ -130,10 +164,20 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-3 text-xs text-muted">
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border hover:border-border-hover hover:bg-card-hover transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Settings
+              {apiKey && <span className="w-1.5 h-1.5 rounded-full bg-success" />}
+            </button>
             <span className="px-2.5 py-1 rounded-md border border-border font-mono">
-              v1.0
+              v2.0
             </span>
-            <span className="hidden sm:inline">100% Free & Open Source</span>
           </div>
         </div>
       </header>
@@ -156,9 +200,21 @@ export default function Home() {
                 </span>
               </h2>
               <p className="text-lg text-muted max-w-2xl mx-auto leading-relaxed">
-                Describe the website section you need and get production-ready JSON code
-                you can paste directly into Bricks Builder. No subscriptions, no limits.
+                {TEMPLATES.length}+ pre-built templates, 45+ color palettes, 30+ style presets.
+                <br className="hidden sm:inline" />
+                Describe what you need and get production-ready Bricks Builder JSON instantly.
               </p>
+              <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted border border-border bg-card">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" /> OpenAI & Anthropic
+                </span>
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted border border-border bg-card">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent" /> BYOK Support
+                </span>
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted border border-border bg-card">
+                  <span className="w-1.5 h-1.5 rounded-full bg-success" /> 100% Free
+                </span>
+              </div>
             </div>
 
             {/* Generator form */}
@@ -242,9 +298,10 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Two column layout: Structure + JSON */}
+                {/* Two column layout: Visual + Structure + JSON */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-1">
+                  <div className="lg:col-span-1 space-y-6">
+                    <VisualPreview elements={generatedElements} />
                     <StructurePreview elements={generatedElements} />
                   </div>
                   <div className="lg:col-span-2">
@@ -257,38 +314,49 @@ export default function Home() {
             {/* Features section when no template */}
             {!generatedTemplate && !isLoading && (
               <div className="mt-16">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                  <div className="p-6 rounded-xl border border-border bg-card">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-5 max-w-5xl mx-auto">
+                  <div className="p-5 rounded-xl border border-border bg-card hover:border-border-hover transition-colors">
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
                       <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
                     </div>
-                    <h3 className="text-sm font-semibold text-foreground mb-2">Instant Generation</h3>
+                    <h3 className="text-sm font-semibold text-foreground mb-2">AI + Built-in Engine</h3>
                     <p className="text-xs text-muted leading-relaxed">
-                      Describe what you need in plain text (German or English) and get a complete Bricks Builder template instantly.
+                      Use GPT-4o or Claude for creative AI generation, or the built-in engine for instant offline templates.
                     </p>
                   </div>
-                  <div className="p-6 rounded-xl border border-border bg-card">
+                  <div className="p-5 rounded-xl border border-border bg-card hover:border-border-hover transition-colors">
                     <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center mb-4">
                       <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                       </svg>
                     </div>
-                    <h3 className="text-sm font-semibold text-foreground mb-2">Valid Bricks JSON</h3>
+                    <h3 className="text-sm font-semibold text-foreground mb-2">45+ Color Palettes</h3>
                     <p className="text-xs text-muted leading-relaxed">
-                      Every template uses the correct Bricks element structure with proper IDs, parent-child relationships, and settings.
+                      Pre-built palettes from Trust & Professional to Dark Themes and Tech Startups, applied to every element.
                     </p>
                   </div>
-                  <div className="p-6 rounded-xl border border-border bg-card">
+                  <div className="p-5 rounded-xl border border-border bg-card hover:border-border-hover transition-colors">
                     <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center mb-4">
                       <svg className="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
                       </svg>
                     </div>
-                    <h3 className="text-sm font-semibold text-foreground mb-2">Completely Free</h3>
+                    <h3 className="text-sm font-semibold text-foreground mb-2">30+ Style Presets</h3>
                     <p className="text-xs text-muted leading-relaxed">
-                      No subscriptions, no limits. Save money on expensive template libraries like Frames, BricksMaven, or Bricks Library Plus.
+                      Industry, aesthetic, mood, and trend presets. From SaaS to Restaurant, Minimalist to Neo-Brutalism.
+                    </p>
+                  </div>
+                  <div className="p-5 rounded-xl border border-border bg-card hover:border-border-hover transition-colors">
+                    <div className="w-10 h-10 rounded-lg bg-[#f59e0b]/10 flex items-center justify-center mb-4">
+                      <svg className="w-5 h-5 text-[#f59e0b]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground mb-2">BYOK - Your Keys</h3>
+                    <p className="text-xs text-muted leading-relaxed">
+                      Bring Your Own Key for OpenAI or Anthropic. Direct billing, zero markup. Keys stored locally only.
                     </p>
                   </div>
                 </div>
@@ -405,15 +473,26 @@ export default function Home() {
       <footer className="border-t border-border mt-16">
         <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-muted">
-            BricksSnap - Free Open Source Template Generator for Bricks Builder
+            BricksSnap v2.0 - Free Template Generator for Bricks Builder
           </div>
-          <div className="flex items-center gap-4 text-xs text-muted">
-            <span>
-              Compatible with Bricks Builder 1.x &amp; 2.x
-            </span>
+          <div className="flex items-center gap-6 text-xs text-muted">
+            <span>{TEMPLATES.length}+ templates</span>
+            <span>45+ palettes</span>
+            <span>30+ presets</span>
+            <span>Bricks 1.x &amp; 2.x</span>
           </div>
         </div>
       </footer>
+
+      {/* Settings Panel (BYOK) */}
+      <SettingsPanel
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        apiKey={apiKey}
+        setApiKey={setApiKey}
+        provider={provider}
+        setProvider={setProvider}
+      />
     </div>
   );
 }

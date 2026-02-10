@@ -42,6 +42,9 @@ export interface DesignTokens {
   darkMode: boolean;
   spacing: "compact" | "default" | "spacious";
   typography: "compact" | "default" | "large";
+  styleMode: "default" | "glassmorphism" | "neo-brutalism" | "brutalist" | "minimalist";
+  accentColor: string;
+  fontFamily: string;
 }
 
 const LIGHT_DEFAULTS: DesignTokens = {
@@ -58,6 +61,9 @@ const LIGHT_DEFAULTS: DesignTokens = {
   darkMode: false,
   spacing: "default",
   typography: "default",
+  styleMode: "default",
+  accentColor: "#06b6d4",
+  fontFamily: "Inter, system-ui, -apple-system, sans-serif",
 };
 
 const DARK_DEFAULTS: DesignTokens = {
@@ -74,6 +80,9 @@ const DARK_DEFAULTS: DesignTokens = {
   darkMode: true,
   spacing: "default",
   typography: "default",
+  fontFamily: "Inter, system-ui, -apple-system, sans-serif",
+  styleMode: "default",
+  accentColor: "#06b6d4",
 };
 
 /** Merge partial tokens with smart defaults based on darkMode */
@@ -180,6 +189,135 @@ function fontSize(tokens: DesignTokens, level: "h1" | "h2" | "h3" | "h4" | "body
 }
 
 // ============================================================
+// GLASSMORPHISM & STYLE MODE HELPERS
+// ============================================================
+
+/** Check if glassmorphism mode is active */
+function isGlass(tokens: DesignTokens): boolean {
+  return tokens.styleMode === "glassmorphism";
+}
+
+/** Get glassmorphism card overrides - merge into card settings via spread */
+function glassCardProps(tokens: DesignTokens): Record<string, unknown> {
+  if (tokens.styleMode !== "glassmorphism") return {};
+  const isLight = !tokens.darkMode;
+  return {
+    _background: { color: { hex: isLight ? withAlpha("#ffffff", 0.65) : withAlpha("#ffffff", 0.06) } },
+    _cssCustom: "%root% {\n  backdrop-filter: blur(16px);\n  -webkit-backdrop-filter: blur(16px);\n}",
+    _border: {
+      radius: radObj(tokens, 2),
+      width: { top: "1", right: "1", bottom: "1", left: "1" },
+      style: "solid",
+      color: { hex: isLight ? withAlpha(tokens.primaryColor, 0.2) : withAlpha("#ffffff", 0.12) },
+    },
+    _boxShadow: {
+      values: { offsetX: "0", offsetY: "8", blur: "32", spread: "-4" },
+      color: { hex: isLight ? withAlpha(tokens.primaryColor, 0.08) : "#00000040" },
+    },
+  };
+}
+
+/** Get glassmorphism navbar overrides */
+function glassNavProps(tokens: DesignTokens): Record<string, unknown> {
+  if (tokens.styleMode !== "glassmorphism") return {};
+  const isLight = !tokens.darkMode;
+  return {
+    _background: { color: { hex: isLight ? withAlpha("#ffffff", 0.7) : withAlpha(tokens.backgroundColor, 0.8) } },
+    _cssCustom: "%root% {\n  backdrop-filter: blur(20px);\n  -webkit-backdrop-filter: blur(20px);\n}",
+    _border: {
+      width: { bottom: "1" },
+      style: "solid",
+      color: { hex: isLight ? withAlpha(tokens.primaryColor, 0.1) : withAlpha("#ffffff", 0.08) },
+    },
+  };
+}
+
+/** Get a tinted section background for glass mode (so glass cards are visible) */
+function glassSectionBg(tokens: DesignTokens, originalBg: string): string {
+  if (tokens.styleMode !== "glassmorphism") return originalBg;
+  if (tokens.darkMode) return originalBg;
+  // Light mode: use very light primary tint so glass cards show against it
+  return adjustColor(tokens.primaryColor, 0.93);
+}
+
+// ============================================================
+// INTERACTIVE / TRANSITION HELPERS
+// ============================================================
+
+/** Get hover effect CSS for cards (lift + shadow on hover) */
+function hoverCard(tokens: DesignTokens): Record<string, unknown> {
+  const shadowColor = tokens.darkMode ? "rgba(0,0,0,0.3)" : "rgba(0,0,0,0.08)";
+  return {
+    _cssCustom: [
+      "%root% { transition: transform 0.25s ease, box-shadow 0.25s ease; }",
+      `%root%:hover { transform: translateY(-4px); box-shadow: 0 20px 40px ${shadowColor}; }`,
+    ].join("\n"),
+  };
+}
+
+/** Get hover effect CSS for buttons (slight scale + brightness) */
+function hoverButton(tokens: DesignTokens): Record<string, unknown> {
+  const darkerBg = adjustColor(tokens.primaryColor, -0.1);
+  return {
+    _cssCustom: [
+      "%root% { transition: all 0.2s ease; cursor: pointer; }",
+      `%root%:hover { transform: translateY(-2px); background-color: ${darkerBg} !important; box-shadow: 0 8px 24px ${withAlpha(tokens.primaryColor, 0.3)}; }`,
+    ].join("\n"),
+  };
+}
+
+/** Get hover effect CSS for secondary/outline buttons */
+function hoverButtonSecondary(tokens: DesignTokens): Record<string, unknown> {
+  return {
+    _cssCustom: [
+      "%root% { transition: all 0.2s ease; cursor: pointer; }",
+      `%root%:hover { transform: translateY(-2px); background-color: ${withAlpha(tokens.primaryColor, 0.08)} !important; border-color: ${tokens.primaryColor} !important; }`,
+    ].join("\n"),
+  };
+}
+
+/** Get hover effect CSS for nav links */
+function hoverLink(): Record<string, unknown> {
+  return {
+    _cssCustom: "%root% { transition: color 0.2s ease; cursor: pointer; }\n%root%:hover { opacity: 0.7; }",
+  };
+}
+
+/** Build gradient background object for Bricks */
+function gradientBg(from: string, to: string, angle: string = "135"): Record<string, unknown> {
+  return {
+    gradient: {
+      type: "linear",
+      angle,
+      colors: [
+        { color: { hex: from }, position: "0" },
+        { color: { hex: to }, position: "100" },
+      ],
+    },
+  };
+}
+
+/** Merge _cssCustom strings (when both glass + hover need it) */
+function mergeCssCustom(...parts: (Record<string, unknown> | undefined)[]): Record<string, unknown> {
+  const lines: string[] = [];
+  for (const p of parts) {
+    if (p && typeof p._cssCustom === "string") {
+      lines.push(p._cssCustom);
+    }
+  }
+  if (lines.length === 0) return {};
+  return { _cssCustom: lines.join("\n") };
+}
+
+/** Build typography object with font-family automatically included */
+function typo(tokens: DesignTokens, overrides: Record<string, unknown>): Record<string, unknown> {
+  return {
+    "font-family": tokens.fontFamily,
+    ...overrides,
+  };
+}
+
+// ============================================================
 // CORE HELPERS
 // ============================================================
 
@@ -248,7 +386,9 @@ export function generateHeroSection(
   const isGradient = style === "gradient";
   const sectionBg = isGradient
     ? (tokens.darkMode ? tokens.backgroundColor : "#0f172a")
-    : tokens.backgroundColor;
+    : (isGlass(tokens)
+        ? (tokens.darkMode ? tokens.backgroundColor : adjustColor(tokens.primaryColor, 0.88))
+        : tokens.backgroundColor);
   const headingClr = isGradient
     ? (tokens.darkMode ? tokens.headingColor : "#ffffff")
     : tokens.headingColor;
@@ -258,7 +398,9 @@ export function generateHeroSection(
 
   const section = createElement("section", 0, {
     _padding: { top: "100", bottom: "100", left: "40", right: "40" },
-    _background: { color: { hex: sectionBg } },
+    _background: isGradient
+      ? { ...gradientBg(tokens.primaryColor, tokens.secondaryColor, "135"), color: { hex: sectionBg } }
+      : { color: { hex: sectionBg } },
   }, "Hero Section");
   elements.push(section);
 
@@ -278,7 +420,7 @@ export function generateHeroSection(
     _direction: "column",
     _alignItems: style === "split" ? "flex-start" : "center",
     _gap: "24px",
-    ...(style === "split" ? { _width: "50%" } : { _width: "100%", _textAlign: "center" }),
+    ...(style === "split" ? { _width: "50%", _flexGrow: "1" } : { _width: "100%", _textAlign: "center" }),
   });
   linkElements(container, contentBlock);
   elements.push(contentBlock);
@@ -287,6 +429,7 @@ export function generateHeroSection(
     text: headline,
     tag: "h1",
     _typography: {
+      "font-family": tokens.fontFamily,
       "font-size": isGradient ? "56px" : "48px",
       "font-weight": "800",
       "line-height": "1.1",
@@ -294,17 +437,18 @@ export function generateHeroSection(
       color: { hex: headingClr },
     },
     _margin: { bottom: "16" },
+    _maxWidth: style === "split" ? "100%" : "800px",
   });
   linkElements(contentBlock, heading);
   elements.push(heading);
 
   const text = createElement("text-basic", contentBlock.id, {
     text: `<p>${subtext}</p>`,
-    _typography: {
+    _typography: typo(tokens, {
       "font-size": "20px",
       "line-height": "1.6",
       color: { hex: subtextClr },
-    },
+    }),
     _width: style === "split" ? "100%" : "600px",
     _margin: { bottom: "16" },
   });
@@ -321,20 +465,23 @@ export function generateHeroSection(
   linkElements(contentBlock, buttonWrapper);
   elements.push(buttonWrapper);
 
-  const primaryBtn = createElement("text-basic", buttonWrapper.id, {
-    text: `<p>${buttonText}</p>`,
-    tag: "a",
+  const primaryBtn = createElement("button", buttonWrapper.id, {
+    text: buttonText,
     link: { type: "external", url: buttonLink },
+    style: "primary",
+    size: "lg",
     _padding: { top: "16", bottom: "16", left: "32", right: "32" },
     _background: { color: { hex: tokens.primaryColor } },
     _border: { radius: radObj(tokens) },
     _typography: {
+      "font-family": tokens.fontFamily,
       "font-size": "16px",
       "font-weight": "600",
       color: { hex: "#ffffff" },
       "text-decoration": "none",
     },
-    _attributes: [{ name: "role", value: "button" }],
+    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: buttonText }],
+    ...hoverButton(tokens),
   });
   linkElements(buttonWrapper, primaryBtn);
   elements.push(primaryBtn);
@@ -346,10 +493,11 @@ export function generateHeroSection(
     ? (tokens.darkMode ? tokens.textColor : "#e2e8f0")
     : tokens.textColor;
 
-  const secondaryBtn = createElement("text-basic", buttonWrapper.id, {
-    text: "<p>Learn More</p>",
-    tag: "a",
+  const secondaryBtn = createElement("button", buttonWrapper.id, {
+    text: "Learn More",
     link: { type: "external", url: "#" },
+    style: "outline",
+    size: "lg",
     _padding: { top: "16", bottom: "16", left: "32", right: "32" },
     _background: { color: { hex: "transparent" } },
     _border: {
@@ -358,12 +506,14 @@ export function generateHeroSection(
       style: "solid",
       color: { hex: secondaryBorderColor },
     },
-    _typography: {
+    _typography: typo(tokens, {
       "font-size": "16px",
       "font-weight": "600",
       color: { hex: secondaryTextColor },
       "text-decoration": "none",
-    },
+    }),
+    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: "Learn More" }],
+    ...hoverButtonSecondary(tokens),
   });
   linkElements(buttonWrapper, secondaryBtn);
   elements.push(secondaryBtn);
@@ -371,6 +521,8 @@ export function generateHeroSection(
   if (style === "split") {
     const imageBlock = createElement("div", container.id, {
       _width: "50%",
+      _flexShrink: "0",
+      _flexBasis: "45%",
     });
     linkElements(container, imageBlock);
     elements.push(imageBlock);
@@ -382,7 +534,9 @@ export function generateHeroSection(
       },
       _border: { radius: radObj(tokens, 2) },
       _width: "100%",
+      _aspectRatio: "16/9",
       _objectFit: "cover",
+      _boxShadow: { values: { offsetX: "0", offsetY: "16", blur: "48", spread: "-12" }, color: { hex: withAlpha(tokens.primaryColor, 0.2) } },
     });
     linkElements(imageBlock, image);
     elements.push(image);
@@ -415,6 +569,7 @@ export function generateNavbar(
     _position: "sticky",
     _top: "0",
     _zIndex: "50",
+    ...glassNavProps(tokens),
   }, "Navbar");
   elements.push(section);
 
@@ -432,11 +587,11 @@ export function generateNavbar(
   const brand = createElement("heading", container.id, {
     text: brandName,
     tag: "h3",
-    _typography: {
+    _typography: typo(tokens, {
       "font-size": "24px",
       "font-weight": "700",
       color: { hex: tokens.headingColor },
-    },
+    }),
   });
   linkElements(container, brand);
   elements.push(brand);
@@ -455,30 +610,38 @@ export function generateNavbar(
       text: `<p>${link.text}</p>`,
       tag: "a",
       link: { type: "external", url: link.url },
+      _padding: { top: "8", bottom: "8", left: "14", right: "14" },
       _typography: {
+        "font-family": tokens.fontFamily,
         "font-size": "15px",
         "font-weight": "500",
         color: { hex: tokens.mutedTextColor },
         "text-decoration": "none",
       },
+      _attributes: [{ name: "aria-label", value: link.text }],
+      ...hoverLink(),
     });
     linkElements(navBlock, navLink);
     elements.push(navLink);
   }
 
-  const ctaBtn = createElement("text-basic", navBlock.id, {
-    text: `<p>${ctaText}</p>`,
-    tag: "a",
+  const ctaBtn = createElement("button", navBlock.id, {
+    text: ctaText,
     link: { type: "external", url: "#" },
+    style: "primary",
+    size: "sm",
     _padding: { top: "10", bottom: "10", left: "24", right: "24" },
     _background: { color: { hex: tokens.primaryColor } },
     _border: { radius: radObj(tokens) },
     _typography: {
+      "font-family": tokens.fontFamily,
       "font-size": "15px",
       "font-weight": "600",
       color: { hex: "#ffffff" },
       "text-decoration": "none",
     },
+    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: ctaText }],
+    ...hoverButton(tokens),
   });
   linkElements(navBlock, ctaBtn);
   elements.push(ctaBtn);
@@ -503,7 +666,7 @@ export function generateFeaturesSection(
 
   const section = createElement("section", 0, {
     _padding: { top: "100", bottom: "100", left: "40", right: "40" },
-    _background: { color: { hex: tokens.surfaceColor } },
+    _background: { color: { hex: glassSectionBg(tokens, tokens.surfaceColor) } },
   }, "Features Section");
   elements.push(section);
 
@@ -530,12 +693,12 @@ export function generateFeaturesSection(
   const title = createElement("heading", headerBlock.id, {
     text: sectionTitle,
     tag: "h2",
-    _typography: {
+    _typography: typo(tokens, {
       "font-size": "40px",
       "font-weight": "700",
       "line-height": "1.2",
       color: { hex: tokens.headingColor },
-    },
+    }),
     _margin: { bottom: "16" },
   });
   linkElements(headerBlock, title);
@@ -543,11 +706,11 @@ export function generateFeaturesSection(
 
   const subtitle = createElement("text-basic", headerBlock.id, {
     text: `<p>${sectionSubtitle}</p>`,
-    _typography: {
+    _typography: typo(tokens, {
       "font-size": "18px",
       "line-height": "1.6",
       color: { hex: tokens.mutedTextColor },
-    },
+    }),
     _width: "600px",
   });
   linkElements(headerBlock, subtitle);
@@ -581,12 +744,19 @@ export function generateFeaturesSection(
       },
       _gap: "16px",
       ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+      ...glassCardProps(tokens),
+      ...mergeCssCustom(glassCardProps(tokens), hoverCard(tokens)),
     });
     linkElements(grid, card);
     elements.push(card);
 
     const iconColor = iconColors[i % iconColors.length];
-    const iconWrapper = createElement("div", card.id, {
+    const featureIcons = ["fas fa-star", "fas fa-bolt", "fas fa-shield-alt", "fas fa-chart-line", "fas fa-cog", "fas fa-rocket"];
+    const iconWrapper = createElement("icon-box", card.id, {
+      icon: { icon: featureIcons[i % featureIcons.length], library: "fontawesome" },
+      iconSize: "24px",
+      iconColor: { hex: iconColor },
+      iconPosition: "left",
       _width: "48px",
       _height: "48px",
       _background: { color: { hex: withAlpha(iconColor, 0.1) } },
@@ -597,16 +767,6 @@ export function generateFeaturesSection(
     });
     linkElements(card, iconWrapper);
     elements.push(iconWrapper);
-
-    const iconText = createElement("text-basic", iconWrapper.id, {
-      text: `<p style="font-size:24px">&#9733;</p>`,
-      _typography: {
-        "font-size": "24px",
-        color: { hex: iconColor },
-      },
-    });
-    linkElements(iconWrapper, iconText);
-    elements.push(iconText);
 
     const featureTitle = createElement("heading", card.id, {
       text: feature.title,
@@ -699,6 +859,7 @@ export function generatePricingSection(
       color: { hex: tokens.primaryColor },
       "text-transform": "uppercase",
       "letter-spacing": "0.05em",
+      "white-space": "nowrap",
     },
     _margin: { bottom: "16" },
   });
@@ -758,6 +919,8 @@ export function generatePricingSection(
       ...(plan.highlighted ? {
         _boxShadow: { values: { offsetY: "8", blur: "40", spread: "-12" }, color: { hex: withAlpha(tokens.primaryColor, 0.3) } },
       } : {}),
+      ...glassCardProps(tokens),
+      ...mergeCssCustom(glassCardProps(tokens), hoverCard(tokens)),
     });
     linkElements(grid, card);
     elements.push(card);
@@ -845,10 +1008,11 @@ export function generatePricingSection(
       elements.push(featureItem);
     }
 
-    const button = createElement("text-basic", card.id, {
-      text: `<p>${plan.buttonText || "Get Started"}</p>`,
-      tag: "a",
+    const button = createElement("button", card.id, {
+      text: plan.buttonText || "Get Started",
       link: { type: "external", url: "#" },
+      style: plan.highlighted ? "primary" : "outline",
+      size: "lg",
       _padding: { top: "14", bottom: "14", left: "24", right: "24" },
       _background: { color: { hex: plan.highlighted ? tokens.primaryColor : "transparent" } },
       _border: {
@@ -867,6 +1031,8 @@ export function generatePricingSection(
         "text-decoration": "none",
       },
       _margin: { top: "auto" },
+      _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: plan.buttonText || "Get Started" }],
+      ...(plan.highlighted ? hoverButton(tokens) : hoverButtonSecondary(tokens)),
     });
     linkElements(card, button);
     elements.push(button);
@@ -956,6 +1122,8 @@ export function generateTestimonialsSection(
       },
       _gap: "20px",
       ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+      ...glassCardProps(tokens),
+      ...mergeCssCustom(glassCardProps(tokens), hoverCard(tokens)),
     });
     linkElements(grid, card);
     elements.push(card);
@@ -979,7 +1147,10 @@ export function generateTestimonialsSection(
         "line-height": "1.7",
         color: { hex: tokens.textColor },
         "font-style": "italic",
+        "word-break": "break-word",
       },
+      _maxHeight: "160px",
+      _overflow: "hidden",
     });
     linkElements(card, quote);
     elements.push(quote);
@@ -1060,6 +1231,8 @@ export function generateFooterSection(
   const topRow = createElement("div", container.id, {
     _display: "grid",
     _gridTemplateColumns: "280px repeat(auto-fill, minmax(140px, 1fr))",
+    _gridTemplateRows: "auto",
+    _gridAutoFlow: "row",
     _gap: "40px",
     _width: "100%",
   });
@@ -1131,19 +1304,13 @@ export function generateFooterSection(
           color: { hex: footerText },
           "text-decoration": "none",
         },
+        _attributes: [{ name: "aria-label", value: link.text }],
+        ...hoverLink(),
       });
       linkElements(colBlock, linkEl);
       elements.push(linkEl);
     }
   }
-
-  const divider = createElement("div", container.id, {
-    _width: "100%",
-    _height: "1px",
-    _background: { color: { hex: footerDivider } },
-  });
-  linkElements(container, divider);
-  elements.push(divider);
 
   const bottomRow = createElement("div", container.id, {
     _display: "flex",
@@ -1153,6 +1320,12 @@ export function generateFooterSection(
     _width: "100%",
     _flexWrap: "wrap",
     _gap: "16px",
+    _border: {
+      width: { top: "1" },
+      style: "solid",
+      color: { hex: footerDivider },
+    },
+    _padding: { top: "32" },
   });
   linkElements(container, bottomRow);
   elements.push(bottomRow);
@@ -1166,6 +1339,25 @@ export function generateFooterSection(
   });
   linkElements(bottomRow, copyright);
   elements.push(copyright);
+
+  // Social icons
+  const socialIcons = createElement("social-icons", bottomRow.id, {
+    icons: [
+      { icon: { icon: "fab fa-twitter", library: "fontawesome" }, link: { type: "external", url: "#" } },
+      { icon: { icon: "fab fa-facebook-f", library: "fontawesome" }, link: { type: "external", url: "#" } },
+      { icon: { icon: "fab fa-instagram", library: "fontawesome" }, link: { type: "external", url: "#" } },
+      { icon: { icon: "fab fa-linkedin-in", library: "fontawesome" }, link: { type: "external", url: "#" } },
+      { icon: { icon: "fab fa-github", library: "fontawesome" }, link: { type: "external", url: "#" } },
+    ],
+    iconSize: "18px",
+    iconColor: { hex: footerText },
+    iconGap: "16px",
+    _display: "flex",
+    _gap: "16px",
+    _alignItems: "center",
+  });
+  linkElements(bottomRow, socialIcons);
+  elements.push(socialIcons);
 
   return elements;
 }
@@ -1192,10 +1384,23 @@ export function generateCTASection(
     _width: "900px",
     _margin: { left: "auto", right: "auto" },
     _padding: { top: "80", bottom: "80", left: "60", right: "60" },
-    _background: { color: { hex: ctaBg } },
+    _background: {
+      color: { hex: ctaBg },
+      ...gradientBg(tokens.primaryColor, tokens.secondaryColor, "135"),
+      image: {
+        url: "https://images.unsplash.com/photo-1557683316-973673baf926?w=1200",
+        filename: "cta-pattern.jpg",
+      },
+      size: "cover",
+      position: "center center",
+      repeat: "no-repeat",
+      attachment: "scroll",
+    },
     _border: { radius: radObj(tokens, 3) },
     _textAlign: "center",
     _gap: "24px",
+    _overflow: "hidden",
+    ...glassCardProps(tokens),
   });
   linkElements(section, container);
   elements.push(container);
@@ -1225,20 +1430,24 @@ export function generateCTASection(
   linkElements(container, text);
   elements.push(text);
 
-  const button = createElement("text-basic", container.id, {
-    text: `<p>${buttonText}</p>`,
-    tag: "a",
+  const button = createElement("button", container.id, {
+    text: buttonText,
     link: { type: "external", url: "#" },
+    style: "primary",
+    size: "lg",
     _padding: { top: "16", bottom: "16", left: "40", right: "40" },
     _background: { color: { hex: tokens.primaryColor } },
     _border: { radius: radObj(tokens, 1.25) },
     _typography: {
+      "font-family": tokens.fontFamily,
       "font-size": "18px",
       "font-weight": "600",
       color: { hex: "#ffffff" },
       "text-decoration": "none",
     },
     _margin: { top: "8" },
+    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: buttonText }],
+    ...hoverButton(tokens),
   });
   linkElements(container, button);
   elements.push(button);
@@ -1347,6 +1556,7 @@ export function generateContactSection(
     _background: { color: { hex: tokens.surfaceColor } },
     _border: { radius: radObj(tokens, 2) },
     _gap: "20px",
+    ...glassCardProps(tokens),
   });
   linkElements(container, formBlock);
   elements.push(formBlock);
@@ -1467,17 +1677,18 @@ export function generateGallerySection(
     _gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
     _gap: "24px",
     _width: "100%",
+    _alignContent: "start",
   });
   linkElements(container, grid);
   elements.push(grid);
 
-  const placeholderColors = [
-    withAlpha(tokens.primaryColor, 0.12),
-    withAlpha(tokens.secondaryColor, 0.12),
-    "#fce7f3",
-    "#d1fae5",
-    "#fef3c7",
-    "#ede9fe",
+  const placeholderImages = [
+    "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=600",
+    "https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600",
+    "https://images.unsplash.com/photo-1542744094-3a31f272c490?w=600",
+    "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600",
+    "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=600",
+    "https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=600",
   ];
   const cardShadow = shadowSettings(tokens);
 
@@ -1496,31 +1707,23 @@ export function generateGallerySection(
       },
       _overflow: "hidden",
       ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+      ...glassCardProps(tokens),
+      ...mergeCssCustom(glassCardProps(tokens), hoverCard(tokens)),
     });
     linkElements(grid, card);
     elements.push(card);
 
-    const imagePlaceholder = createElement("div", card.id, {
+    const imagePlaceholder = createElement("image", card.id, {
+      image: {
+        url: placeholderImages[i % placeholderImages.length],
+        filename: `gallery-${i + 1}.jpg`,
+      },
       _width: "100%",
       _height: "240px",
-      _background: { color: { hex: placeholderColors[i % placeholderColors.length] } },
-      _display: "flex",
-      _justifyContent: "center",
-      _alignItems: "center",
+      _objectFit: "cover",
     });
     linkElements(card, imagePlaceholder);
     elements.push(imagePlaceholder);
-
-    const imageIcon = createElement("text-basic", imagePlaceholder.id, {
-      text: "<p>&#128247;</p>",
-      _typography: {
-        "font-size": "48px",
-        color: { hex: tokens.mutedTextColor },
-      },
-      _opacity: "0.4",
-    });
-    linkElements(imagePlaceholder, imageIcon);
-    elements.push(imageIcon);
 
     const cardContent = createElement("div", card.id, {
       _display: "flex",
@@ -1663,35 +1866,34 @@ export function generateTeamSection(
       _gap: "16px",
       _textAlign: "center",
       ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+      ...glassCardProps(tokens),
+      ...mergeCssCustom(glassCardProps(tokens), hoverCard(tokens)),
     });
     linkElements(grid, card);
     elements.push(card);
 
-    // Avatar placeholder circle
-    const avatar = createElement("div", card.id, {
+    // Avatar image (circular)
+    const avatarImages = [
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+      "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=200",
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200",
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200",
+    ];
+    const avatar = createElement("image", card.id, {
+      image: {
+        url: avatarImages[i % avatarImages.length],
+        filename: `team-${i + 1}.jpg`,
+      },
       _width: "96px",
       _height: "96px",
-      _background: { color: { hex: withAlpha(avatarColors[i % avatarColors.length], 0.15) } },
+      _objectFit: "cover",
       _border: {
         radius: { top: "9999", right: "9999", bottom: "9999", left: "9999" },
       },
-      _display: "flex",
-      _justifyContent: "center",
-      _alignItems: "center",
+      _boxShadow: { values: { offsetX: "0", offsetY: "4", blur: "16", spread: "-4" }, color: { hex: withAlpha(avatarColors[i % avatarColors.length], 0.2) } },
     });
     linkElements(card, avatar);
     elements.push(avatar);
-
-    const initials = createElement("text-basic", avatar.id, {
-      text: `<p>${member.name.split(" ").map(n => n[0]).join("")}</p>`,
-      _typography: {
-        "font-size": "28px",
-        "font-weight": "700",
-        color: { hex: avatarColors[i % avatarColors.length] },
-      },
-    });
-    linkElements(avatar, initials);
-    elements.push(initials);
 
     const memberName = createElement("heading", card.id, {
       text: member.name,
@@ -1806,11 +2008,13 @@ export function generateStatsSection(
     linkElements(grid, statBlock);
     elements.push(statBlock);
 
-    const value = createElement("heading", statBlock.id, {
-      text: stat.value,
-      tag: "custom",
-      customTag: "span",
+    const value = createElement("counter", statBlock.id, {
+      countTo: stat.value.replace(/[^0-9.]/g, "") || "100",
+      prefix: stat.value.match(/^[^0-9]*/)?.[0] || "",
+      suffix: stat.value.match(/[^0-9]*$/)?.[0] || "",
+      duration: "2000",
       _typography: {
+        "font-family": tokens.fontFamily,
         "font-size": "48px",
         "font-weight": "800",
         "line-height": "1.1",
@@ -1920,54 +2124,31 @@ export function generateFaqSection(
   linkElements(headerBlock, subtitle);
   elements.push(subtitle);
 
-  const faqList = createElement("div", container.id, {
-    _display: "flex",
-    _direction: "column",
+  // Use native Bricks accordion element for collapsible FAQ
+  const accordion = createElement("accordion", container.id, {
+    items: items.map((item) => ({
+      title: item.question,
+      content: item.answer,
+    })),
     _width: "100%",
-    _gap: "0px",
+    _typography: {
+      "font-family": tokens.fontFamily,
+      "font-size": "16px",
+      "line-height": "1.7",
+      color: { hex: tokens.textColor },
+    },
+    _padding: { top: "0", bottom: "0", left: "0", right: "0" },
+    _border: {
+      radius: radObj(tokens, 1.5),
+      width: { top: "1", right: "1", bottom: "1", left: "1" },
+      style: "solid",
+      color: { hex: tokens.borderColor },
+    },
+    _background: { color: { hex: tokens.surfaceColor } },
+    ...glassCardProps(tokens),
   });
-  linkElements(container, faqList);
-  elements.push(faqList);
-
-  for (const item of items) {
-    const faqItem = createElement("div", faqList.id, {
-      _display: "flex",
-      _direction: "column",
-      _padding: { top: "24", bottom: "24", left: "0", right: "0" },
-      _border: {
-        width: { bottom: "1" },
-        style: "solid",
-        color: { hex: tokens.borderColor },
-      },
-      _gap: "12px",
-    });
-    linkElements(faqList, faqItem);
-    elements.push(faqItem);
-
-    const question = createElement("heading", faqItem.id, {
-      text: item.question,
-      tag: "h3",
-      _typography: {
-        "font-size": "18px",
-        "font-weight": "600",
-        "line-height": "1.4",
-        color: { hex: tokens.headingColor },
-      },
-    });
-    linkElements(faqItem, question);
-    elements.push(question);
-
-    const answer = createElement("text-basic", faqItem.id, {
-      text: `<p>${item.answer}</p>`,
-      _typography: {
-        "font-size": "16px",
-        "line-height": "1.7",
-        color: { hex: tokens.mutedTextColor },
-      },
-    });
-    linkElements(faqItem, answer);
-    elements.push(answer);
-  }
+  linkElements(container, accordion);
+  elements.push(accordion);
 
   return elements;
 }
@@ -2038,6 +2219,7 @@ export function generateLogoCloudSection(
       _alignItems: "center",
       _padding: { top: "12", bottom: "12", left: "20", right: "20" },
       _opacity: "0.5",
+      _cssCustom: "%root% { filter: grayscale(100%); transition: filter 0.3s ease, opacity 0.3s ease; }\n%root%:hover { filter: grayscale(0%); opacity: 1; }",
     });
     linkElements(logoRow, logoBox);
     elements.push(logoBox);
@@ -2163,29 +2345,30 @@ export function generateBlogSection(
       },
       _overflow: "hidden",
       ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+      ...glassCardProps(tokens),
+      ...mergeCssCustom(glassCardProps(tokens), hoverCard(tokens)),
     });
     linkElements(grid, card);
     elements.push(card);
 
-    // Image placeholder
-    const imgPlaceholder = createElement("div", card.id, {
+    // Image
+    const blogImages = [
+      "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=600",
+      "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=600",
+      "https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=600",
+    ];
+    const imgPlaceholder = createElement("image", card.id, {
+      image: {
+        url: blogImages[i % blogImages.length],
+        filename: `blog-${i + 1}.jpg`,
+      },
       _width: "100%",
       _height: "200px",
+      _objectFit: "cover",
       _background: { color: { hex: imgColors[i % imgColors.length] } },
-      _display: "flex",
-      _justifyContent: "center",
-      _alignItems: "center",
     });
     linkElements(card, imgPlaceholder);
     elements.push(imgPlaceholder);
-
-    const imgIcon = createElement("text-basic", imgPlaceholder.id, {
-      text: "<p>&#128196;</p>",
-      _typography: { "font-size": "40px", color: { hex: tokens.mutedTextColor } },
-      _opacity: "0.3",
-    });
-    linkElements(imgPlaceholder, imgIcon);
-    elements.push(imgIcon);
 
     // Content
     const content = createElement("div", card.id, {
@@ -2275,6 +2458,7 @@ export function generateBlogSection(
         color: { hex: tokens.primaryColor },
         "text-decoration": "none",
       },
+      ...hoverLink(),
     });
     linkElements(bottomRow, readMore);
     elements.push(readMore);
@@ -2436,6 +2620,23 @@ export function generateStepsSection(
     });
     linkElements(stepBlock, stepDesc);
     elements.push(stepDesc);
+
+    // Progress bar under each step showing percentage completion
+    const progressPercent = Math.round(((i + 1) / steps.length) * 100);
+    const progressBar = createElement("progress-bar", stepBlock.id, {
+      value: progressPercent,
+      max: 100,
+      label: `Step ${i + 1}`,
+      showValue: false,
+      barColor: { hex: tokens.primaryColor },
+      backgroundColor: { hex: tokens.borderColor },
+      _width: "80%",
+      _height: "4px",
+      _border: { radius: { top: "9999", right: "9999", bottom: "9999", left: "9999" } },
+      _margin: { top: "8" },
+    });
+    linkElements(stepBlock, progressBar);
+    elements.push(progressBar);
   }
 
   return elements;
@@ -2567,29 +2768,32 @@ export function generatePortfolioSection(
       },
       _overflow: "hidden",
       ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+      ...glassCardProps(tokens),
+      ...mergeCssCustom(glassCardProps(tokens), hoverCard(tokens)),
     });
     linkElements(grid, card);
     elements.push(card);
 
-    // Image placeholder
-    const imgPlaceholder = createElement("div", card.id, {
+    // Image
+    const portfolioImages = [
+      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600",
+      "https://images.unsplash.com/photo-1551650975-87deedd944c3?w=600",
+      "https://images.unsplash.com/photo-1547658719-da2b51169166?w=600",
+      "https://images.unsplash.com/photo-1559028012-481c04fa702d?w=600",
+    ];
+    const imgPlaceholder = createElement("image", card.id, {
+      image: {
+        url: portfolioImages[i % portfolioImages.length],
+        filename: `portfolio-${i + 1}.jpg`,
+      },
       _width: "100%",
       _height: "220px",
+      _objectFit: "cover",
       _background: { color: { hex: imgColors[i % imgColors.length] } },
-      _display: "flex",
-      _justifyContent: "center",
-      _alignItems: "center",
+      _cssCustom: "%root% { transition: transform 0.3s ease; }\n%root%:hover { transform: scale(1.05); }",
     });
     linkElements(card, imgPlaceholder);
     elements.push(imgPlaceholder);
-
-    const imgIcon = createElement("text-basic", imgPlaceholder.id, {
-      text: "<p>&#128196;</p>",
-      _typography: { "font-size": "40px", color: { hex: tokens.mutedTextColor } },
-      _opacity: "0.3",
-    });
-    linkElements(imgPlaceholder, imgIcon);
-    elements.push(imgIcon);
 
     // Content
     const content = createElement("div", card.id, {
@@ -2697,7 +2901,7 @@ export function generateServicesSection(
 
   const section = createElement("section", 0, {
     _padding: pad,
-    _background: { color: { hex: tokens.surfaceColor } },
+    _background: { color: { hex: glassSectionBg(tokens, tokens.surfaceColor) } },
   }, "Services Section");
   elements.push(section);
 
@@ -2776,6 +2980,8 @@ export function generateServicesSection(
       },
       _gap: "20px",
       ...(cardShadow ? { _boxShadow: cardShadow } : {}),
+      ...glassCardProps(tokens),
+      ...mergeCssCustom(glassCardProps(tokens), hoverCard(tokens)),
     });
     linkElements(grid, card);
     elements.push(card);
@@ -2848,6 +3054,7 @@ export function generateServicesSection(
         "text-decoration": "none",
       },
       _margin: { top: "auto" },
+      ...hoverLink(),
     });
     linkElements(card, learnMore);
     elements.push(learnMore);
@@ -3112,10 +3319,11 @@ export function generate404Section(
   linkElements(container, btnRow);
   elements.push(btnRow);
 
-  const homeBtn = createElement("text-basic", btnRow.id, {
-    text: `<p>${buttonText}</p>`,
-    tag: "a",
+  const homeBtn = createElement("button", btnRow.id, {
+    text: buttonText,
     link: { type: "external", url: "/" },
+    style: "primary",
+    size: "lg",
     _padding: { top: "14", bottom: "14", left: "32", right: "32" },
     _background: { color: { hex: tokens.primaryColor } },
     _border: { radius: radObj(tokens) },
@@ -3125,14 +3333,17 @@ export function generate404Section(
       color: { hex: "#ffffff" },
       "text-decoration": "none",
     },
+    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: buttonText }],
+    ...hoverButton(tokens),
   });
   linkElements(btnRow, homeBtn);
   elements.push(homeBtn);
 
-  const contactBtn = createElement("text-basic", btnRow.id, {
-    text: "<p>Contact Support</p>",
-    tag: "a",
+  const contactBtn = createElement("button", btnRow.id, {
+    text: "Contact Support",
     link: { type: "external", url: "#contact" },
+    style: "outline",
+    size: "lg",
     _padding: { top: "14", bottom: "14", left: "32", right: "32" },
     _background: { color: { hex: "transparent" } },
     _border: {
@@ -3147,6 +3358,8 @@ export function generate404Section(
       color: { hex: tokens.textColor },
       "text-decoration": "none",
     },
+    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: "Contact Support" }],
+    ...hoverButtonSecondary(tokens),
   });
   linkElements(btnRow, contactBtn);
   elements.push(contactBtn);
@@ -3259,10 +3472,11 @@ export function generateComingSoonSection(
   linkElements(formRow, emailInput);
   elements.push(emailInput);
 
-  const notifyBtn = createElement("text-basic", formRow.id, {
-    text: "<p>Notify Me</p>",
-    tag: "a",
+  const notifyBtn = createElement("button", formRow.id, {
+    text: "Notify Me",
     link: { type: "external", url: "#" },
+    style: "primary",
+    size: "md",
     _padding: { top: "14", bottom: "14", left: "28", right: "28" },
     _background: { color: { hex: tokens.primaryColor } },
     _border: { radius: radObj(tokens) },
@@ -3272,36 +3486,49 @@ export function generateComingSoonSection(
       color: { hex: "#ffffff" },
       "text-decoration": "none",
     },
+    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: "Notify Me" }],
+    ...hoverButton(tokens),
   });
   linkElements(formRow, notifyBtn);
   elements.push(notifyBtn);
 
-  // Social links placeholder
-  const socialRow = createElement("div", container.id, {
+  // Countdown timer
+  const countdownEl = createElement("countdown", container.id, {
+    date: "2026-12-31",
+    showDays: true,
+    showHours: true,
+    showMinutes: true,
+    showSeconds: true,
+    separator: ":",
+    _typography: {
+      "font-size": "32px",
+      "font-weight": "700",
+      color: { hex: tokens.darkMode ? tokens.headingColor : "#ffffff" },
+      "letter-spacing": "0.05em",
+    },
+    _margin: { top: "16", bottom: "8" },
+  });
+  linkElements(container, countdownEl);
+  elements.push(countdownEl);
+
+  // Social icons
+  const socialIconsEl = createElement("social-icons", container.id, {
+    icons: [
+      { icon: { icon: "fab fa-twitter", library: "fontawesome" }, link: { type: "external", url: "#" } },
+      { icon: { icon: "fab fa-linkedin-in", library: "fontawesome" }, link: { type: "external", url: "#" } },
+      { icon: { icon: "fab fa-github", library: "fontawesome" }, link: { type: "external", url: "#" } },
+    ],
+    iconSize: "20px",
+    iconColor: { hex: tokens.darkMode ? tokens.mutedTextColor : "#64748b" },
+    iconGap: "20px",
     _display: "flex",
-    _direction: "row",
     _gap: "20px",
     _justifyContent: "center",
     _margin: { top: "24" },
+    _cssCustom: "%root% a { transition: opacity 0.2s ease; }\n%root% a:hover { opacity: 0.7; }",
   });
-  linkElements(container, socialRow);
-  elements.push(socialRow);
-
-  for (const social of ["Twitter", "LinkedIn", "GitHub"]) {
-    const socialLink = createElement("text-basic", socialRow.id, {
-      text: `<p>${social}</p>`,
-      tag: "a",
-      link: { type: "external", url: "#" },
-      _typography: {
-        "font-size": "14px",
-        "font-weight": "500",
-        color: { hex: tokens.darkMode ? tokens.mutedTextColor : "#64748b" },
-        "text-decoration": "none",
-      },
-    });
-    linkElements(socialRow, socialLink);
-    elements.push(socialLink);
-  }
+  linkElements(container, socialIconsEl);
+  elements.push(socialIconsEl);
 
   return elements;
 }
@@ -3443,6 +3670,7 @@ export function generateLoginSection(
     },
     _textAlign: "center",
     _margin: { top: "-12" },
+    ...hoverLink(),
   });
   linkElements(container, forgotLink);
   elements.push(forgotLink);
@@ -3458,7 +3686,7 @@ export function generateLoginSection(
   linkElements(container, dividerRow);
   elements.push(dividerRow);
 
-  const dividerLeft = createElement("div", dividerRow.id, {
+  const dividerLeft = createElement("divider", dividerRow.id, {
     _height: "1px",
     _background: { color: { hex: tokens.borderColor } },
     _width: "100%",
@@ -3478,7 +3706,7 @@ export function generateLoginSection(
   linkElements(dividerRow, dividerText);
   elements.push(dividerText);
 
-  const dividerRight = createElement("div", dividerRow.id, {
+  const dividerRight = createElement("divider", dividerRow.id, {
     _height: "1px",
     _background: { color: { hex: tokens.borderColor } },
     _width: "100%",
@@ -3486,11 +3714,13 @@ export function generateLoginSection(
   linkElements(dividerRow, dividerRight);
   elements.push(dividerRight);
 
-  // Social login button placeholder
-  const socialBtn = createElement("text-basic", container.id, {
-    text: "<p>Continue with Google</p>",
-    tag: "a",
+  // Social login button
+  const socialBtn = createElement("button", container.id, {
+    text: "Continue with Google",
+    icon: { icon: "fab fa-google", library: "fontawesome", position: "left" },
     link: { type: "external", url: "#" },
+    style: "outline",
+    size: "lg",
     _padding: { top: "12", bottom: "12", left: "24", right: "24" },
     _background: { color: { hex: "transparent" } },
     _border: {
@@ -3507,6 +3737,8 @@ export function generateLoginSection(
       "text-align": "center",
     },
     _width: "100%",
+    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: "Continue with Google" }],
+    ...hoverButtonSecondary(tokens),
   });
   linkElements(container, socialBtn);
   elements.push(socialBtn);
@@ -3611,10 +3843,12 @@ export function generateContentSection(
   elements.push(text);
 
   // CTA button
-  const ctaBtn = createElement("text-basic", textBlock.id, {
-    text: "<p>Learn More &rarr;</p>",
-    tag: "a",
+  const ctaBtn = createElement("button", textBlock.id, {
+    text: "Learn More",
+    icon: { icon: "fas fa-arrow-right", library: "fontawesome", position: "right" },
     link: { type: "external", url: "#" },
+    style: "primary",
+    size: "lg",
     _padding: { top: "14", bottom: "14", left: "28", right: "28" },
     _background: { color: { hex: tokens.primaryColor } },
     _border: { radius: radObj(tokens) },
@@ -3625,6 +3859,8 @@ export function generateContentSection(
       "text-decoration": "none",
     },
     _alignSelf: imagePosition === "none" ? "center" : "flex-start",
+    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: "Learn More" }],
+    ...hoverButton(tokens),
   });
   linkElements(textBlock, ctaBtn);
   elements.push(ctaBtn);
@@ -3639,25 +3875,19 @@ export function generateContentSection(
     linkElements(container, imageBlock);
     elements.push(imageBlock);
 
-    const imgPlaceholder = createElement("div", imageBlock.id, {
+    const imgPlaceholder = createElement("image", imageBlock.id, {
+      image: {
+        url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800",
+        filename: "about-image.jpg",
+      },
       _width: "100%",
       _height: "400px",
-      _background: { color: { hex: withAlpha(tokens.primaryColor, 0.08) } },
+      _objectFit: "cover",
       _border: { radius: radObj(tokens, 2) },
-      _display: "flex",
-      _justifyContent: "center",
-      _alignItems: "center",
+      _boxShadow: { values: { offsetX: "0", offsetY: "12", blur: "32", spread: "-8" }, color: { hex: withAlpha(tokens.primaryColor, 0.12) } },
     });
     linkElements(imageBlock, imgPlaceholder);
     elements.push(imgPlaceholder);
-
-    const imgIcon = createElement("text-basic", imgPlaceholder.id, {
-      text: "<p>&#128247;</p>",
-      _typography: { "font-size": "56px", color: { hex: tokens.mutedTextColor } },
-      _opacity: "0.3",
-    });
-    linkElements(imgPlaceholder, imgIcon);
-    elements.push(imgIcon);
   }
 
   return elements;
