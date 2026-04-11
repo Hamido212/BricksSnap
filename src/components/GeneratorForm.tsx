@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent, useCallback } from "react";
+import { useState, FormEvent, useCallback, useRef } from "react";
 import {
   STYLE_PRESETS,
   PRESET_CATEGORIES,
@@ -24,9 +24,24 @@ export interface GeneratorConfig {
   sections: string[];
   stylePreset?: StylePreset;
   colorPalette?: ColorPalette;
+  /** Base64 data URL of a reference image – activates vision mode in AI */
+  referenceImage?: string;
 }
 
 type ConfigPanel = "none" | "presets" | "palettes" | "sections";
+
+// Max ~4 MB raw file (~5.4 MB base64 encoded) – stays under the 7 MB API limit.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error ?? new Error("File read failed"));
+    reader.readAsDataURL(file);
+  });
+}
 
 const EXAMPLE_PROMPTS = [
   "SaaS landing page with hero, features, stats, pricing, FAQ, and footer",
@@ -57,6 +72,9 @@ export default function GeneratorForm({
   const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [presetFilter, setPresetFilter] = useState("all");
   const [paletteFilter, setPaletteFilter] = useState("all");
+  const [referenceImage, setReferenceImage] = useState<string | undefined>();
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -67,9 +85,37 @@ export default function GeneratorForm({
         sections: selectedSections,
         stylePreset: selectedPreset,
         colorPalette: selectedPalette,
+        referenceImage,
       });
     }
   };
+
+  const handleImageSelect = useCallback(async (file: File | undefined) => {
+    setImageError(null);
+    if (!file) return;
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setImageError("Please use a PNG, JPEG, WebP, or GIF image.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setImageError(`Image is too large (max ${Math.round(MAX_IMAGE_BYTES / 1024 / 1024)} MB).`);
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setReferenceImage(dataUrl);
+      // Turn AI on automatically – vision only works in AI mode.
+      setUseAI(true);
+    } catch {
+      setImageError("Could not read the image file.");
+    }
+  }, []);
+
+  const clearReferenceImage = useCallback(() => {
+    setReferenceImage(undefined);
+    setImageError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
 
   const toggleSection = useCallback((sectionId: string) => {
     setSelectedSections((prev) =>
@@ -104,6 +150,45 @@ export default function GeneratorForm({
             className="w-full min-h-[120px] p-5 bg-transparent text-foreground placeholder:text-muted/60 resize-none focus:outline-none text-[15px] leading-relaxed"
             disabled={isLoading}
           />
+
+          {/* Reference image preview (vision mode) */}
+          {referenceImage && (
+            <div className="flex items-start gap-3 px-5 py-3 border-t border-border/30 bg-accent/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={referenceImage}
+                alt="Reference"
+                className="w-16 h-16 rounded-lg object-cover border border-accent/30"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-accent">
+                    Vision Mode
+                  </span>
+                  <span className="text-[10px] text-muted">· AI will replicate this design</span>
+                </div>
+                <p className="text-xs text-foreground/80 mt-1 leading-relaxed">
+                  AI analyzes the layout, colors and typography of this reference and
+                  turns it into a complete Bricks page.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearReferenceImage}
+                className="text-muted hover:text-red-400 transition-colors"
+                aria-label="Remove reference image"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+          {imageError && (
+            <div className="px-5 py-2 border-t border-border/30 text-[11px] text-red-400">
+              {imageError}
+            </div>
+          )}
 
           {/* Active selections bar */}
           {(selectedPreset || selectedPalette || selectedSections.length > 0) && (
@@ -202,6 +287,36 @@ export default function GeneratorForm({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
                 </svg>
                 Sections{selectedSections.length > 0 ? ` (${selectedSections.length})` : ""}
+              </button>
+
+              {/* Reference Image Upload (Vision Mode) */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                className="sr-only"
+                onChange={(e) => handleImageSelect(e.target.files?.[0])}
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                title={
+                  useAI
+                    ? "Upload a reference image – AI will replicate the design"
+                    : "Enable AI mode to use vision"
+                }
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 ${
+                  referenceImage
+                    ? "border-accent/40 bg-accent/10 text-accent"
+                    : "border-border text-muted hover:text-foreground hover:border-border-hover"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {referenceImage ? "Image ready" : "Image"}
               </button>
 
               {/* Status indicators */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { storeApiKey, clearApiKey, getPersistPreference } from "@/lib/secure-storage";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -11,8 +12,15 @@ interface SettingsPanelProps {
   setProvider: (p: "openai" | "anthropic") => void;
 }
 
-export default function SettingsPanel({
-  isOpen,
+export default function SettingsPanel(props: SettingsPanelProps) {
+  // Render the body as its own component so each `isOpen` flip produces a
+  // fresh mount – this lets useState initializers read the current props/
+  // storage without needing a sync-in-effect (which lint would flag).
+  if (!props.isOpen) return null;
+  return <SettingsPanelBody {...props} />;
+}
+
+function SettingsPanelBody({
   onClose,
   apiKey,
   setApiKey,
@@ -20,25 +28,22 @@ export default function SettingsPanel({
   setProvider,
 }: SettingsPanelProps) {
   const [showKey, setShowKey] = useState(false);
-  const [tempKey, setTempKey] = useState(apiKey);
-
-  if (!isOpen) return null;
+  const [tempKey, setTempKey] = useState(() => apiKey);
+  const [persistKey, setPersistKey] = useState(() => getPersistPreference());
 
   const handleSave = () => {
     setApiKey(tempKey);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("brickssnap_apikey", tempKey);
-      localStorage.setItem("brickssnap_provider", provider);
-    }
+    // Store obfuscated via secure-storage wrapper. Uses sessionStorage by
+    // default, and only persists across sessions when the user explicitly
+    // opts in via the "Remember across sessions" toggle.
+    storeApiKey(tempKey, provider, persistKey);
     onClose();
   };
 
   const handleClearKey = () => {
     setTempKey("");
     setApiKey("");
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("brickssnap_apikey");
-    }
+    clearApiKey();
   };
 
   return (
@@ -179,6 +184,28 @@ export default function SettingsPanel({
                     Clear Key
                   </button>
                 )}
+              </div>
+
+              {/* Persist toggle */}
+              <div className="mt-3 p-3 rounded-lg border border-border bg-background">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={persistKey}
+                    onChange={(e) => setPersistKey(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-foreground">
+                      Remember across sessions
+                    </p>
+                    <p className="text-[10px] text-muted mt-0.5 leading-relaxed">
+                      {persistKey
+                        ? "Key is obfuscated and persisted in browser storage. Stays logged in across restarts."
+                        : "Key is obfuscated and kept only for this tab. Safer default — cleared when you close the tab."}
+                    </p>
+                  </div>
+                </label>
               </div>
             </div>
 

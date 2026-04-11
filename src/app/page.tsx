@@ -9,6 +9,7 @@ import TemplateCard from "@/components/TemplateCard";
 import SettingsPanel from "@/components/SettingsPanel";
 import { TEMPLATES, CATEGORIES, TemplateDefinition, searchTemplates, getTemplatesByCategory } from "@/lib/templates";
 import { wrapTemplate, BricksElement, BricksTemplate } from "@/lib/bricks-engine";
+import { loadApiKey, clearApiKey } from "@/lib/secure-storage";
 
 type Tab = "generator" | "library";
 
@@ -31,14 +32,24 @@ export default function Home() {
   const [apiKey, setApiKey] = useState("");
   const [provider, setProvider] = useState<"openai" | "anthropic">("openai");
 
-  // Load saved settings from localStorage
+  // Load saved settings from obfuscated secure storage (sessionStorage by default).
+  // Also migrate any legacy plain-text keys from localStorage and wipe them.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedKey = localStorage.getItem("brickssnap_apikey") || "";
-      const savedProvider = localStorage.getItem("brickssnap_provider") as "openai" | "anthropic" | null;
-      if (savedKey) setApiKey(savedKey);
-      if (savedProvider) setProvider(savedProvider);
+    if (typeof window === "undefined") return;
+
+    // Legacy migration: if an old plain-text key exists, remove it.
+    // We do NOT auto-import it into the new store, since the user may be
+    // on a shared machine and should re-enter it consciously.
+    const legacyKey = localStorage.getItem("brickssnap_apikey");
+    if (legacyKey) {
+      localStorage.removeItem("brickssnap_apikey");
+      localStorage.removeItem("brickssnap_provider");
+      clearApiKey();
     }
+
+    const loaded = loadApiKey();
+    if (loaded.key) setApiKey(loaded.key);
+    if (loaded.provider) setProvider(loaded.provider);
   }, []);
 
   const handleGenerate = useCallback(async (config: GeneratorConfig) => {
@@ -69,6 +80,7 @@ export default function Home() {
             name: config.colorPalette.name,
             colors: config.colorPalette.colors,
           } : undefined,
+          referenceImage: config.referenceImage,
         }),
       });
 
