@@ -31,7 +31,7 @@
   "keywords": [],
   "author": "",
   "license": "MIT",
-  "type": "commonjs",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/Hamido212/BricksSnap/issues"
   },

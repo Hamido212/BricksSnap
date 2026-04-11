@@ -46,6 +46,29 @@ const ELEMENT_ICONS: Record<string, string> = {
   video: "V",
 };
 
+/**
+ * Strip HTML tags to produce a plain-text label.
+ * Uses DOMParser (proper HTML parser) instead of a regex, which avoids
+ * incomplete multi-character sanitization issues flagged by CodeQL.
+ * The result is only used as displayed text (never as innerHTML),
+ * so it's safe to use for labels.
+ */
+function stripHtmlToText(input: string): string {
+  if (typeof window === "undefined" || typeof DOMParser === "undefined") {
+    // SSR fallback – still used only for display, never innerHTML.
+    // Repeatedly strip until no change, to handle nested/partial tags.
+    let prev = "";
+    let current = input;
+    while (prev !== current) {
+      prev = current;
+      current = current.replace(/<[^<>]*>/g, "");
+    }
+    return current;
+  }
+  const doc = new DOMParser().parseFromString(input, "text/html");
+  return doc.body.textContent ?? "";
+}
+
 function TreeNode({
   element,
   tree,
@@ -61,9 +84,7 @@ function TreeNode({
   const label =
     element.label ||
     (element.settings?.text
-      ? String(element.settings.text)
-          .replace(/<[^>]*>/g, "")
-          .substring(0, 30)
+      ? stripHtmlToText(String(element.settings.text)).substring(0, 30)
       : element.name);
 
   return (

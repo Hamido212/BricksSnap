@@ -27,6 +27,7 @@ import {
   BricksElement,
   DesignTokens,
 } from "@/lib/bricks-engine";
+import { validateBricksElements } from "@/lib/bricks-validator";
 
 // Generation config that both built-in and AI modes produce
 interface GenerationConfig {
@@ -370,100 +371,76 @@ When the user requests glassmorphism or frosted glass style:
 
 Answer ONLY with the JSON array!`;
 
-const ALLOWED_ELEMENT_NAMES = new Set([
-  // Layout
-  "section", "container", "block", "div",
-  // Basic
-  "heading", "text-basic", "text", "rich-text", "button", "icon", "image", "video",
-  // General
-  "divider", "icon-box", "icon-list", "list", "accordion", "accordion-nested",
-  "tabs", "tabs-nested", "form", "map", "alert", "animated-typing",
-  "countdown", "counter", "pricing-tables", "progress-bar", "pie-chart",
-  "team-members", "testimonials", "code", "template", "logo",
-  "facebook-page", "social-icons",
-  // Media
-  "image-gallery", "audio", "carousel", "slider", "slider-nested", "svg",
-  // WordPress
-  "posts", "pagination", "nav-menu", "sidebar", "search", "shortcode",
-  "post-title", "post-excerpt", "post-meta", "post-content",
-  "social-sharing", "related-posts", "author", "comments",
-  "taxonomy", "post-navigation",
-  // WooCommerce
-  "breadcrumbs", "mini-cart", "products", "products-pagination",
-  "products-orderby", "products-total-results", "products-filter",
-  "products-archive-description",
-  "product-title", "product-gallery", "product-short-description",
-  "product-price", "product-stock", "product-meta", "product-rating",
-  "product-content", "add-to-cart", "related-products",
-  "product-additional-information", "product-tabs", "product-upsells",
-]);
-
-function randomId(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < 6; i++) result += chars[Math.floor(Math.random() * chars.length)];
-  return result;
+/**
+ * Run the AI output through the schema validator + auto-repair layer.
+ * This handles ID uniqueness, parent/children rebuilding, cycle detection
+ * and dropping unknown element types. See bricks-validator.ts.
+ */
+function validateAndRepairAIOutput(input: unknown): BricksElement[] {
+  const result = validateBricksElements(input);
+  if (result.violations.length > 0) {
+    // Log up to the first 25 violations so we can iterate on the prompt
+    // when the same mistakes recur. We never surface these to the user.
+    console.log(
+      `[AI Validate] ${result.stats.total} elements, ${result.stats.dropped} dropped, ` +
+        `${result.stats.idsRegenerated} ids regenerated, ${result.stats.parentsReset} parents reset, ` +
+        `${result.stats.childrenRebuilt} children rebuilt, ${result.stats.sectionCount} sections.`
+    );
+    for (const v of result.violations.slice(0, 25)) {
+      console.log(`[AI Validate]   · ${v}`);
+    }
+  }
+  if (!result.valid) {
+    throw new Error(
+      `AI output failed validation (${result.elements.length} elements, ${result.stats.sectionCount} sections): ${result.violations[0] ?? "unknown"}`
+    );
+  }
+  return result.elements;
 }
 
-function sanitizeBricksElements(input: unknown): BricksElement[] {
-  if (!Array.isArray(input)) return [];
-
-  const usedIds = new Set<string>();
-  const sanitized: BricksElement[] = [];
-
-  for (const raw of input) {
-    if (!raw || typeof raw !== "object") continue;
-    const candidate = raw as Partial<BricksElement> & { settings?: unknown };
-    const name = typeof candidate.name === "string" ? candidate.name : "div";
-    if (!ALLOWED_ELEMENT_NAMES.has(name)) continue;
-
-    let id = typeof candidate.id === "string" ? candidate.id.toLowerCase() : "";
-    if (!/^[a-z0-9]{6}$/.test(id) || usedIds.has(id)) {
-      do {
-        id = randomId();
-      } while (usedIds.has(id));
-    }
-    usedIds.add(id);
-
-    const parent =
-      candidate.parent === 0 || typeof candidate.parent === "string"
-        ? candidate.parent
-        : 0;
-
-    sanitized.push({
-      id,
-      name,
-      parent,
-      children: [],
-      settings:
-        candidate.settings && typeof candidate.settings === "object"
-          ? (candidate.settings as Record<string, unknown>)
-          : {},
-      ...(typeof candidate.label === "string" ? { label: candidate.label } : {}),
-    });
-  }
-
-  const byId = new Map(sanitized.map((el) => [el.id, el]));
-  for (const el of sanitized) {
-    if (el.parent !== 0 && !byId.has(el.parent)) {
-      el.parent = 0;
-    }
-  }
-  for (const el of sanitized) {
-    if (el.parent !== 0) byId.get(el.parent)?.children.push(el.id);
-  }
-
-  return sanitized;
+/**
+ * Parse a base64 data URL and return media type + raw base64 data.
+ * Supports data:image/png;base64,... and data:image/jpeg;base64,...
+ */
+function parseDataUrl(dataUrl: string): { mediaType: string; data: string } | null {
+  const match = dataUrl.match(/^data:(image\/(?:png|jpeg|jpg|webp|gif));base64,(.+)$/i);
+  if (!match) return null;
+  return { mediaType: match[1].toLowerCase().replace("jpg", "jpeg"), data: match[2] };
 }
 
 async function generateDirectBricksJSON(
   prompt: string,
   apiKey: string,
-  isAnthropic: boolean
+  isAnthropic: boolean,
+  referenceImage?: string // base64 data URL (optional — activates vision mode)
 ): Promise<BricksElement[]> {
   let responseText: string;
 
+  // Build the user message content – plain text, or multimodal when image provided
+  const hasImage = !!referenceImage;
+  const imageInfo = hasImage ? parseDataUrl(referenceImage!) : null;
+
   if (isAnthropic) {
+    // Anthropic vision: messages[].content can be array of blocks
+    type ContentBlock =
+      | { type: "text"; text: string }
+      | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
+
+    const userContent: ContentBlock[] = [];
+
+    if (imageInfo) {
+      userContent.push({
+        type: "image",
+        source: { type: "base64", media_type: imageInfo.mediaType, data: imageInfo.data },
+      });
+      userContent.push({
+        type: "text",
+        text: `[REFERENCE IMAGE ABOVE]\nAnalyze the design in the image and recreate it as Bricks Builder JSON matching the layout, color palette, typography style, and component arrangement. Then apply any additional user instructions:\n\n${prompt}`,
+      });
+    } else {
+      userContent.push({ type: "text", text: prompt });
+    }
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -475,21 +452,39 @@ async function generateDirectBricksJSON(
         model: "claude-sonnet-4-20250514",
         max_tokens: 32000,
         system: BRICKS_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: prompt }],
+        messages: [{ role: "user", content: userContent }],
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`Anthropic API error: ${response.status}`);
+      const errText = await response.text().catch(() => "");
+      throw new Error(`Anthropic API error: ${response.status} – ${errText.substring(0, 200)}`);
     }
 
     const data = await response.json();
     responseText = data.content[0].text;
-    // Log if response was truncated
     if (data.stop_reason === "max_tokens") {
-      console.warn("[AI Parse] WARNING: Anthropic response truncated due to max_tokens limit! Response length:", responseText.length);
+      console.warn("[AI Parse] WARNING: Anthropic response truncated! Length:", responseText.length);
     }
   } else {
+    // OpenAI vision: message content is array when image present
+    type OAIContentPart =
+      | { type: "text"; text: string }
+      | { type: "image_url"; image_url: { url: string; detail: "high" | "low" | "auto" } };
+
+    const userContent: OAIContentPart[] | string = imageInfo
+      ? [
+          {
+            type: "image_url",
+            image_url: { url: referenceImage!, detail: "high" },
+          },
+          {
+            type: "text",
+            text: `[REFERENCE IMAGE ABOVE]\nAnalyze the design in the image and recreate it as Bricks Builder JSON matching the layout, color palette, typography style, and component arrangement. Then apply any additional user instructions:\n\n${prompt}`,
+          },
+        ]
+      : prompt;
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -500,7 +495,7 @@ async function generateDirectBricksJSON(
         model: "gpt-4o",
         messages: [
           { role: "system", content: BRICKS_SYSTEM_PROMPT },
-          { role: "user", content: prompt },
+          { role: "user", content: userContent },
         ],
         max_tokens: 32000,
         temperature: 0.7,
@@ -508,35 +503,28 @@ async function generateDirectBricksJSON(
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      const errText = await response.text().catch(() => "");
+      throw new Error(`OpenAI API error: ${response.status} – ${errText.substring(0, 200)}`);
     }
 
     const data = await response.json();
     responseText = data.choices[0].message.content;
-    // Log if response was truncated
     if (data.choices[0].finish_reason === "length") {
-      console.warn("[AI Parse] WARNING: OpenAI response truncated due to max_tokens limit! Response length:", responseText.length);
+      console.warn("[AI Parse] WARNING: OpenAI response truncated! Length:", responseText.length);
     }
   }
 
-  // Extract JSON array from response
-  // Strip markdown fences if present
+  // ── Extract JSON array from response ──────────────────────────────────────
   let cleaned = responseText.trim();
   cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
-  // Also strip any leading prose before the first [
   const firstBracket = cleaned.indexOf("[");
-  if (firstBracket > 0) {
-    cleaned = cleaned.substring(firstBracket);
-  }
-  // Strip any trailing prose after the last ]
+  if (firstBracket > 0) cleaned = cleaned.substring(firstBracket);
   const lastBracket = cleaned.lastIndexOf("]");
-  if (lastBracket > 0) {
-    cleaned = cleaned.substring(0, lastBracket + 1);
-  }
+  if (lastBracket > 0) cleaned = cleaned.substring(0, lastBracket + 1);
 
   if (!cleaned.startsWith("[")) {
-    console.error("[AI Parse] Response does not contain JSON array. First 500 chars:", responseText.substring(0, 500));
-    throw new Error("AI response did not contain valid JSON array");
+    console.error("[AI Parse] No JSON array in response. First 500 chars:", responseText.substring(0, 500));
+    throw new Error("AI response did not contain a valid JSON array");
   }
 
   console.log("[AI Parse] Extracted JSON length:", cleaned.length, "chars. First 200:", cleaned.substring(0, 200));
@@ -545,17 +533,11 @@ async function generateDirectBricksJSON(
   try {
     parsed = robustJSONParse(cleaned);
   } catch (parseErr) {
-    console.error("[AI Parse] All repair attempts failed. Last 300 chars of input:", cleaned.substring(cleaned.length - 300));
+    console.error("[AI Parse] All repair attempts failed. Last 300 chars:", cleaned.substring(cleaned.length - 300));
     throw parseErr;
   }
 
-  const sanitized = sanitizeBricksElements(parsed);
-
-  if (sanitized.length === 0) {
-    throw new Error("AI response contained no valid Bricks elements");
-  }
-
-  return sanitized;
+  return validateAndRepairAIOutput(parsed);
 }
 
 /**
@@ -821,6 +803,7 @@ export async function POST(request: NextRequest) {
       sections: requestedSections,
       stylePreset,
       colorPalette,
+      referenceImage,
     } = body as {
       prompt?: string;
       useAI?: boolean;
@@ -829,6 +812,8 @@ export async function POST(request: NextRequest) {
       sections?: string[];
       stylePreset?: { id: string; name: string; aiDirective: string; tokens: Record<string, unknown> };
       colorPalette?: { id: string; name: string; colors: Record<string, string> };
+      /** Optional base64 data URL (data:image/...) – activates vision mode */
+      referenceImage?: string;
     };
 
     if (!prompt || typeof prompt !== "string") {
@@ -913,9 +898,18 @@ export async function POST(request: NextRequest) {
     let elements: BricksElement[];
     let mode: "ai" | "builtin";
 
+    // Validate referenceImage: must be a data URL, max 5 MB base64
+    const validatedImage =
+      referenceImage &&
+      typeof referenceImage === "string" &&
+      /^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(referenceImage) &&
+      referenceImage.length < 7_000_000 // ~5 MB base64 ceiling
+        ? referenceImage
+        : undefined;
+
     if (shouldUseAI) {
       try {
-        elements = await generateDirectBricksJSON(enhancedPrompt, apiKey!, isAnthropicKey);
+        elements = await generateDirectBricksJSON(enhancedPrompt, apiKey!, isAnthropicKey, validatedImage);
         mode = "ai";
       } catch (err) {
         console.error("Direct AI generation failed, falling back to built-in:", err);
@@ -938,6 +932,7 @@ export async function POST(request: NextRequest) {
       sections: [...new Set(elements.filter((e) => e.parent === 0).map((e) => e.label || e.name))],
       mode,
       aiAvailable,
+      visionMode: mode === "ai" && !!validatedImage,
     });
   } catch (error) {
     console.error("Generation error:", error);
