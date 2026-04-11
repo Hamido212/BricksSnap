@@ -18,10 +18,15 @@
  * plaintext in web storage" while preserving normal BYOK UX.
  */
 
+export type Provider = "openai" | "anthropic" | "azure" | "openrouter";
+
 const IV_KEY = "bs_k_iv";
 const PAYLOAD_KEY = "bs_k_p";
 const PROVIDER_KEY = "bs_k_pv";
 const PERSIST_KEY = "bs_k_persist";
+const AZURE_ENDPOINT_KEY = "bs_k_aze";
+const AZURE_DEPLOYMENT_KEY = "bs_k_azd";
+const OPENROUTER_MODEL_KEY = "bs_k_orm";
 
 // Derive a per-origin salt so the obfuscation is specific to this deployment.
 function deriveOriginSalt(): string {
@@ -85,15 +90,20 @@ function getStore(persistent: boolean): Storage | null {
 
 /**
  * Persist an API key with obfuscation.
- * @param key The raw API key (e.g. sk-ant-... / sk-...)
+ * @param key The raw API key
  * @param provider The AI provider name
- * @param persistent If true, survive browser restarts. If false (default),
- *        the key lives only for the current tab/session.
+ * @param persistent If true, survive browser restarts.
+ * @param azureEndpoint Azure OpenAI endpoint URL (Azure only)
+ * @param azureDeployment Azure deployment name (Azure only)
+ * @param openrouterModel OpenRouter model ID (OpenRouter only)
  */
 export function storeApiKey(
   key: string,
-  provider: "openai" | "anthropic",
-  persistent: boolean
+  provider: Provider,
+  persistent: boolean,
+  azureEndpoint?: string,
+  azureDeployment?: string,
+  openrouterModel?: string,
 ): void {
   if (typeof window === "undefined") return;
 
@@ -110,6 +120,9 @@ export function storeApiKey(
   store.setItem(IV_KEY, iv);
   store.setItem(PAYLOAD_KEY, payload);
   store.setItem(PROVIDER_KEY, provider);
+  if (azureEndpoint) store.setItem(AZURE_ENDPOINT_KEY, azureEndpoint);
+  if (azureDeployment) store.setItem(AZURE_DEPLOYMENT_KEY, azureDeployment);
+  if (openrouterModel) store.setItem(OPENROUTER_MODEL_KEY, openrouterModel);
   // Remember the user's choice in localStorage so the UI can show it.
   window.localStorage.setItem(PERSIST_KEY, persistent ? "1" : "0");
 }
@@ -119,11 +132,14 @@ export function storeApiKey(
  */
 export function loadApiKey(): {
   key: string;
-  provider: "openai" | "anthropic";
+  provider: Provider;
   persistent: boolean;
+  azureEndpoint: string;
+  azureDeployment: string;
+  openrouterModel: string;
 } {
   if (typeof window === "undefined") {
-    return { key: "", provider: "anthropic", persistent: false };
+    return { key: "", provider: "anthropic", persistent: false, azureEndpoint: "", azureDeployment: "", openrouterModel: "" };
   }
 
   for (const persistent of [false, true]) {
@@ -131,18 +147,21 @@ export function loadApiKey(): {
     if (!store) continue;
     const iv = store.getItem(IV_KEY);
     const payload = store.getItem(PAYLOAD_KEY);
-    const provider = store.getItem(PROVIDER_KEY) as "openai" | "anthropic" | null;
+    const provider = store.getItem(PROVIDER_KEY) as Provider | null;
     if (iv && payload) {
       const key = deobfuscate(payload, iv);
       return {
         key,
         provider: provider ?? "anthropic",
         persistent,
+        azureEndpoint: store.getItem(AZURE_ENDPOINT_KEY) ?? "",
+        azureDeployment: store.getItem(AZURE_DEPLOYMENT_KEY) ?? "",
+        openrouterModel: store.getItem(OPENROUTER_MODEL_KEY) ?? "",
       };
     }
   }
 
-  return { key: "", provider: "anthropic", persistent: false };
+  return { key: "", provider: "anthropic", persistent: false, azureEndpoint: "", azureDeployment: "", openrouterModel: "" };
 }
 
 /**
@@ -154,6 +173,9 @@ export function clearApiKey(): void {
     store.removeItem(IV_KEY);
     store.removeItem(PAYLOAD_KEY);
     store.removeItem(PROVIDER_KEY);
+    store.removeItem(AZURE_ENDPOINT_KEY);
+    store.removeItem(AZURE_DEPLOYMENT_KEY);
+    store.removeItem(OPENROUTER_MODEL_KEY);
   }
 }
 

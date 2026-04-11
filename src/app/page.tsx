@@ -9,7 +9,7 @@ import TemplateCard from "@/components/TemplateCard";
 import SettingsPanel from "@/components/SettingsPanel";
 import { TEMPLATES, CATEGORIES, TemplateDefinition, searchTemplates, getTemplatesByCategory } from "@/lib/templates";
 import { wrapTemplate, BricksElement, BricksTemplate } from "@/lib/bricks-engine";
-import { loadApiKey, clearApiKey } from "@/lib/secure-storage";
+import { loadApiKey, clearApiKey, Provider } from "@/lib/secure-storage";
 
 type Tab = "generator" | "library";
 
@@ -30,7 +30,10 @@ export default function Home() {
   // BYOK state
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [apiKey, setApiKey] = useState("");
-  const [provider, setProvider] = useState<"openai" | "anthropic">("openai");
+  const [provider, setProvider] = useState<Provider>("openai");
+  const [azureEndpoint, setAzureEndpoint] = useState("");
+  const [azureDeployment, setAzureDeployment] = useState("");
+  const [openrouterModel, setOpenrouterModel] = useState("");
 
   // Load saved settings from obfuscated secure storage (sessionStorage by default).
   // Also migrate any legacy plain-text keys from localStorage and wipe them.
@@ -50,6 +53,9 @@ export default function Home() {
     const loaded = loadApiKey();
     if (loaded.key) setApiKey(loaded.key);
     if (loaded.provider) setProvider(loaded.provider);
+    if (loaded.azureEndpoint) setAzureEndpoint(loaded.azureEndpoint);
+    if (loaded.azureDeployment) setAzureDeployment(loaded.azureDeployment);
+    if (loaded.openrouterModel) setOpenrouterModel(loaded.openrouterModel);
   }, []);
 
   const handleGenerate = useCallback(async (config: GeneratorConfig) => {
@@ -81,6 +87,9 @@ export default function Home() {
             colors: config.colorPalette.colors,
           } : undefined,
           referenceImage: config.referenceImage,
+          azureEndpoint: azureEndpoint || undefined,
+          azureDeployment: azureDeployment || undefined,
+          openrouterModel: openrouterModel || undefined,
         }),
       });
 
@@ -101,7 +110,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, provider]);
+  }, [apiKey, provider, azureEndpoint, azureDeployment, openrouterModel]);
 
   const handleTemplateSelect = useCallback((template: TemplateDefinition) => {
     const elements = template.generator();
@@ -504,6 +513,12 @@ export default function Home() {
         setApiKey={setApiKey}
         provider={provider}
         setProvider={setProvider}
+        azureEndpoint={azureEndpoint}
+        setAzureEndpoint={setAzureEndpoint}
+        azureDeployment={azureDeployment}
+        setAzureDeployment={setAzureDeployment}
+        openrouterModel={openrouterModel}
+        setOpenrouterModel={setOpenrouterModel}
       />
     </div>
   );

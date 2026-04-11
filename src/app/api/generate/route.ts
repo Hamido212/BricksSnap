@@ -411,8 +411,11 @@ function parseDataUrl(dataUrl: string): { mediaType: string; data: string } | nu
 async function generateDirectBricksJSON(
   prompt: string,
   apiKey: string,
-  isAnthropic: boolean,
-  referenceImage?: string // base64 data URL (optional — activates vision mode)
+  provider: "openai" | "anthropic" | "azure" | "openrouter",
+  referenceImage?: string, // base64 data URL (optional — activates vision mode)
+  azureEndpoint?: string,
+  azureDeployment?: string,
+  openrouterModel?: string,
 ): Promise<BricksElement[]> {
   let responseText: string;
 
@@ -420,7 +423,7 @@ async function generateDirectBricksJSON(
   const hasImage = !!referenceImage;
   const imageInfo = hasImage ? parseDataUrl(referenceImage!) : null;
 
-  if (isAnthropic) {
+  if (provider === "anthropic") {
     // Anthropic vision: messages[].content can be array of blocks
     type ContentBlock =
       | { type: "text"; text: string }
@@ -449,7 +452,7 @@ async function generateDirectBricksJSON(
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-5",
         max_tokens: 32000,
         system: BRICKS_SYSTEM_PROMPT,
         messages: [{ role: "user", content: userContent }],
@@ -466,8 +469,8 @@ async function generateDirectBricksJSON(
     if (data.stop_reason === "max_tokens") {
       console.warn("[AI Parse] WARNING: Anthropic response truncated! Length:", responseText.length);
     }
-  } else {
-    // OpenAI vision: message content is array when image present
+  } else if (provider === "openai" || provider === "azure" || provider === "openrouter") {
+    // OpenAI-compatible: OpenAI, Azure OpenAI, and OpenRouter all use the same message format
     type OAIContentPart =
       | { type: "text"; text: string }
       | { type: "image_url"; image_url: { url: string; detail: "high" | "low" | "auto" } };
@@ -485,14 +488,34 @@ async function generateDirectBricksJSON(
         ]
       : prompt;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    let url: string;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    let model: string;
+
+    if (provider === "azure") {
+      const endpoint = (azureEndpoint ?? "").replace(/\/$/, "");
+      const deployment = azureDeployment ?? "";
+      url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-10-21`;
+      headers["api-key"] = apiKey;
+      model = deployment; // Azure uses deployment name as model field (ignored by API but kept for logging)
+    } else if (provider === "openrouter") {
+      url = "https://openrouter.ai/api/v1/chat/completions";
+      headers["Authorization"] = `Bearer ${apiKey}`;
+      headers["HTTP-Referer"] = "https://brickssnap.io";
+      headers["X-Title"] = "BricksSnap";
+      model = openrouterModel || "anthropic/claude-sonnet-4-5";
+    } else {
+      // Standard OpenAI
+      url = "https://api.openai.com/v1/chat/completions";
+      headers["Authorization"] = `Bearer ${apiKey}`;
+      model = "gpt-4o";
+    }
+
+    const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
-        model: "gpt-4o",
+        model,
         messages: [
           { role: "system", content: BRICKS_SYSTEM_PROMPT },
           { role: "user", content: userContent },
@@ -504,14 +527,17 @@ async function generateDirectBricksJSON(
 
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      throw new Error(`OpenAI API error: ${response.status} – ${errText.substring(0, 200)}`);
+      const label = provider === "azure" ? "Azure OpenAI" : provider === "openrouter" ? "OpenRouter" : "OpenAI";
+      throw new Error(`${label} API error: ${response.status} – ${errText.substring(0, 200)}`);
     }
 
     const data = await response.json();
     responseText = data.choices[0].message.content;
     if (data.choices[0].finish_reason === "length") {
-      console.warn("[AI Parse] WARNING: OpenAI response truncated! Length:", responseText.length);
+      console.warn("[AI Parse] WARNING: response truncated! Length:", responseText.length);
     }
+  } else {
+    throw new Error(`Unknown provider: ${provider}`);
   }
 
   // ── Extract JSON array from response ──────────────────────────────────────
@@ -804,16 +830,22 @@ export async function POST(request: NextRequest) {
       stylePreset,
       colorPalette,
       referenceImage,
+      azureEndpoint,
+      azureDeployment,
+      openrouterModel,
     } = body as {
       prompt?: string;
       useAI?: boolean;
       apiKey?: string;
-      provider?: "openai" | "anthropic";
+      provider?: "openai" | "anthropic" | "azure" | "openrouter";
       sections?: string[];
       stylePreset?: { id: string; name: string; aiDirective: string; tokens: Record<string, unknown> };
       colorPalette?: { id: string; name: string; colors: Record<string, string> };
       /** Optional base64 data URL (data:image/...) – activates vision mode */
       referenceImage?: string;
+      azureEndpoint?: string;
+      azureDeployment?: string;
+      openrouterModel?: string;
     };
 
     if (!prompt || typeof prompt !== "string") {
@@ -867,29 +899,27 @@ export async function POST(request: NextRequest) {
     const bodyApiKey = requestApiKey?.trim();
 
     let apiKey: string | undefined;
-    let isAnthropicKey = false;
+    // Resolve effective provider (azure/openrouter only work with user-supplied keys)
+    let effectiveProvider: "openai" | "anthropic" | "azure" | "openrouter" = provider ?? "openai";
 
     if (bodyApiKey && bodyApiKey.length > 10) {
       apiKey = bodyApiKey;
-      if (provider === "anthropic") {
-        isAnthropicKey = true;
-      } else if (provider === "openai") {
-        isAnthropicKey = false;
-      } else {
-        isAnthropicKey = bodyApiKey.startsWith("sk-ant-");
+      if (!provider) {
+        // Auto-detect from key prefix when provider not explicitly set
+        effectiveProvider = bodyApiKey.startsWith("sk-ant-") ? "anthropic" : "openai";
       }
-    } else if (provider === "anthropic" && anthropicKey && anthropicKey.length > 10) {
+    } else if ((provider === "anthropic" || !provider) && anthropicKey && anthropicKey.length > 10) {
       apiKey = anthropicKey;
-      isAnthropicKey = true;
-    } else if (provider === "openai" && openaiKey && openaiKey.length > 10) {
+      effectiveProvider = "anthropic";
+    } else if ((provider === "openai" || !provider) && openaiKey && openaiKey.length > 10) {
       apiKey = openaiKey;
-      isAnthropicKey = false;
-    } else if (anthropicKey && anthropicKey.length > 10) {
+      effectiveProvider = "openai";
+    } else if (!provider && anthropicKey && anthropicKey.length > 10) {
       apiKey = anthropicKey;
-      isAnthropicKey = true;
-    } else if (openaiKey && openaiKey.length > 10) {
+      effectiveProvider = "anthropic";
+    } else if (!provider && openaiKey && openaiKey.length > 10) {
       apiKey = openaiKey;
-      isAnthropicKey = false;
+      effectiveProvider = "openai";
     }
 
     const aiAvailable = !!apiKey;
@@ -909,7 +939,15 @@ export async function POST(request: NextRequest) {
 
     if (shouldUseAI) {
       try {
-        elements = await generateDirectBricksJSON(enhancedPrompt, apiKey!, isAnthropicKey, validatedImage);
+        elements = await generateDirectBricksJSON(
+          enhancedPrompt,
+          apiKey!,
+          effectiveProvider,
+          validatedImage,
+          azureEndpoint,
+          azureDeployment,
+          openrouterModel,
+        );
         mode = "ai";
       } catch (err) {
         console.error("Direct AI generation failed, falling back to built-in:", err);

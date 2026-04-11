@@ -1,24 +1,84 @@
 "use client";
 
 import { useState } from "react";
-import { storeApiKey, clearApiKey, getPersistPreference } from "@/lib/secure-storage";
+import { storeApiKey, clearApiKey, getPersistPreference, Provider } from "@/lib/secure-storage";
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   apiKey: string;
   setApiKey: (key: string) => void;
-  provider: "openai" | "anthropic";
-  setProvider: (p: "openai" | "anthropic") => void;
+  provider: Provider;
+  setProvider: (p: Provider) => void;
+  azureEndpoint: string;
+  setAzureEndpoint: (v: string) => void;
+  azureDeployment: string;
+  setAzureDeployment: (v: string) => void;
+  openrouterModel: string;
+  setOpenrouterModel: (v: string) => void;
 }
 
 export default function SettingsPanel(props: SettingsPanelProps) {
-  // Render the body as its own component so each `isOpen` flip produces a
-  // fresh mount – this lets useState initializers read the current props/
-  // storage without needing a sync-in-effect (which lint would flag).
   if (!props.isOpen) return null;
   return <SettingsPanelBody {...props} />;
 }
+
+const PROVIDER_CONFIG = {
+  openai: {
+    label: "OpenAI",
+    sub: "GPT-4o / o3",
+    icon: "G",
+    color: "#10a37f",
+    placeholder: "sk-...",
+    keyHint: "platform.openai.com/api-keys",
+    model: "gpt-4o",
+    speed: "Fast",
+    quality: "Excellent",
+  },
+  anthropic: {
+    label: "Anthropic",
+    sub: "Claude Sonnet / Opus",
+    icon: "A",
+    color: "#d4a27f",
+    placeholder: "sk-ant-...",
+    keyHint: "console.anthropic.com",
+    model: "claude-sonnet-4-6",
+    speed: "Fast",
+    quality: "Excellent",
+  },
+  azure: {
+    label: "Azure OpenAI",
+    sub: "AI Foundry / GPT-4o",
+    icon: "Az",
+    color: "#0078d4",
+    placeholder: "Your Azure API key",
+    keyHint: "portal.azure.com → Azure OpenAI → Keys",
+    model: "Your deployment",
+    speed: "Fast",
+    quality: "Excellent",
+  },
+  openrouter: {
+    label: "OpenRouter",
+    sub: "100+ models",
+    icon: "OR",
+    color: "#6366f1",
+    placeholder: "sk-or-...",
+    keyHint: "openrouter.ai/keys",
+    model: "Custom model",
+    speed: "Varies",
+    quality: "Varies",
+  },
+} as const;
+
+const OPENROUTER_POPULAR = [
+  "anthropic/claude-sonnet-4-5",
+  "anthropic/claude-opus-4",
+  "openai/gpt-4o",
+  "openai/gpt-4o-mini",
+  "google/gemini-2.0-flash-exp",
+  "meta-llama/llama-3.3-70b-instruct",
+  "mistralai/mistral-large",
+];
 
 function SettingsPanelBody({
   onClose,
@@ -26,17 +86,33 @@ function SettingsPanelBody({
   setApiKey,
   provider,
   setProvider,
+  azureEndpoint,
+  setAzureEndpoint,
+  azureDeployment,
+  setAzureDeployment,
+  openrouterModel,
+  setOpenrouterModel,
 }: SettingsPanelProps) {
   const [showKey, setShowKey] = useState(false);
   const [tempKey, setTempKey] = useState(() => apiKey);
   const [persistKey, setPersistKey] = useState(() => getPersistPreference());
+  const [tempAzureEndpoint, setTempAzureEndpoint] = useState(() => azureEndpoint);
+  const [tempAzureDeployment, setTempAzureDeployment] = useState(() => azureDeployment);
+  const [tempOpenrouterModel, setTempOpenrouterModel] = useState(() => openrouterModel || OPENROUTER_POPULAR[0]);
 
   const handleSave = () => {
     setApiKey(tempKey);
-    // Store obfuscated via secure-storage wrapper. Uses sessionStorage by
-    // default, and only persists across sessions when the user explicitly
-    // opts in via the "Remember across sessions" toggle.
-    storeApiKey(tempKey, provider, persistKey);
+    setAzureEndpoint(tempAzureEndpoint);
+    setAzureDeployment(tempAzureDeployment);
+    setOpenrouterModel(tempOpenrouterModel);
+    storeApiKey(
+      tempKey,
+      provider,
+      persistKey,
+      tempAzureEndpoint,
+      tempAzureDeployment,
+      tempOpenrouterModel,
+    );
     onClose();
   };
 
@@ -44,6 +120,42 @@ function SettingsPanelBody({
     setTempKey("");
     setApiKey("");
     clearApiKey();
+  };
+
+  const cfg = PROVIDER_CONFIG[provider];
+
+  const providerLabel = (p: Provider) => {
+    const isSelected = provider === p;
+    const c = PROVIDER_CONFIG[p];
+    return (
+      <button
+        key={p}
+        onClick={() => setProvider(p)}
+        className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+          isSelected
+            ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+            : "border-border hover:border-border-hover"
+        }`}
+      >
+        {isSelected && (
+          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        )}
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black"
+          style={{ background: `${c.color}18`, color: c.color }}
+        >
+          {c.icon}
+        </div>
+        <div className="text-center">
+          <p className="text-[11px] font-semibold text-foreground leading-tight">{c.label}</p>
+          <p className="text-[9px] text-muted mt-0.5 leading-tight">{c.sub}</p>
+        </div>
+      </button>
+    );
   };
 
   return (
@@ -72,8 +184,8 @@ function SettingsPanelBody({
             </button>
           </div>
 
-          {/* BYOK Section */}
           <div className="space-y-6">
+            {/* BYOK Section */}
             <div className="p-4 rounded-xl border border-accent/20 bg-accent/5">
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
@@ -91,57 +203,11 @@ function SettingsPanelBody({
               </div>
             </div>
 
-            {/* Provider Select */}
+            {/* Provider Select — 2×2 grid */}
             <div>
               <label className="text-xs font-semibold text-foreground mb-3 block">AI Provider</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setProvider("openai")}
-                  className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                    provider === "openai"
-                      ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
-                      : "border-border hover:border-border-hover"
-                  }`}
-                >
-                  {provider === "openai" && (
-                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="w-10 h-10 rounded-xl bg-[#10a37f]/10 flex items-center justify-center">
-                    <span className="text-lg font-black text-[#10a37f]">G</span>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-foreground">OpenAI</p>
-                    <p className="text-[10px] text-muted mt-0.5">GPT-4o / GPT-4o Mini</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setProvider("anthropic")}
-                  className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                    provider === "anthropic"
-                      ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
-                      : "border-border hover:border-border-hover"
-                  }`}
-                >
-                  {provider === "anthropic" && (
-                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="w-10 h-10 rounded-xl bg-[#d4a27f]/10 flex items-center justify-center">
-                    <span className="text-lg font-black text-[#d4a27f]">A</span>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-foreground">Anthropic</p>
-                    <p className="text-[10px] text-muted mt-0.5">Claude Sonnet / Opus</p>
-                  </div>
-                </button>
+              <div className="grid grid-cols-2 gap-2">
+                {(["openai", "anthropic", "azure", "openrouter"] as Provider[]).map(providerLabel)}
               </div>
             </div>
 
@@ -153,7 +219,7 @@ function SettingsPanelBody({
                   type={showKey ? "text" : "password"}
                   value={tempKey}
                   onChange={(e) => setTempKey(e.target.value)}
-                  placeholder={provider === "openai" ? "sk-..." : "sk-ant-..."}
+                  placeholder={cfg.placeholder}
                   className="w-full px-4 py-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary focus:shadow-lg focus:shadow-primary-glow transition-all font-mono"
                 />
                 <button
@@ -171,11 +237,7 @@ function SettingsPanelBody({
                 </button>
               </div>
               <div className="flex items-center justify-between mt-2">
-                <p className="text-[10px] text-muted">
-                  {provider === "openai"
-                    ? "Get your key at platform.openai.com/api-keys"
-                    : "Get your key at console.anthropic.com"}
-                </p>
+                <p className="text-[10px] text-muted">Get your key at {cfg.keyHint}</p>
                 {tempKey && (
                   <button
                     onClick={handleClearKey}
@@ -185,28 +247,89 @@ function SettingsPanelBody({
                   </button>
                 )}
               </div>
+            </div>
 
-              {/* Persist toggle */}
-              <div className="mt-3 p-3 rounded-lg border border-border bg-background">
-                <label className="flex items-start gap-3 cursor-pointer">
+            {/* Azure-specific fields */}
+            {provider === "azure" && (
+              <div className="space-y-3 p-4 rounded-xl border border-[#0078d4]/20 bg-[#0078d4]/5">
+                <p className="text-xs font-semibold text-foreground">Azure Configuration</p>
+                <div>
+                  <label className="text-[10px] text-muted mb-1 block">Endpoint URL</label>
                   <input
-                    type="checkbox"
-                    checked={persistKey}
-                    onChange={(e) => setPersistKey(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                    type="text"
+                    value={tempAzureEndpoint}
+                    onChange={(e) => setTempAzureEndpoint(e.target.value)}
+                    placeholder="https://my-resource.openai.azure.com"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
                   />
-                  <div className="flex-1">
-                    <p className="text-xs font-medium text-foreground">
-                      Remember across sessions
-                    </p>
-                    <p className="text-[10px] text-muted mt-0.5 leading-relaxed">
-                      {persistKey
-                        ? "Key is obfuscated and persisted in browser storage. Stays logged in across restarts."
-                        : "Key is obfuscated and kept only for this tab. Safer default — cleared when you close the tab."}
-                    </p>
-                  </div>
-                </label>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted mb-1 block">Deployment Name</label>
+                  <input
+                    type="text"
+                    value={tempAzureDeployment}
+                    onChange={(e) => setTempAzureDeployment(e.target.value)}
+                    placeholder="my-gpt4o-deployment"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
+                  />
+                  <p className="text-[10px] text-muted mt-1">The name you gave when deploying a model in Azure AI Foundry.</p>
+                </div>
               </div>
+            )}
+
+            {/* OpenRouter model selector */}
+            {provider === "openrouter" && (
+              <div className="space-y-3 p-4 rounded-xl border border-[#6366f1]/20 bg-[#6366f1]/5">
+                <p className="text-xs font-semibold text-foreground">Model Selection</p>
+                <div>
+                  <label className="text-[10px] text-muted mb-1 block">Model ID</label>
+                  <input
+                    type="text"
+                    value={tempOpenrouterModel}
+                    onChange={(e) => setTempOpenrouterModel(e.target.value)}
+                    placeholder="anthropic/claude-sonnet-4-5"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted mb-1.5">Popular models:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {OPENROUTER_POPULAR.map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setTempOpenrouterModel(m)}
+                        className={`text-[9px] px-2 py-0.5 rounded-full border font-mono transition-colors ${
+                          tempOpenrouterModel === m
+                            ? "border-[#6366f1] bg-[#6366f1]/10 text-[#6366f1]"
+                            : "border-border text-muted hover:border-[#6366f1]/50"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Persist toggle */}
+            <div className="p-3 rounded-lg border border-border bg-background">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={persistKey}
+                  onChange={(e) => setPersistKey(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                />
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-foreground">Remember across sessions</p>
+                  <p className="text-[10px] text-muted mt-0.5 leading-relaxed">
+                    {persistKey
+                      ? "Key is obfuscated and persisted in browser storage. Stays logged in across restarts."
+                      : "Key is obfuscated and kept only for this tab. Safer default — cleared when you close the tab."}
+                  </p>
+                </div>
+              </label>
             </div>
 
             {/* Status */}
@@ -215,7 +338,7 @@ function SettingsPanelBody({
                 <span className={`w-2 h-2 rounded-full ${tempKey && tempKey.length > 10 ? "bg-success animate-pulse" : "bg-muted"}`} />
                 <span className="text-xs text-muted">
                   {tempKey && tempKey.length > 10
-                    ? `AI Mode active (${provider === "openai" ? "OpenAI" : "Anthropic"})`
+                    ? `AI Mode active (${cfg.label})`
                     : "No API key — Built-in engine will be used (still works!)"}
                 </span>
               </div>
@@ -225,37 +348,28 @@ function SettingsPanelBody({
             <div className="p-4 rounded-xl border border-border bg-background">
               <h3 className="text-xs font-semibold text-foreground mb-3">Model Selection</h3>
               <div className="space-y-2">
-                {provider === "openai" ? (
-                  <>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted">Primary</span>
-                      <span className="font-mono text-foreground">gpt-4o</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted">Speed</span>
-                      <span className="text-success">Fast</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted">Quality</span>
-                      <span className="text-accent">Excellent</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted">Primary</span>
-                      <span className="font-mono text-foreground">claude-sonnet-4</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted">Speed</span>
-                      <span className="text-success">Fast</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted">Quality</span>
-                      <span className="text-accent">Excellent</span>
-                    </div>
-                  </>
-                )}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted">Provider</span>
+                  <span className="font-medium text-foreground">{cfg.label}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted">Primary</span>
+                  <span className="font-mono text-foreground">
+                    {provider === "azure"
+                      ? tempAzureDeployment || "—"
+                      : provider === "openrouter"
+                      ? tempOpenrouterModel || "—"
+                      : cfg.model}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted">Speed</span>
+                  <span className="text-success">{cfg.speed}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted">Quality</span>
+                  <span className="text-accent">{cfg.quality}</span>
+                </div>
               </div>
             </div>
 
