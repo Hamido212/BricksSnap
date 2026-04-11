@@ -511,6 +511,10 @@ async function generateDirectBricksJSON(
       model = "gpt-4o";
     }
 
+    // Azure requires max_completion_tokens (max_tokens is rejected for newer deployments).
+    // OpenAI and OpenRouter still accept max_tokens for gpt-4o class models.
+    const tokenParam = provider === "azure" ? "max_completion_tokens" : "max_tokens";
+
     const response = await fetch(url, {
       method: "POST",
       headers,
@@ -520,7 +524,7 @@ async function generateDirectBricksJSON(
           { role: "system", content: BRICKS_SYSTEM_PROMPT },
           { role: "user", content: userContent },
         ],
-        max_tokens: 32000,
+        [tokenParam]: 32000,
         temperature: 0.7,
       }),
     });
