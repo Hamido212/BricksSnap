@@ -9,6 +9,7 @@ interface JsonPreviewProps {
   data: BricksTemplate;
   maxHeight?: string;
   templateName?: string;
+  initialType?: TemplateType;
 }
 
 // Clipboard fallback for non-secure contexts (HTTP)
@@ -32,8 +33,8 @@ async function copyToClipboard(text: string): Promise<void> {
   if (!copied) throw new Error("Clipboard unavailable");
 }
 
-export default function JsonPreview({ data, maxHeight = "500px", templateName = "BricksSnap Template" }: JsonPreviewProps) {
-  const [templateType, setTemplateType] = useState<TemplateType>("section");
+export default function JsonPreview({ data, maxHeight = "500px", templateName = "BricksSnap Template", initialType = "section" }: JsonPreviewProps) {
+  const [templateType, setTemplateType] = useState<TemplateType>(initialType);
   const [copyError, setCopyError] = useState("");
   const [copied, setCopied] = useState(false);
   const [copiedWhat, setCopiedWhat] = useState("");

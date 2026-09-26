@@ -13,8 +13,10 @@ import { loadApiKey, clearApiKey, Provider } from "@/lib/secure-storage";
 
 import ConnectionGuide from "@/components/ConnectionGuide";
 import { templateWarnings } from "@/lib/template-warnings";
+import StagingWorkspace from "@/components/StagingWorkspace";
+import { version } from "../../package.json";
 
-type Tab = "generator" | "library";
+type Tab = "generator" | "library" | "staging";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("generator");
@@ -153,7 +155,7 @@ export default function Home() {
     <div className="min-h-screen bg-background grid-bg">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap gap-4 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -202,6 +204,7 @@ export default function Home() {
                 Library
               </span>
             </button>
+            <button onClick={() => setActiveTab("staging")} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === "staging" ? "bg-primary text-white shadow-sm" : "text-muted hover:text-foreground"}`}>Staging</button>
           </nav>
 
           <div className="flex items-center gap-3 text-xs text-muted">
@@ -217,13 +220,14 @@ export default function Home() {
               {apiKey && <span className="w-1.5 h-1.5 rounded-full bg-success" />}
             </button>
             <span className="px-2.5 py-1 rounded-md border border-border font-mono">
-              v0.2
+              v{version}
             </span>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        <div hidden={activeTab !== "staging"}><StagingWorkspace generatedTemplate={generatedTemplate}/></div>
         {/* Generator Tab */}
         {activeTab === "generator" && (
           <div className="animate-fade-in">
@@ -521,7 +525,7 @@ export default function Home() {
       <footer className="border-t border-border mt-16">
         <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-muted">
-            BricksSnap v0.2 - Free Template Generator for Bricks Builder
+            BricksSnap v{version} - Free Template Generator for Bricks Builder
           </div>
           <div className="flex items-center gap-6 text-xs text-muted">
             <span>{TEMPLATES.length}+ templates</span>

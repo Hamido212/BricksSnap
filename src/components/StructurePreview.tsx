@@ -13,6 +13,10 @@ function buildTree(elements: BricksElement[]): Map<string | 0, BricksElement[]> 
     if (!tree.has(parentKey)) tree.set(parentKey, []);
     tree.get(parentKey)!.push(el);
   }
+  for (const el of elements) {
+    const siblings = tree.get(el.id);
+    if (siblings) siblings.sort((a, b) => el.children.indexOf(a.id) - el.children.indexOf(b.id));
+  }
   return tree;
 }
 

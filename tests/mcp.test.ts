@@ -12,7 +12,7 @@ it("initializes, discovers tools and validates a ChatGPT-created template over H
   const init = await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
   expect(init.status).toBe(200); expect((await init.json()).result.serverInfo.name).toBe("BricksSnap");
   const list = await rpc("tools/list"); const tools = (await list.json()).result.tools;
-  expect(tools).toHaveLength(4); expect(tools.every((t: { annotations: { readOnlyHint: boolean } }) => t.annotations.readOnlyHint)).toBe(true);
+  expect(tools).toHaveLength(8); expect(tools.every((t: { annotations: { readOnlyHint: boolean } }) => t.annotations.readOnlyHint)).toBe(true);
   const call = await rpc("tools/call", { name: "bricks_validate_template", arguments: { json: JSON.stringify([{ id: "abc123", name: "text-link", parent: 0, children: [], settings: { text: "Contact" } }]), title: "ChatGPT Test" } });
   const result = (await call.json()).result;
   expect(result.isError).not.toBe(true); expect(result.structuredContent.template.title).toBe("ChatGPT Test");
