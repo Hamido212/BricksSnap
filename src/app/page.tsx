@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import GeneratorForm, { GeneratorConfig } from "@/components/GeneratorForm";
 import JsonPreview from "@/components/JsonPreview";
 import StructurePreview from "@/components/StructurePreview";
@@ -10,6 +10,9 @@ import SettingsPanel from "@/components/SettingsPanel";
 import { TEMPLATES, CATEGORIES, TemplateDefinition, searchTemplates, getTemplatesByCategory } from "@/lib/templates";
 import { wrapTemplate, BricksElement, BricksTemplate } from "@/lib/bricks-engine";
 import { loadApiKey, clearApiKey, Provider } from "@/lib/secure-storage";
+
+import ConnectionGuide from "@/components/ConnectionGuide";
+import { templateWarnings } from "@/lib/template-warnings";
 
 type Tab = "generator" | "library";
 
@@ -27,6 +30,12 @@ export default function Home() {
   const [aiAvailable, setAiAvailable] = useState<boolean | undefined>(undefined);
   const [lastMode, setLastMode] = useState<"ai" | "builtin" | null>(null);
 
+  const [generationError, setGenerationError] = useState("");
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [model, setModel] = useState("");
+  const [useChatGPT, setUseChatGPT] = useState(false);
+  const [chatgptModel, setChatgptModel] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
   // BYOK state
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -43,14 +52,17 @@ export default function Home() {
     // Legacy migration: if an old plain-text key exists, remove it.
     // We do NOT auto-import it into the new store, since the user may be
     // on a shared machine and should re-enter it consciously.
+    try {
     const legacyKey = localStorage.getItem("brickssnap_apikey");
     if (legacyKey) {
       localStorage.removeItem("brickssnap_apikey");
       localStorage.removeItem("brickssnap_provider");
       clearApiKey();
     }
+    } catch { /* Storage can be unavailable in private or restricted browsers. */ }
 
     const loaded = loadApiKey();
+    if (loaded.model) setModel(loaded.model);
     if (loaded.key) setApiKey(loaded.key);
     if (loaded.provider) setProvider(loaded.provider);
     if (loaded.azureEndpoint) setAzureEndpoint(loaded.azureEndpoint);
@@ -60,17 +72,20 @@ export default function Home() {
 
   const handleGenerate = useCallback(async (config: GeneratorConfig) => {
     setIsLoading(true);
-    setGeneratedTemplate(null);
-    setGeneratedElements([]);
-    setGenerationInfo(null);
-    setLastMode(null);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setGenerationError("");
 
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(150000)]),
+        headers: { "Content-Type": "application/json", ...(useChatGPT ? { "X-BricksSnap-Local": "1" } : {}) },
         body: JSON.stringify({
           prompt: config.prompt,
+          useChatGPT,
+          chatgptModel: chatgptModel || undefined,
+          model: model || undefined,
           useAI: config.useAI,
           apiKey: apiKey || undefined,
           provider: provider,
@@ -95,7 +110,9 @@ export default function Home() {
 
       const data = await response.json();
 
+      if (!response.ok || !data.success) throw new Error(data.error || "Generation failed. Please retry.");
       if (data.success) {
+        setWarnings(data.validation?.warnings ?? []);
         setGeneratedTemplate(data.template);
         setGeneratedElements(data.template.content);
         setGenerationInfo({
@@ -106,14 +123,17 @@ export default function Home() {
         setLastMode(data.mode);
       }
     } catch (error) {
-      console.error("Generation failed:", error);
+      setGenerationError(controller.signal.aborted ? "Generation cancelled." : error instanceof Error ? error.message : "Generation failed.");
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
     }
-  }, [apiKey, provider, azureEndpoint, azureDeployment, openrouterModel]);
+  }, [apiKey, provider, azureEndpoint, azureDeployment, openrouterModel, model, useChatGPT, chatgptModel]);
 
   const handleTemplateSelect = useCallback((template: TemplateDefinition) => {
+    setGenerationError(""); setWarnings([]); setLastMode("builtin");
     const elements = template.generator();
+    setWarnings(templateWarnings(elements));
     const wrapped = wrapTemplate(elements);
     setGeneratedTemplate(wrapped);
     setGeneratedElements(elements);
@@ -197,7 +217,7 @@ export default function Home() {
               {apiKey && <span className="w-1.5 h-1.5 rounded-full bg-success" />}
             </button>
             <span className="px-2.5 py-1 rounded-md border border-border font-mono">
-              v2.0
+              v0.2
             </span>
           </div>
         </div>
@@ -223,7 +243,7 @@ export default function Home() {
               <p className="text-lg text-muted max-w-2xl mx-auto leading-relaxed">
                 {TEMPLATES.length}+ pre-built templates, 45+ color palettes, 30+ style presets.
                 <br className="hidden sm:inline" />
-                Describe what you need and get production-ready Bricks Builder JSON instantly.
+                Describe what you need and get editable Bricks Builder JSON, ready for review in your site.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
                 <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted border border-border bg-card">
@@ -233,7 +253,7 @@ export default function Home() {
                   <span className="w-1.5 h-1.5 rounded-full bg-accent" /> BYOK Support
                 </span>
                 <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-muted border border-border bg-card">
-                  <span className="w-1.5 h-1.5 rounded-full bg-success" /> 100% Free
+                  <span className="w-1.5 h-1.5 rounded-full bg-success" /> Free built-in templates
                 </span>
               </div>
             </div>
@@ -241,6 +261,13 @@ export default function Home() {
             {/* Generator form */}
             <div className="max-w-4xl mx-auto mb-10">
               <GeneratorForm onGenerate={handleGenerate} isLoading={isLoading} aiAvailable={aiAvailable} lastMode={lastMode} />
+              {isLoading && <button onClick={() => abortRef.current?.abort()} className="mt-3 text-sm underline">Cancel generation</button>}
+              {generationError && <p role="alert" className="mt-4 rounded-lg border border-red-500/30 p-4 text-sm text-red-300">{generationError}</p>}
+              {warnings.length > 0 && <details className="mt-3 text-sm"><summary>{warnings.length} validation notes — review before importing</summary><ul className="list-disc pl-5 mt-2">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul></details>}
+              <ConnectionGuide disabled={isLoading} onImport={(template, notes) => {
+                setGeneratedTemplate(template); setGeneratedElements(template.content); setWarnings(notes); setGenerationError(""); setLastMode(null);
+                setGenerationInfo({ elementCount: template.content.length, sections: template.content.filter(e => e.parent === 0).map(e => e.label || e.name) });
+              }} />
             </div>
 
             {/* Loading state */}
@@ -280,7 +307,7 @@ export default function Home() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground">
-                          Template generated successfully!
+                          {generationError ? "Previous template retained." : lastMode === null ? "Template imported successfully!" : "Template generated successfully!"}
                         </p>
                         <p className="text-xs text-muted mt-0.5">
                           {generationInfo.elementCount} elements across{" "}
@@ -344,7 +371,7 @@ export default function Home() {
                     </div>
                     <h3 className="text-sm font-semibold text-foreground mb-2">AI + Built-in Engine</h3>
                     <p className="text-xs text-muted leading-relaxed">
-                      Use GPT-4o or Claude for creative AI generation, or the built-in engine for instant offline templates.
+                      Use your chosen AI model or ChatGPT connection, or generate built-in templates without an API key.
                     </p>
                   </div>
                   <div className="p-5 rounded-xl border border-border bg-card hover:border-border-hover transition-colors">
@@ -377,7 +404,7 @@ export default function Home() {
                     </div>
                     <h3 className="text-sm font-semibold text-foreground mb-2">BYOK - Your Keys</h3>
                     <p className="text-xs text-muted leading-relaxed">
-                      Bring Your Own Key for OpenAI or Anthropic. Direct billing, zero markup. Keys stored locally only.
+                      Connect OpenAI, Anthropic, Azure or OpenRouter. Keys pass through this server to your provider; API usage is billed by your provider.
                     </p>
                   </div>
                 </div>
@@ -494,19 +521,25 @@ export default function Home() {
       <footer className="border-t border-border mt-16">
         <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-xs text-muted">
-            BricksSnap v2.0 - Free Template Generator for Bricks Builder
+            BricksSnap v0.2 - Free Template Generator for Bricks Builder
           </div>
           <div className="flex items-center gap-6 text-xs text-muted">
             <span>{TEMPLATES.length}+ templates</span>
             <span>45+ palettes</span>
             <span>30+ presets</span>
-            <span>Bricks 1.x &amp; 2.x</span>
+            <span>Bricks 2.4.1 schema</span>
           </div>
         </div>
       </footer>
 
       {/* Settings Panel (BYOK) */}
       <SettingsPanel
+        useChatGPT={useChatGPT}
+        setUseChatGPT={setUseChatGPT}
+        chatgptModel={chatgptModel}
+        setChatgptModel={setChatgptModel}
+        model={model}
+        setModel={setModel}
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         apiKey={apiKey}

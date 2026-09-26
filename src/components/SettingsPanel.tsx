@@ -3,7 +3,16 @@
 import { useState } from "react";
 import { storeApiKey, clearApiKey, getPersistPreference, Provider } from "@/lib/secure-storage";
 
+import { DEFAULT_MODELS } from "@/lib/ai-config";
+import ChatGPTConnection from "./ChatGPTConnection";
+
 interface SettingsPanelProps {
+  useChatGPT: boolean;
+  setUseChatGPT: (value: boolean) => void;
+  chatgptModel: string;
+  setChatgptModel: (value: string) => void;
+  model: string;
+  setModel: (model: string) => void;
   isOpen: boolean;
   onClose: () => void;
   apiKey: string;
@@ -26,12 +35,12 @@ export default function SettingsPanel(props: SettingsPanelProps) {
 const PROVIDER_CONFIG = {
   openai: {
     label: "OpenAI",
-    sub: "GPT-4o / o3",
+    sub: "Responses API",
     icon: "G",
     color: "#10a37f",
     placeholder: "sk-...",
     keyHint: "platform.openai.com/api-keys",
-    model: "gpt-4o",
+    model: "gpt-4.1",
     speed: "Fast",
     quality: "Excellent",
   },
@@ -73,19 +82,21 @@ const PROVIDER_CONFIG = {
 const OPENROUTER_POPULAR = [
   "anthropic/claude-sonnet-4-5",
   "anthropic/claude-opus-4",
-  "openai/gpt-4o",
+  "openai/gpt-4.1",
   "openai/gpt-4o-mini",
-  "google/gemini-2.0-flash-exp",
-  "meta-llama/llama-3.3-70b-instruct",
+    "meta-llama/llama-3.3-70b-instruct",
   "mistralai/mistral-large",
 ];
 
 function SettingsPanelBody({
+  useChatGPT, setUseChatGPT, chatgptModel, setChatgptModel,
   onClose,
   apiKey,
   setApiKey,
-  provider,
+  provider: savedProvider,
   setProvider,
+  model,
+  setModel,
   azureEndpoint,
   setAzureEndpoint,
   azureDeployment,
@@ -93,26 +104,34 @@ function SettingsPanelBody({
   openrouterModel,
   setOpenrouterModel,
 }: SettingsPanelProps) {
+  const [provider, setTempProvider] = useState(savedProvider);
+  const [tempModel, setTempModel] = useState(model);
+  const [connectionStatus, setConnectionStatus] = useState("");
+  const [testing, setTesting] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [tempKey, setTempKey] = useState(() => apiKey);
   const [persistKey, setPersistKey] = useState(() => getPersistPreference());
   const [tempAzureEndpoint, setTempAzureEndpoint] = useState(() => azureEndpoint);
   const [tempAzureDeployment, setTempAzureDeployment] = useState(() => azureDeployment);
-  const [tempOpenrouterModel, setTempOpenrouterModel] = useState(() => openrouterModel || OPENROUTER_POPULAR[0]);
+  const [tempOpenrouterModel, setTempOpenrouterModel] = useState(() => openrouterModel || DEFAULT_MODELS.openrouter);
 
   const handleSave = () => {
+    setProvider(provider);
+    setModel(tempModel);
     setApiKey(tempKey);
     setAzureEndpoint(tempAzureEndpoint);
     setAzureDeployment(tempAzureDeployment);
     setOpenrouterModel(tempOpenrouterModel);
-    storeApiKey(
+    const saved = storeApiKey(
       tempKey,
       provider,
       persistKey,
       tempAzureEndpoint,
       tempAzureDeployment,
       tempOpenrouterModel,
+      tempModel,
     );
+    if (!saved) { setConnectionStatus("Browser storage is unavailable. Settings apply to this page only; close this panel to continue."); return; }
     onClose();
   };
 
@@ -122,6 +141,17 @@ function SettingsPanelBody({
     clearApiKey();
   };
 
+  const test = async () => {
+    setTesting(true); setConnectionStatus("");
+    try {
+      const response = await fetch("/api/connection", { method: "POST", headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(25000),
+        body: JSON.stringify({ provider, apiKey: tempKey || undefined, model: tempModel || undefined, azureEndpoint: tempAzureEndpoint || undefined, azureDeployment: tempAzureDeployment || undefined, openrouterModel: tempOpenrouterModel || undefined }) });
+      const data = await response.json();
+      setConnectionStatus(data.message || data.error || "Connection check failed.");
+    } catch { setConnectionStatus("Connection check failed or timed out."); }
+    finally { setTesting(false); }
+  };
   const cfg = PROVIDER_CONFIG[provider];
 
   const providerLabel = (p: Provider) => {
@@ -130,7 +160,7 @@ function SettingsPanelBody({
     return (
       <button
         key={p}
-        onClick={() => setProvider(p)}
+        onClick={() => { if (p === provider) return; setTempProvider(p); setTempKey(""); setTempModel(""); setConnectionStatus(""); }}
         className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
           isSelected
             ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
@@ -168,6 +198,7 @@ function SettingsPanelBody({
       {/* Panel */}
       <div className="fixed right-0 top-0 bottom-0 z-[101] w-full max-w-md bg-card border-l border-border overflow-y-auto animate-slide-in-right">
         <div className="p-6">
+          <ChatGPTConnection enabled={useChatGPT} setEnabled={setUseChatGPT} model={chatgptModel} setModel={setChatgptModel} />
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -176,6 +207,7 @@ function SettingsPanelBody({
             </div>
             <button
               onClick={onClose}
+              aria-label="Close settings"
               className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted hover:text-foreground hover:bg-card-hover transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -197,7 +229,7 @@ function SettingsPanelBody({
                   <p className="font-semibold text-foreground mb-1">BYOK - Bring Your Own Key</p>
                   <p className="text-muted leading-relaxed">
                     Use your own API key. Direct billing from your provider. We charge nothing extra.
-                    Your key is stored locally in your browser only.
+                    Your key is sent to this BricksSnap server and the selected provider when you generate or test. Browser storage is optional and accessible to scripts on this origin.
                   </p>
                 </div>
               </div>
@@ -218,7 +250,7 @@ function SettingsPanelBody({
                 <input
                   type={showKey ? "text" : "password"}
                   value={tempKey}
-                  onChange={(e) => setTempKey(e.target.value)}
+                  onChange={(e) => { setTempKey(e.target.value); setConnectionStatus(""); }}
                   placeholder={cfg.placeholder}
                   className="w-full px-4 py-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary focus:shadow-lg focus:shadow-primary-glow transition-all font-mono"
                 />
@@ -312,6 +344,15 @@ function SettingsPanelBody({
               </div>
             )}
 
+            {provider !== "azure" && provider !== "openrouter" && <div>
+              <label htmlFor="ai-model" className="text-xs font-semibold block mb-2">Model ID</label>
+              <input id="ai-model" value={tempModel} onChange={e => { setTempModel(e.target.value); setConnectionStatus(""); }} placeholder={DEFAULT_MODELS[provider]} className="w-full p-3 rounded-lg border border-border bg-background text-sm" />
+              <p className="text-xs text-muted mt-2">Leave empty for {DEFAULT_MODELS[provider]}. Use a model available to your API account.</p>
+            </div>}
+            {provider === "openai" && <p className="text-xs text-muted">API billing is separate from ChatGPT subscriptions. To use ChatGPT itself, see “ChatGPT & import” on the main page.</p>}
+            <button onClick={test} disabled={testing} className="w-full p-3 border border-primary rounded-lg text-sm disabled:opacity-50">{testing ? "Checking…" : "Test connection"}</button>
+            {provider === "azure" && <p className="text-xs text-muted">The Azure check sends a tiny request and may incur a small API charge.</p>}
+            {connectionStatus && <p role="status" className="text-xs">{connectionStatus}</p>}
             {/* Persist toggle */}
             <div className="p-3 rounded-lg border border-border bg-background">
               <label className="flex items-start gap-3 cursor-pointer">
@@ -325,8 +366,8 @@ function SettingsPanelBody({
                   <p className="text-xs font-medium text-foreground">Remember across sessions</p>
                   <p className="text-[10px] text-muted mt-0.5 leading-relaxed">
                     {persistKey
-                      ? "Key is obfuscated and persisted in browser storage. Stays logged in across restarts."
-                      : "Key is obfuscated and kept only for this tab. Safer default — cleared when you close the tab."}
+                      ? "Key persists in this browser. Obfuscation is not encryption; scripts on this origin can read it."
+                      : "Key is kept for this tab and cleared on tab close. Scripts on this origin can read it."}
                   </p>
                 </div>
               </label>
@@ -338,8 +379,8 @@ function SettingsPanelBody({
                 <span className={`w-2 h-2 rounded-full ${tempKey && tempKey.length > 10 ? "bg-success animate-pulse" : "bg-muted"}`} />
                 <span className="text-xs text-muted">
                   {tempKey && tempKey.length > 10
-                    ? `AI Mode active (${cfg.label})`
-                    : "No API key — Built-in engine will be used (still works!)"}
+                    ? `Key entered (${cfg.label}); use Test connection to verify`
+                    : "No browser key. Configure a server key or use built-in mode."}
                 </span>
               </div>
             </div>
@@ -359,7 +400,7 @@ function SettingsPanelBody({
                       ? tempAzureDeployment || "—"
                       : provider === "openrouter"
                       ? tempOpenrouterModel || "—"
-                      : cfg.model}
+                      : tempModel || cfg.model}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-xs">

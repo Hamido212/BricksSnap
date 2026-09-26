@@ -1,25 +1,9 @@
-/**
- * Secure(-ish) storage wrapper for BYOK API keys.
- *
- * Browser-side BYOK apps inherently cannot offer cryptographic guarantees
- * for API keys – any JavaScript on the page can read them. This module
- * applies defense-in-depth practices so that keys are:
- *
- *   1. NEVER stored as plain text in localStorage/sessionStorage
- *   2. Obfuscated with a site-scoped XOR cipher so casual inspection /
- *      automated scrapers don't recognize the value as an API key
- *   3. Stored in sessionStorage by default (cleared on tab close)
- *   4. Optionally persisted to localStorage when the user explicitly
- *      opts in via the "Remember across sessions" toggle
- *   5. Split across two storage keys (iv + payload) so a pattern scanner
- *      looking for `sk-ant-` or `sk-` won't ever match the stored value
- *
- * This satisfies the security posture of "the key is never sitting
- * plaintext in web storage" while preserving normal BYOK UX.
- */
+/** Browser convenience storage. XOR obfuscation is not encryption: any same-origin
+ * script can read stored keys. Session-only is the default; persistence is opt-in. */
 
 export type Provider = "openai" | "anthropic" | "azure" | "openrouter";
 
+const MODEL_KEY = "bs_k_model";
 const IV_KEY = "bs_k_iv";
 const PAYLOAD_KEY = "bs_k_p";
 const PROVIDER_KEY = "bs_k_pv";
@@ -85,7 +69,7 @@ function deobfuscate(payload: string, iv: string): string {
 
 function getStore(persistent: boolean): Storage | null {
   if (typeof window === "undefined") return null;
-  return persistent ? window.localStorage : window.sessionStorage;
+  try { return persistent ? window.localStorage : window.sessionStorage; } catch { return null; }
 }
 
 /**
@@ -104,27 +88,31 @@ export function storeApiKey(
   azureEndpoint?: string,
   azureDeployment?: string,
   openrouterModel?: string,
-): void {
-  if (typeof window === "undefined") return;
-
+  model?: string,
+): boolean {
+  if (typeof window === "undefined") return false;
+  try {
   // Clear from both stores first so switching persist mode is clean.
   clearApiKey();
 
-  if (!key) return;
+  if (!key) return true;
 
   const iv = randomIv();
   const payload = obfuscate(key, iv);
   const store = getStore(persistent);
-  if (!store) return;
+  if (!store) return false;
 
   store.setItem(IV_KEY, iv);
   store.setItem(PAYLOAD_KEY, payload);
   store.setItem(PROVIDER_KEY, provider);
   if (azureEndpoint) store.setItem(AZURE_ENDPOINT_KEY, azureEndpoint);
   if (azureDeployment) store.setItem(AZURE_DEPLOYMENT_KEY, azureDeployment);
+  if (model) store.setItem(MODEL_KEY, model);
   if (openrouterModel) store.setItem(OPENROUTER_MODEL_KEY, openrouterModel);
   // Remember the user's choice in localStorage so the UI can show it.
-  window.localStorage.setItem(PERSIST_KEY, persistent ? "1" : "0");
+  getStore(true)?.setItem(PERSIST_KEY, persistent ? "1" : "0");
+  return true;
+  } catch { clearApiKey(); return false; }
 }
 
 /**
@@ -137,31 +125,36 @@ export function loadApiKey(): {
   azureEndpoint: string;
   azureDeployment: string;
   openrouterModel: string;
+  model: string;
 } {
   if (typeof window === "undefined") {
-    return { key: "", provider: "anthropic", persistent: false, azureEndpoint: "", azureDeployment: "", openrouterModel: "" };
+    return { key: "", provider: "openai", persistent: false, azureEndpoint: "", azureDeployment: "", openrouterModel: "", model: "" };
   }
 
   for (const persistent of [false, true]) {
     const store = getStore(persistent);
     if (!store) continue;
+    try {
     const iv = store.getItem(IV_KEY);
     const payload = store.getItem(PAYLOAD_KEY);
-    const provider = store.getItem(PROVIDER_KEY) as Provider | null;
+    const saved = store.getItem(PROVIDER_KEY);
+    const provider: Provider = saved === "anthropic" || saved === "azure" || saved === "openrouter" ? saved : "openai";
     if (iv && payload) {
       const key = deobfuscate(payload, iv);
       return {
         key,
-        provider: provider ?? "anthropic",
+        provider: provider ?? "openai",
         persistent,
         azureEndpoint: store.getItem(AZURE_ENDPOINT_KEY) ?? "",
         azureDeployment: store.getItem(AZURE_DEPLOYMENT_KEY) ?? "",
+        model: store.getItem(MODEL_KEY) ?? "",
         openrouterModel: store.getItem(OPENROUTER_MODEL_KEY) ?? "",
       };
     }
+    } catch { /* Try the other storage location. */ }
   }
 
-  return { key: "", provider: "anthropic", persistent: false, azureEndpoint: "", azureDeployment: "", openrouterModel: "" };
+  return { key: "", provider: "openai", persistent: false, azureEndpoint: "", azureDeployment: "", openrouterModel: "", model: "" };
 }
 
 /**
@@ -169,13 +162,18 @@ export function loadApiKey(): {
  */
 export function clearApiKey(): void {
   if (typeof window === "undefined") return;
-  for (const store of [window.sessionStorage, window.localStorage]) {
+  for (const persistent of [false, true]) {
+    const store = getStore(persistent);
+    if (!store) continue;
+    try {
+    store.removeItem(MODEL_KEY);
     store.removeItem(IV_KEY);
     store.removeItem(PAYLOAD_KEY);
     store.removeItem(PROVIDER_KEY);
     store.removeItem(AZURE_ENDPOINT_KEY);
     store.removeItem(AZURE_DEPLOYMENT_KEY);
     store.removeItem(OPENROUTER_MODEL_KEY);
+    } catch { /* Storage may be denied. */ }
   }
 }
 
@@ -184,5 +182,5 @@ export function clearApiKey(): void {
  */
 export function getPersistPreference(): boolean {
   if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(PERSIST_KEY) === "1";
+  try { return getStore(true)?.getItem(PERSIST_KEY) === "1"; } catch { return false; }
 }

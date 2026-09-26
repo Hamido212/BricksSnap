@@ -65,7 +65,7 @@ export default function GeneratorForm({
   lastMode,
 }: GeneratorFormProps) {
   const [prompt, setPrompt] = useState("");
-  const [useAI, setUseAI] = useState(true);
+  const [useAI, setUseAI] = useState(false);
   const [activePanel, setActivePanel] = useState<ConfigPanel>("none");
   const [selectedPreset, setSelectedPreset] = useState<StylePreset | undefined>();
   const [selectedPalette, setSelectedPalette] = useState<ColorPalette | undefined>();
@@ -144,6 +144,8 @@ export default function GeneratorForm({
       <form onSubmit={handleSubmit} className="relative">
         <div className="relative rounded-xl border border-border bg-card focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary-glow transition-all duration-300">
           <textarea
+            aria-label="Describe your template"
+            maxLength={12000}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe the template you want to generate... (e.g., 'Modern SaaS landing page with dark hero, features grid, pricing table, and footer')"

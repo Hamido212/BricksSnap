@@ -1,3 +1,4 @@
+import { normalizeSettings } from "./bricks-settings";
 // Bricks Builder JSON Template Engine
 // Generates valid Bricks Builder element JSON for copy-paste
 
@@ -8,6 +9,8 @@ export interface BricksElement {
   children: string[];
   settings: Record<string, unknown>;
   label?: string;
+  cid?: string;
+  [key: string]: unknown;
 }
 
 export interface BricksTemplate {
@@ -17,6 +20,7 @@ export interface BricksTemplate {
   version: string;
   globalClasses: BricksGlobalClass[];
   globalElements: unknown[];
+  [key: string]: unknown;
 }
 
 export interface BricksGlobalClass {
@@ -343,7 +347,15 @@ export function createElement(
     name,
     parent,
     children: [],
-    settings,
+    settings: normalizeSettings(name, {
+      ...settings,
+      ...(settings._display === "grid" && settings["_gridTemplateColumns:mobile_landscape"] === undefined
+        ? { "_gridTemplateColumns:mobile_landscape": "1fr" } : {}),
+      ...(settings._direction === "row" && settings["_direction:mobile_landscape"] === undefined
+        ? { "_direction:mobile_landscape": "column", "_alignItems:mobile_landscape": "stretch" } : {}),
+      ...(typeof settings._width === "string" && /^(\d+%|\d{3,}px)$/.test(settings._width) && settings._width !== "100%" && settings["_width:mobile_landscape"] === undefined
+        ? { "_width:mobile_landscape": "100%", "_minWidth:mobile_landscape": "0" } : {}),
+    }).settings,
     ...(label ? { label } : {}),
   };
 }
@@ -363,7 +375,7 @@ export function wrapTemplate(
     content: elements,
     source: "bricksCopiedElements",
     sourceUrl: "",
-    version: "1.12.2",
+    version: "2.4.1",
     globalClasses,
     globalElements: [],
   };
@@ -1677,7 +1689,7 @@ export function generateGallerySection(
     _gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
     _gap: "24px",
     _width: "100%",
-    _alignContent: "start",
+    _alignContentGrid: "flex-start",
   });
   linkElements(container, grid);
   elements.push(grid);
@@ -2623,20 +2635,21 @@ export function generateStepsSection(
 
     // Progress bar under each step showing percentage completion
     const progressPercent = Math.round(((i + 1) / steps.length) * 100);
-    const progressBar = createElement("progress-bar", stepBlock.id, {
-      value: progressPercent,
-      max: 100,
-      label: `Step ${i + 1}`,
-      showValue: false,
-      barColor: { hex: tokens.primaryColor },
-      backgroundColor: { hex: tokens.borderColor },
-      _width: "80%",
-      _height: "4px",
+    const progressBar = createElement("div", stepBlock.id, {
+      _width: "80%", _height: "4px", _background: { color: { hex: tokens.borderColor } },
       _border: { radius: { top: "9999", right: "9999", bottom: "9999", left: "9999" } },
       _margin: { top: "8" },
+      _attributes: [{ name: "role", value: "progressbar" }, { name: "aria-label", value: `Step ${i + 1}` },
+        { name: "aria-valuenow", value: String(progressPercent) }, { name: "aria-valuemin", value: "0" }, { name: "aria-valuemax", value: "100" }],
     });
     linkElements(stepBlock, progressBar);
     elements.push(progressBar);
+    const progressFill = createElement("div", progressBar.id, {
+      _width: `${progressPercent}%`, "_width:mobile_landscape": `${progressPercent}%`,
+      _height: "100%", _background: { color: { hex: tokens.primaryColor } },
+    });
+    linkElements(progressBar, progressFill);
+    elements.push(progressFill);
   }
 
   return elements;
@@ -3439,67 +3452,23 @@ export function generateComingSoonSection(
   linkElements(container, text);
   elements.push(text);
 
-  // Email signup form
-  const formRow = createElement("div", container.id, {
-    _display: "flex",
-    _direction: "row",
-    _gap: "12px",
-    _justifyContent: "center",
-    _alignItems: "center",
+  // Native email field; connect the desired newsletter/email action in Bricks.
+  const signup = createElement("form", container.id, {
+    fields: [{ id: generateId(), type: "email", label: "Email address", placeholder: "you@example.com", required: true }],
+    actions: [],
+    submitButtonText: "Notify Me",
+    submitButtonBackgroundColor: { hex: tokens.primaryColor },
+    submitButtonTypography: { color: { hex: "#ffffff" }, "font-weight": "600" },
     _width: "480px",
     _margin: { top: "8" },
-    _flexWrap: "wrap",
-  });
-  linkElements(container, formRow);
-  elements.push(formRow);
-
-  const emailInput = createElement("text-basic", formRow.id, {
-    text: "<p>Enter your email</p>",
-    _padding: { top: "14", bottom: "14", left: "20", right: "20" },
-    _background: { color: { hex: tokens.darkMode ? tokens.surfaceColor : "#1e293b" } },
-    _border: {
-      radius: radObj(tokens),
-      width: { top: "1", right: "1", bottom: "1", left: "1" },
-      style: "solid",
-      color: { hex: tokens.darkMode ? tokens.borderColor : "#334155" },
-    },
-    _typography: {
-      "font-size": "15px",
-      color: { hex: tokens.darkMode ? tokens.mutedTextColor : "#64748b" },
-    },
-    _width: "300px",
-  });
-  linkElements(formRow, emailInput);
-  elements.push(emailInput);
-
-  const notifyBtn = createElement("button", formRow.id, {
-    text: "Notify Me",
-    link: { type: "external", url: "#" },
-    style: "primary",
-    size: "md",
-    _padding: { top: "14", bottom: "14", left: "28", right: "28" },
-    _background: { color: { hex: tokens.primaryColor } },
-    _border: { radius: radObj(tokens) },
-    _typography: {
-      "font-size": "15px",
-      "font-weight": "600",
-      color: { hex: "#ffffff" },
-      "text-decoration": "none",
-    },
-    _attributes: [{ name: "role", value: "button" }, { name: "aria-label", value: "Notify Me" }],
-    ...hoverButton(tokens),
-  });
-  linkElements(formRow, notifyBtn);
-  elements.push(notifyBtn);
+  }, "Newsletter — configure subscription action in Bricks");
+  linkElements(container, signup);
+  elements.push(signup);
 
   // Countdown timer
   const countdownEl = createElement("countdown", container.id, {
-    date: "2026-12-31",
-    showDays: true,
-    showHours: true,
-    showMinutes: true,
-    showSeconds: true,
-    separator: ":",
+    date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16).replace("T", " "),
+    timezone: "UTC+00:00",
     _typography: {
       "font-size": "32px",
       "font-weight": "700",
@@ -3635,7 +3604,7 @@ export function generateLoginSection(
       color: { hex: "#ffffff" },
     },
     submitButtonBorder: { radius: radObj(tokens) },
-    submitButtonPadding: { top: "14", bottom: "14", left: "24", right: "24" },
+    _cssCustom: "%root% button[type=submit] { padding: 14px 24px; }",
     fieldBackgroundColor: { hex: tokens.surfaceColor },
     fieldBorder: {
       radius: radObj(tokens),

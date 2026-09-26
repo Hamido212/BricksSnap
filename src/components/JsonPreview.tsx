@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { syntaxHighlight } from "@/lib/json-highlight";
+import { buildBricksImportJson, TemplateType } from "@/lib/bricks-export";
+import type { BricksTemplate } from "@/lib/bricks-engine";
 
 interface JsonPreviewProps {
-  data: unknown;
+  data: BricksTemplate;
   maxHeight?: string;
   templateName?: string;
 }
@@ -24,51 +27,14 @@ async function copyToClipboard(text: string): Promise<void> {
   document.body.appendChild(textarea);
   textarea.focus();
   textarea.select();
-  document.execCommand("copy");
+  const copied = document.execCommand("copy");
   document.body.removeChild(textarea);
-}
-
-function syntaxHighlight(json: string): string {
-  return json.replace(
-    /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
-    (match) => {
-      let cls = "json-number";
-      if (/^"/.test(match)) {
-        if (/:$/.test(match)) {
-          cls = "json-key";
-          return `<span class="${cls}">${match.slice(0, -1)}</span>:`;
-        } else {
-          cls = "json-string";
-        }
-      } else if (/true|false/.test(match)) {
-        cls = "json-boolean";
-      } else if (/null/.test(match)) {
-        cls = "json-null";
-      }
-      return `<span class="${cls}">${match}</span>`;
-    }
-  );
-}
-
-// Build the Bricks Builder template import format
-function buildBricksImportJson(data: unknown, title: string): object {
-  const content = (data as { content?: unknown[] })?.content || [];
-  const now = new Date();
-  const dateStr = now.toISOString().replace("T", " ").substring(0, 19);
-
-  return {
-    id: Math.floor(Math.random() * 10000),
-    name: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    title,
-    date: dateStr,
-    author: { name: "BricksSnap" },
-    type: "section",
-    content,
-    templateType: "section",
-  };
+  if (!copied) throw new Error("Clipboard unavailable");
 }
 
 export default function JsonPreview({ data, maxHeight = "500px", templateName = "BricksSnap Template" }: JsonPreviewProps) {
+  const [templateType, setTemplateType] = useState<TemplateType>("section");
+  const [copyError, setCopyError] = useState("");
   const [copied, setCopied] = useState(false);
   const [copiedWhat, setCopiedWhat] = useState("");
   const [viewMode, setViewMode] = useState<"formatted" | "compact">("formatted");
@@ -84,7 +50,7 @@ export default function JsonPreview({ data, maxHeight = "500px", templateName = 
 
   // RECOMMENDED: Download as Bricks-compatible template JSON for import
   const downloadForBricks = useCallback(() => {
-    const bricksJson = buildBricksImportJson(data, templateName);
+    const bricksJson = buildBricksImportJson(data, templateName, templateType);
     const blob = new Blob([JSON.stringify(bricksJson, null, 2)], {
       type: "application/json",
     });
@@ -94,26 +60,24 @@ export default function JsonPreview({ data, maxHeight = "500px", templateName = 
     a.download = `${templateName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [data, templateName]);
+  }, [data, templateName, templateType]);
 
   // Copy for Bricks paste (full object with source: bricksCopiedElements)
   const copyForBricks = useCallback(async () => {
     const bricksData = {
-      ...(data as Record<string, unknown>),
+      ...data,
       source: "bricksCopiedElements",
     };
-    await copyToClipboard(JSON.stringify(bricksData));
-    showCopied("Bricks JSON");
+    try { await copyToClipboard(JSON.stringify(bricksData)); setCopyError(""); showCopied("Bricks JSON"); } catch { setCopyError("Clipboard unavailable. Download the JSON file instead."); }
   }, [data, showCopied]);
 
   // Copy full formatted JSON (for debugging/inspection)
   const copyFullJson = useCallback(async () => {
     const bricksData = {
-      ...(data as Record<string, unknown>),
+      ...data,
       source: "bricksCopiedElements",
     };
-    await copyToClipboard(JSON.stringify(bricksData, null, 2));
-    showCopied("Full JSON");
+    try { await copyToClipboard(JSON.stringify(bricksData, null, 2)); setCopyError(""); showCopied("Full JSON"); } catch { setCopyError("Clipboard unavailable. Download the JSON file instead."); }
   }, [data, showCopied]);
 
   return (
@@ -147,8 +111,15 @@ export default function JsonPreview({ data, maxHeight = "500px", templateName = 
           </div>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3 px-4 py-2 text-xs">
+          <label htmlFor="template-type">Import as</label>
+          <select id="template-type" value={templateType} onChange={e => setTemplateType(e.target.value as TemplateType)} className="bg-background border border-border rounded p-2">
+            <option value="section">Section</option><option value="content">Full page / Content</option><option value="header">Header</option><option value="footer">Footer</option>
+          </select>
+          {copyError && <p role="alert">{copyError}</p>}
+        </div>
         {/* Action buttons */}
-        <div className="flex items-center gap-2 px-4 py-2.5 border-t border-border/50">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-t border-border/50">
           {/* PRIMARY: Download for Bricks Import */}
           <button
             onClick={downloadForBricks}

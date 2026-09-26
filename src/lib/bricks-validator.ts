@@ -1,61 +1,14 @@
-/**
- * Bricks Builder Schema Validator & Auto-Repair Layer
- * ===================================================
- *
- * This layer sits between raw AI output and the wrapped template we hand
- * to the user. Its responsibilities:
- *
- *   1. Validate that the AI output respects the mandatory Bricks JSON shape
- *      (id / name / parent / children / settings) – this is the "contract"
- *      we give the AI in the system prompt.
- *   2. Repair common AI mistakes WITHOUT discarding creative content:
- *        - Missing / duplicate / malformed ids  -> regenerate
- *        - Wrong parent references               -> fallback to 0 (root)
- *        - Missing children arrays               -> rebuild from parent refs
- *        - Missing settings object               -> {}
- *        - Invalid element names                 -> drop the element
- *        - Sections with parent != 0             -> force to 0
- *   3. Report a list of violations so the API route can log what the AI
- *      got wrong and we can iterate on the prompt.
- *
- * The design philosophy is "repair, don't reject" – we want to preserve
- * AI creative freedom and only drop elements when they are fundamentally
- * unusable (e.g. unknown element name).
+/** Validate native element trees, repair unambiguous references, and report every repair.
+ * Unknown elements and ambiguous duplicate IDs fail validation instead of silently losing content.
+ * Control names come from the published Bricks schema; this is not a WordPress runtime validator.
  */
-
 import type { BricksElement } from "./bricks-engine";
 
-// ─── Allowed element names (sourced from Bricks Builder docs) ──────────────
-export const BRICKS_ELEMENT_NAMES = new Set<string>([
-  // Layout
-  "section", "container", "block", "div",
-  // Basic
-  "heading", "text-basic", "text", "rich-text", "button", "icon", "image", "video",
-  // General
-  "divider", "icon-box", "icon-list", "list", "accordion", "accordion-nested",
-  "tabs", "tabs-nested", "form", "map", "alert", "animated-typing",
-  "countdown", "counter", "pricing-tables", "progress-bar", "pie-chart",
-  "team-members", "testimonials", "code", "template", "logo",
-  "facebook-page", "social-icons",
-  // Media
-  "image-gallery", "audio", "carousel", "slider", "slider-nested", "svg",
-  // WordPress
-  "posts", "pagination", "nav-menu", "sidebar", "search", "shortcode",
-  "post-title", "post-excerpt", "post-meta", "post-content",
-  "social-sharing", "related-posts", "author", "comments",
-  "taxonomy", "post-navigation",
-  // WooCommerce
-  "breadcrumbs", "mini-cart", "products", "products-pagination",
-  "products-orderby", "products-total-results", "products-filter",
-  "products-archive-description",
-  "product-title", "product-gallery", "product-short-description",
-  "product-price", "product-stock", "product-meta", "product-rating",
-  "product-content", "add-to-cart", "related-products",
-  "product-additional-information", "product-tabs", "product-upsells",
-]);
-
-// Elements that MUST be at the root level (parent === 0)
-const ROOT_ONLY_NAMES = new Set<string>(["section"]);
+import { normalizeSettings } from "./bricks-settings";
+import schema from "../data/bricks-schema.json";
+export const BRICKS_ELEMENT_NAMES = new Set<string>(Object.keys(schema.elements));
+const metaControls = new Set(["_cssGlobalClasses", "_conditions", "_interactions", "_hideElementBuilder", "_hideElementFrontend", "_attributes"]);
+const controlSets = new Map(Object.entries(schema.elements).map(([name, element]) => [name, new Set([...schema.commonControls, ...element.controls, ...metaControls])]));
 
 // A Bricks id is always a 6-char lowercase alphanumeric string.
 const BRICKS_ID_RE = /^[a-z0-9]{6}$/;
@@ -106,11 +59,11 @@ export function validateBricksElements(input: unknown): ValidationResult {
     sectionCount: 0,
   };
 
-  if (!Array.isArray(input)) {
+  if (!Array.isArray(input) || input.length > 1500) {
     return {
       elements: [],
       valid: false,
-      violations: ["Top-level value is not an array"],
+      violations: ["Expected an array of at most 1500 elements"],
       stats,
     };
   }
@@ -118,11 +71,14 @@ export function validateBricksElements(input: unknown): ValidationResult {
   stats.total = input.length;
   const usedIds = new Set<string>();
   const cleaned: BricksElement[] = [];
+  const idMap = new Map<string, string>();
+  const childOrder = new Map<string, string[]>();
+  let ambiguousIds = false;
 
   // ── Pass 1: shape + name + id repair ────────────────────────────────────
   for (let i = 0; i < input.length; i++) {
     const raw = input[i];
-    if (!raw || typeof raw !== "object") {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
       violations.push(`Element at index ${i} is not an object`);
       stats.dropped++;
       continue;
@@ -134,8 +90,10 @@ export function validateBricksElements(input: unknown): ValidationResult {
     };
 
     // Element name – must be from the allowed set
-    const name = typeof candidate.name === "string" ? candidate.name : "";
-    if (!name || !BRICKS_ELEMENT_NAMES.has(name)) {
+    const component = typeof candidate.cid === "string" && candidate.cid.length > 0;
+    const rawName = typeof candidate.name === "string" ? candidate.name : "";
+    const name = rawName === "rich-text" ? "text" : rawName;
+    if (!component && (!name || !BRICKS_ELEMENT_NAMES.has(name))) {
       violations.push(`Element at index ${i} has invalid name "${name}" – dropped`);
       stats.dropped++;
       continue;
@@ -148,12 +106,20 @@ export function validateBricksElements(input: unknown): ValidationResult {
       id = uniqueId(usedIds);
       stats.idsRegenerated++;
     } else if (usedIds.has(id)) {
+      ambiguousIds = true;
       violations.push(`Element "${name}" at index ${i} had duplicate id "${id}" – regenerated`);
       id = uniqueId(usedIds);
       stats.idsRegenerated++;
     } else {
       usedIds.add(id);
     }
+
+    const oldId = typeof candidate.id === "string" ? candidate.id : "";
+    if (oldId) {
+      if (idMap.has(oldId)) ambiguousIds = true;
+      else idMap.set(oldId, id);
+    }
+    childOrder.set(id, Array.isArray(candidate.children) ? candidate.children.filter((x): x is string => typeof x === "string") : []);
 
     // Settings – must exist as an object
     let settings: Record<string, unknown>;
@@ -166,6 +132,15 @@ export function validateBricksElements(input: unknown): ValidationResult {
       settings = {};
     }
 
+    const normalized = normalizeSettings(name, settings);
+    settings = normalized.settings;
+    for (const change of normalized.changes) violations.push(`Element "${name}" (${id}): ${change}`);
+    const allowed = controlSets.get(name);
+    if (allowed) {
+      const unknown = Object.keys(settings).filter(key => !allowed.has(key.split(":")[0]));
+      if (unknown.length) violations.push(`Element "${name}" (${id}) uses undocumented controls: ${unknown.join(", ")}. Retained for review.`);
+    }
+
     // Parent – 0 or a string id (resolved in pass 2)
     const parent: string | 0 =
       candidate.parent === 0 || typeof candidate.parent === "string"
@@ -173,6 +148,7 @@ export function validateBricksElements(input: unknown): ValidationResult {
         : 0;
 
     cleaned.push({
+      ...candidate,
       id,
       name,
       parent,
@@ -186,12 +162,7 @@ export function validateBricksElements(input: unknown): ValidationResult {
   const byId = new Map(cleaned.map((el) => [el.id, el]));
 
   for (const el of cleaned) {
-    // Root-only elements (sections) must have parent=0
-    if (ROOT_ONLY_NAMES.has(el.name) && el.parent !== 0) {
-      violations.push(`Element "${el.name}" (${el.id}) had parent "${el.parent}" – forced to root`);
-      el.parent = 0;
-      stats.parentsReset++;
-    }
+    if (el.parent !== 0) el.parent = idMap.get(el.parent) ?? el.parent;
 
     // Non-root elements: parent must either be 0 or reference a known id.
     // If the referenced id doesn't exist in the array, reset to 0 rather
@@ -215,8 +186,7 @@ export function validateBricksElements(input: unknown): ValidationResult {
   for (const el of cleaned) {
     const seen = new Set<string>([el.id]);
     let cursor: string | 0 = el.parent;
-    let safety = 0;
-    while (cursor !== 0 && safety < 1000) {
+    while (cursor !== 0) {
       if (seen.has(cursor)) {
         violations.push(`Parent cycle detected at "${el.id}" – broken by resetting to root`);
         el.parent = 0;
@@ -227,7 +197,6 @@ export function validateBricksElements(input: unknown): ValidationResult {
       const parentEl = byId.get(cursor);
       if (!parentEl) break;
       cursor = parentEl.parent;
-      safety++;
     }
   }
 
@@ -243,15 +212,23 @@ export function validateBricksElements(input: unknown): ValidationResult {
     }
   }
 
-  // ── Count sections + validate we have at least one ──────────────────────
-  stats.sectionCount = cleaned.filter((el) => el.parent === 0 && el.name === "section").length;
-  if (stats.sectionCount === 0) {
-    violations.push("No root-level section element found – AI output is probably unusable");
+  // Keep the original visual order, even when the flat array uses a different order.
+  for (const el of cleaned) {
+    const order = (childOrder.get(el.id) ?? []).map(id => idMap.get(id) ?? id);
+    el.children.sort((a, b) => {
+      const ai = order.indexOf(a), bi = order.indexOf(b);
+      return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
+    });
   }
+  if (ambiguousIds) violations.push("Duplicate source IDs are ambiguous; fix them before exporting.");
+
+  // Root elements may also be standalone buttons, headers, or component instances.
+  stats.sectionCount = cleaned.filter((el) => el.parent === 0 && el.name === "section").length;
+
 
   return {
     elements: cleaned,
-    valid: stats.sectionCount > 0 && cleaned.length > 0,
+    valid: !ambiguousIds && stats.dropped === 0 && cleaned.length > 0 && cleaned.some(el => el.parent === 0),
     violations,
     stats,
   };
