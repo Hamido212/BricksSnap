@@ -109,7 +109,7 @@ class CodexBridge {
       if (!status.connected) throw new RequestError("Sign in with ChatGPT in Settings first.");
       const selected = model || status.models.find(m => m.isDefault)?.model || status.models[0]?.model;
       if (!selected || !status.models.some(m => m.model === selected)) throw new RequestError("Choose an available ChatGPT model in Settings.");
-      const thread = await this.rpc<{ thread: { id: string } }>("thread/start", { model: selected, modelProvider: "openai", cwd: this.workspace, sandbox: "readOnly", approvalPolicy: "never", ephemeral: true, baseInstructions: BRICKS_SYSTEM_PROMPT + "\nOnly produce template JSON. Never use tools or read files.", developerInstructions: "Return the complete JSON in your final message. No tool calls." });
+      const thread = await this.rpc<{ thread: { id: string } }>("thread/start", { model: selected, modelProvider: "openai", cwd: this.workspace, sandbox: "read-only", approvalPolicy: "never", ephemeral: true, baseInstructions: BRICKS_SYSTEM_PROMPT + "\nOnly produce template JSON. Never use tools or read files.", developerInstructions: "Return the complete JSON in your final message. No tool calls." });
       threadId = thread.thread.id;
       const output = await new Promise<string>((resolve, reject) => {
         let text = "";
@@ -123,7 +123,7 @@ class CodexBridge {
         this.events.on("item/completed", item); this.events.on("turn/completed", complete); this.events.on("bridgeStopped", stopped);
         signal.addEventListener("abort", abort, { once: true });
         if (signal.aborted) { abort(); return; }
-        this.rpc("turn/start", { threadId, input: [{ type: "text", text: prompt }] }).catch(() => fail("Could not start ChatGPT generation."));
+        this.rpc("turn/start", { threadId, input: [{ type: "text", text: prompt, text_elements: [] }] }).catch(() => fail("Could not start ChatGPT generation."));
       });
       try { const parsed = JSON.parse(output.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); return { elements: Array.isArray(parsed) ? parsed : parsed.elements, model: selected }; }
       catch { throw new RequestError("ChatGPT returned invalid JSON. Retry with fewer sections.", 422); }

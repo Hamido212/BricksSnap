@@ -1,4 +1,5 @@
 import { normalizeSettings } from "./bricks-settings";
+import { resolveElementCss } from "./bricks-css";
 // Bricks Builder JSON Template Engine
 // Generates valid Bricks Builder element JSON for copy-paste
 
@@ -372,7 +373,7 @@ export function wrapTemplate(
   globalClasses: BricksGlobalClass[] = []
 ): BricksTemplate {
   return {
-    content: elements,
+    content: resolveElementCss(elements.map(el => ({ ...el, settings: normalizeSettings(el.name, el.settings).settings }))),
     source: "bricksCopiedElements",
     sourceUrl: "",
     version: "2.4.1",

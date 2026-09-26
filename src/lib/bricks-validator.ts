@@ -221,6 +221,11 @@ export function validateBricksElements(input: unknown): ValidationResult {
     });
   }
   if (ambiguousIds) violations.push("Duplicate source IDs are ambiguous; fix them before exporting.");
+  for (const el of cleaned) {
+    if (typeof el.settings._cssCustom === "string") {
+      el.settings._cssCustom = el.settings._cssCustom.replace(/#brxe-([a-zA-Z0-9_-]+)\b/g, (selector, old: string) => idMap.has(old) ? `#brxe-${idMap.get(old)}` : selector);
+    }
+  }
 
   // Root elements may also be standalone buttons, headers, or component instances.
   stats.sectionCount = cleaned.filter((el) => el.parent === 0 && el.name === "section").length;

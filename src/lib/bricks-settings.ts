@@ -11,7 +11,11 @@ export function normalizeSettings(name: string, input: Record<string, unknown>) 
   for (const key of Object.keys(settings)) {
     const [base, ...suffixes] = key.split(":");
     const suffix = suffixes.length ? `:${suffixes.join(":")}` : "";
-    if (aliases[base]) {
+    if (base === "_gap" && ["section", "container", "block", "div"].includes(name)) {
+      if (settings[`_rowGap${suffix}`] === undefined) settings[`_rowGap${suffix}`] = settings[key];
+      if (settings[`_columnGap${suffix}`] === undefined) settings[`_columnGap${suffix}`] = settings[key];
+      delete settings[key]; changes.push(`${key} → row/column gap`);
+    } else if (aliases[base]) {
       const target = aliases[base] + suffix;
       if (settings[target] === undefined) settings[target] = settings[key];
       delete settings[key]; changes.push(`${key} → ${target}`);
@@ -20,6 +24,17 @@ export function normalizeSettings(name: string, input: Record<string, unknown>) 
       const typography = settings[target];
       settings[target] = { "text-align": settings[key], ...(typography && typeof typography === "object" ? typography : {}) };
       delete settings[key]; changes.push(`${key} → ${target}.text-align`);
+    }
+  }
+  const typography = settings._typography;
+  if (typography && typeof typography === "object" && !Array.isArray(typography)) {
+    const value = typography as Record<string, unknown>;
+    const family = value["font-family"];
+    if (typeof family === "string" && family.includes(",") && /^[a-zA-Z0-9 ,"'_-]+$/.test(family)) {
+      // Bricks quotes the complete native font value. Keep fallback stacks in CSS.
+      settings._typography = { ...value, "font-family": family.split(",")[0].trim().replace(/^["']|["']$/g, "") };
+      settings._cssCustom = `${typeof settings._cssCustom === "string" ? settings._cssCustom : ""}\n%root% { font-family: ${family}; }`;
+      changes.push("Font stack → scoped CSS");
     }
   }
   for (const key of Object.keys(settings)) {

@@ -1,13 +1,14 @@
 import { wrapTemplate, type BricksTemplate } from "./bricks-engine";
 import { validateBricksElements } from "./bricks-validator";
 import { templateWarnings } from "./template-warnings";
+import { resolveElementCss } from "./bricks-css";
 
 export function importTemplate(input: unknown): { template: BricksTemplate; warnings: string[] } {
   const object = input && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : {};
   const validation = validateBricksElements(Array.isArray(input) ? input : object.content ?? object.elements);
   if (!validation.valid) throw new Error(validation.violations[0] ?? "No usable elements found.");
   // Preserve documented dependencies/metadata instead of rebuilding only content.
-  const template = { ...wrapTemplate(validation.elements), ...object, content: validation.elements } as BricksTemplate;
+  const template = { ...wrapTemplate(validation.elements), ...object, content: resolveElementCss(validation.elements) } as BricksTemplate;
   const warnings = [...validation.violations, ...templateWarnings(validation.elements)];
   if (!Array.isArray(template.globalClasses)) throw new Error("globalClasses must be an array.");
   if (!Array.isArray(template.globalElements)) throw new Error("globalElements must be an array.");

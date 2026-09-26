@@ -35,7 +35,23 @@ el("hburlx", "text-basic", "hbfoot", { text: "hb-zulassungsdienst.de", tag: "spa
 el("hbsoon", "text-basic", "hbfoot", { text: "Danke für Ihre Geduld.", tag: "span", _typography: type("12px", "400", "#56645b") });
 // Bricks IDs must be exactly six lowercase alphanumeric characters.
 const mapping = new Map(content.map((e, index) => [e.id, `hb${index.toString(36).padStart(4, "0")}`]));
-for (const e of content) { e.id = mapping.get(e.id); e.parent = e.parent ? mapping.get(e.parent) : 0; e.children = e.children.map(id => mapping.get(id)); }
+for (const e of content) {
+  e.id = mapping.get(e.id); e.parent = e.parent ? mapping.get(e.parent) : 0; e.children = e.children.map(id => mapping.get(id));
+  for (const key of Object.keys(e.settings)) {
+    if (key === "_gap" || key.startsWith("_gap:")) {
+      e.settings[key.replace("_gap", "_rowGap")] = e.settings[key];
+      e.settings[key.replace("_gap", "_columnGap")] = e.settings[key];
+      delete e.settings[key];
+    }
+  }
+  const typography = e.settings._typography;
+  if (typography?.["font-family"]?.includes(",")) {
+    const stack = typography["font-family"];
+    typography["font-family"] = stack.split(",")[0];
+    e.settings._cssCustom = `${e.settings._cssCustom || ""}\n%root% { font-family: ${stack}; }`;
+  }
+  if (e.settings._cssCustom) e.settings._cssCustom = e.settings._cssCustom.replaceAll("%root%", `#brxe-${e.id}`);
+}
 const template = { name: "hb-coming-soon", title: "HB Zulassungsdienst · Coming soon", type: "content", templateType: "content", content, source: "bricksCopiedElements", sourceUrl: "", version: "2.4.1", globalClasses: [], globalElements: [] };
 await mkdir("artifacts/hb-coming-soon", { recursive: true });
 await writeFile("artifacts/hb-coming-soon/hb-coming-soon.json", JSON.stringify(template, null, 2));
