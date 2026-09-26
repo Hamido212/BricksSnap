@@ -43,7 +43,8 @@ class CodexBridge {
       for (const key of ["PATH", "Path", "PATHEXT", "SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP", "HOME", "USERPROFILE", "LOCALAPPDATA", "APPDATA"]) if (process.env[key]) env[key] = process.env[key];
       const disabled = ["shell_tool", "unified_exec", "apply_patch_freeform", "apps", "connectors", "plugins", "hooks", "codex_hooks", "plugin_hooks", "multi_agent", "collab", "code_mode", "js_repl", "browser_use", "computer_use", "image_generation", "view_image", "memories", "memory_tool", "skill_search"];
       const args = ["app-server", "--stdio", "-c", 'web_search="disabled"', "-c", 'sandbox_mode="read-only"', "-c", 'approval_policy="never"', ...disabled.flatMap(f => ["-c", `features.${f}=false`])];
-      this.child = spawn(process.env.BRICKSSNAP_CODEX_BIN || "codex", args, { env, cwd: this.workspace, windowsHide: true, shell: false, stdio: "pipe" });
+      // The CLI is installed on the local host; it must never be bundled into a deployment.
+      this.child = spawn(/* turbopackIgnore: true */ process.env.BRICKSSNAP_CODEX_BIN || "codex", args, { env, cwd: this.workspace, windowsHide: true, shell: false, stdio: "pipe" });
       this.child.stderr.resume(); // Never echo subprocess output that could contain auth data.
       createInterface({ input: this.child.stdout }).on("line", line => {
         if (line.length > 4_000_000) { this.stop(); return; }

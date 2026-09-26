@@ -11,10 +11,12 @@ Use text-basic with plain text and tag p; text for rich HTML; heading with text 
 button/text-link with text and link {type:"external",url:"#contact"}. Use button outline:true for outlines.
 Images: image:{url:"https://...",filename:"photo.jpg"}, altText:"Descriptive alt text", loading:"lazy".
 Layout: _display:"flex"|"grid", _direction:"row"|"column", _flexWrap:"wrap",
-_justifyContent, _alignItems, _gridTemplateColumns, _gridTemplateRows, _gap, _rowGap, _columnGap,
+_justifyContent, _alignItems, _gridTemplateColumns, _gridTemplateRows, _rowGap, _columnGap,
 _width, _widthMax, _heightMin. CSS lengths are strings. Do not use fixed desktop widths on small screens.
 Spacing: _padding and _margin:{top:"24",right:"24",bottom:"24",left:"24"}.
 Typography: _typography:{"font-size":"48px","font-weight":"700","line-height":"1.2",color:{hex:"#112233"}}.
+Use a single font family in native typography; put fallback font stacks in scoped custom CSS.
+For section/container/block/div spacing use _rowGap and _columnGap; _gap only applies to non-layout elements.
 Background: _background:{color:{hex:"#ffffff"}}.
 Gradients: _gradient:{applyTo:"background",type:"linear",angle:"135",stops:[{color:{hex:"#112233"},position:"0"},{color:{hex:"#445566"},position:"100"}]}.
 Use color.raw for alpha colors, named colors or CSS variables; color.hex accepts only three/six digit hex.

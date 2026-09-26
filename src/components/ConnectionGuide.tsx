@@ -17,7 +17,11 @@ export default function ConnectionGuide({ onImport, disabled }: { onImport: (tem
     <summary className="cursor-pointer font-semibold">Getting started · ChatGPT & import</summary>
     <div className="mt-4 space-y-5 text-muted leading-relaxed">
       <ol className="list-decimal pl-5 space-y-1"><li>Try a built-in template without an API key.</li><li>For AI generation, open Settings, select a provider, enter your API key and test the connection. Then enable AI mode.</li><li>Choose the export type and download JSON. In WordPress, go to Bricks → Templates → Import templates. Review responsive layouts, links, forms and images before publishing.</li></ol>
-      <div><h3 className="font-semibold text-foreground">Use your ChatGPT subscription</h3>
+      <div><h3 className="font-semibold text-foreground">Sign in with ChatGPT on this computer</h3>
+        <p>Install the official Codex CLI, then start BricksSnap with <code>npm run dev:local</code>. Open Settings → Sign in with ChatGPT, complete the OpenAI sign-in, then select Check ChatGPT connection and Use ChatGPT account for AI generation. Enable AI mode to generate.</p>
+        <p>This uses your account’s Codex limits without an API key. It supports text prompts and runs on localhost; the hosted website cannot use this computer’s sign-in. API providers remain available for hosted use and image references.</p>
+      </div>
+      <div><h3 className="font-semibold text-foreground">Connect from ChatGPT using MCP</h3>
         <p>ChatGPT can design your template and use BricksSnap to validate it, without a separate OpenAI API call. Enable <code>BRICKSSNAP_MCP_ENABLED=true</code> on your BricksSnap server, restart it, and connect its <code>/api/mcp</code> endpoint in ChatGPT developer mode through a secure MCP tunnel or public HTTPS URL. Availability depends on your account and workspace.</p>
         <p>The endpoint only provides the template catalog, schema guidance and JSON validation. It does not access your API keys or WordPress site.</p>
         <a href="https://developers.openai.com/plugins/deploy/connect-chatgpt" target="_blank" rel="noreferrer" className="text-primary underline">Official ChatGPT connection instructions</a>

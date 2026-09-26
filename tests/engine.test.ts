@@ -40,6 +40,28 @@ describe("built-in engine", () => {
 });
 const element = (id: string, parent: string | 0 = 0, children: string[] = []): BricksElement => ({ id, name: "div", parent, children, settings: {} });
 describe("validation and round trips", () => {
+  it("uses native layout gaps, including responsive states, without overriding explicit gaps", () => {
+    const { settings } = normalizeSettings("div", { _gap: "24px", _rowGap: "8px", "_gap:mobile_landscape": "12px" });
+    expect(settings).toEqual({ _rowGap: "8px", _columnGap: "24px", "_rowGap:mobile_landscape": "12px", "_columnGap:mobile_landscape": "12px" });
+    expect(normalizeSettings("heading", { _gap: "8px" }).settings).toEqual({ _gap: "8px" });
+  });
+  it("exports font stacks and root shorthand as portable CSS without mutating the input", () => {
+    const input = [{ ...element("root01"), settings: { _typography: { "font-family": "Segoe UI, Arial, sans-serif" }, _cssCustom: "%root% img { display: block; }" } }];
+    const template = wrapTemplate(input);
+    expect(template.content[0].settings._typography).toEqual({ "font-family": "Segoe UI" });
+    expect(template.content[0].settings._cssCustom).toContain("#brxe-root01 img");
+    expect(template.content[0].settings._cssCustom).toContain("font-family: Segoe UI, Arial, sans-serif");
+    expect(template.content[0].settings._cssCustom).not.toContain("%root%");
+    expect(input[0].settings._cssCustom).toBe("%root% img { display: block; }");
+    expect(wrapTemplate(template.content).content).toEqual(template.content);
+  });
+  it("keeps custom CSS attached when IDs are repaired and honors explicit CSS IDs", () => {
+    const imported = importTemplate({ content: [{ ...element("BAD-ID"), settings: { _cssCustom: "#brxe-BAD-ID:hover, %root% img { opacity: .9; }" } }] });
+    const el = imported.template.content[0];
+    expect(el.settings._cssCustom).toBe(`#brxe-${el.id}:hover, #brxe-${el.id} img { opacity: .9; }`);
+    const exported = buildBricksImportJson(wrapTemplate([{ ...element("root01"), settings: { _cssId: "contact", _cssCustom: "%root% { color: red; }" } }]), "Test");
+    expect(exported.content[0].settings._cssCustom).toBe("#contact { color: red; }");
+  });
   it("migrates gradients and alpha colors without losing responsive backgrounds", () => {
     const migrated = normalizeSettings("div", { "_background:hover": { color: { hex: "transparent" }, gradient: { type: "linear", angle: "135", colors: [{ color: { hex: "#11223380" }, position: "0" }] } } });
     expect(migrated.settings["_background:hover"]).toEqual({ color: { raw: "transparent" } });

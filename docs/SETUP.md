@@ -10,6 +10,19 @@ OpenAI/Anthropic checks verify key and model access without generation. OpenRout
 
 Keys are kept in session storage by default; persistence is opt-in. Obfuscation is **not encryption**. Keys and prompts pass through the BricksSnap server to the chosen provider. Use a deployment you trust. The app does not deliberately store/log submitted keys or prompts on the server; infrastructure/providers have their own policies.
 
+## Sign in with ChatGPT (local Codex connection)
+
+1. Install/update the [official Codex CLI](https://developers.openai.com/codex/cli/) and ensure `codex` is available on PATH. `BRICKSSNAP_CODEX_BIN` can select an executable path.
+2. Run `npm run dev:local` (or `npm run dev:local -- --port 3001`). Open the displayed `http://127.0.0.1` URL.
+3. Open Settings → **Sign in with ChatGPT**. Complete the OpenAI sign-in in the opened page, then return and click **Check ChatGPT connection**.
+4. Select **Use ChatGPT account for AI generation**, choose an available model, close Settings and enable **AI mode**. Describe the template and Generate.
+
+This is a real account sign-in using the official [Codex app-server](https://developers.openai.com/codex/app-server/), not API credit. Availability/models/limits depend on the signed-in account. BricksSnap selects models from the account's model list. Text prompts are supported; image references currently need an API provider. Your prompt is sent to OpenAI.
+
+Codex manages credentials in a separate `CODEX_HOME`: `%LOCALAPPDATA%/BricksSnap/codex` on Windows, or `~/.local/share/BricksSnap/codex` otherwise. BricksSnap does not copy the desktop app's credentials or send tokens to WordPress. **Disconnect ChatGPT** signs out this separate connection. The choice to use ChatGPT applies to the current page; after reloading, check the connection and select it again.
+
+Local mode starts a loopback-bound server, requires a local-client header and rejects foreign origins/forwarded remote clients. It uses an empty workspace, ephemeral threads, a read-only sandbox and disabled agent tool features. Do not expose this mode through a tunnel/reverse proxy or use it as a multi-user service. A hosted Vercel instance cannot access your local sign-in; use an API provider there or the ChatGPT-side MCP workflow below.
+
 ## ChatGPT subscription via MCP
 
 1. Set `BRICKSSNAP_MCP_ENABLED=true` in `.env.local` and restart.
