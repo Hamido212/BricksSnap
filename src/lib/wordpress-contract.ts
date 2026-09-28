@@ -15,15 +15,29 @@ export const WP_READ_ABILITIES = [
 
 export type ReadAbility = typeof WP_READ_ABILITIES[number];
 
+/** Local/staging sites (private addresses, custom ports) are opt-in for the local server process. */
+export const allowPrivateWordPress = () => typeof process !== "undefined" && process.env?.BRICKSSNAP_ALLOW_PRIVATE_WORDPRESS === "true";
+
+/**
+ * Returns why an MCP endpoint is not acceptable, or null. Accepts /wp-json/mcp/<server> and the
+ * permalink-less form /?rest_route=/mcp/<server>; custom ports only when private sites are allowed.
+ */
+export function wordpressEndpointProblem(value: string, allowCustomPort = allowPrivateWordPress()): string | null {
+  let u: URL;
+  try { u = new URL(value); } catch { return "Enter the HTTPS MCP endpoint shown in Bricks → AI."; }
+  if (u.protocol !== "https:" || u.username || u.password || u.hash) return "Use an HTTPS MCP endpoint without embedded credentials.";
+  if (u.port && u.port !== "443" && !allowCustomPort) return "Use the default HTTPS port; a custom port requires BRICKSSNAP_ALLOW_PRIVATE_WORDPRESS=true (local/staging sites).";
+  const pretty = !u.search && /\/wp-json\/mcp\/[a-zA-Z0-9_-]+\/?$/.test(u.pathname);
+  const plain = /^\?rest_route=\/mcp\/[a-zA-Z0-9_-]+\/?$/.test(u.search) && /\/$/.test(u.pathname);
+  if (!pretty && !plain) return "Use the full MCP endpoint from Bricks → AI, ending in /wp-json/mcp/server-name (or ?rest_route=/mcp/server-name).";
+  return null;
+}
+
 export const wpCredentialsSchema = z.object({
-  endpoint: z.string().trim().url().max(500).refine(v => {
-    try {
-      const u = new URL(v);
-      return u.protocol === "https:" && !u.username && !u.password && !u.hash && !u.search && (!u.port || u.port === "443") && /\/wp-json\/mcp\/[a-zA-Z0-9_-]+\/?$/.test(u.pathname);
-    } catch {
-      return false;
-    }
-  }, "Use an HTTPS MCP endpoint without embedded credentials, query parameters or a custom port, ending in /wp-json/mcp/server-name."),
+  endpoint: z.string().trim().url().max(500).superRefine((v, ctx) => {
+    const problem = wordpressEndpointProblem(v);
+    if (problem) ctx.addIssue({ code: "custom", message: problem });
+  }),
   username: z.string().trim().min(1).max(100).refine(v => !/[:\r\n]/.test(v), "Username cannot contain colons or line breaks"),
   password: z.string().min(1).max(256).refine(v => !/[\r\n]/.test(v), "Password cannot contain line breaks"),
 }).strict();
@@ -48,6 +62,8 @@ export type WordPressSource = {
   pageHash: string;
   /** Bricks' own digest of the stored document; the precondition for guarded page writes. */
   documentDigest?: string;
+  bricksVersion?: string;
+  abilitiesVersion?: string;
 };
 
 export type WordPressPageSummary = {
@@ -65,6 +81,7 @@ export type WordPressConnectResult = {
   endpoint: string;
   version?: string;
   wordpressVersion?: string;
+  abilitiesVersion?: string;
   abilities: Record<string, boolean>;
   missingAbilities: string[];
   warnings?: string[];

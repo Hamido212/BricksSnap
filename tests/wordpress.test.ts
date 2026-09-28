@@ -605,3 +605,38 @@ describe("WordPress page import with global classes", () => {
     expect(result.postTitle).toBe("Kontakt");
   });
 });
+
+describe("WordPress endpoint rules and local/staging opt-in", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("accepts the permalink-less rest_route form and rejects other query strings", async () => {
+    const { wordpressEndpointProblem } = await import("../src/lib/wordpress-contract");
+    expect(wordpressEndpointProblem("https://example.com/?rest_route=/mcp/mcp-adapter-default-server")).toBeNull();
+    expect(wordpressEndpointProblem("https://example.com/wp-json/mcp/mcp-adapter-default-server")).toBeNull();
+    expect(wordpressEndpointProblem("https://example.com/?rest_route=/wp/v2/users")).toMatch(/full MCP endpoint/);
+    expect(wordpressEndpointProblem("https://example.com/wp-json/mcp/x?rest_route=/mcp/y")).toMatch(/full MCP endpoint/);
+  });
+
+  it("allows custom ports only with the private-site opt-in", async () => {
+    const { wordpressEndpointProblem, wpCredentialsSchema } = await import("../src/lib/wordpress-contract");
+    const creds = { endpoint: "https://site.local:8443/wp-json/mcp/mcp-adapter-default-server", username: "u", password: "p" };
+    expect(wordpressEndpointProblem(creds.endpoint)).toMatch(/custom port/);
+    expect(() => wpCredentialsSchema.parse(creds)).toThrow();
+    vi.stubEnv("BRICKSSNAP_ALLOW_PRIVATE_WORDPRESS", "true");
+    expect(wordpressEndpointProblem(creds.endpoint)).toBeNull();
+    expect(wpCredentialsSchema.parse(creds).endpoint).toBe(creds.endpoint);
+  });
+
+  it("rejects private targets unless opted in, and ends sessions with DELETE", async () => {
+    vi.resetModules();
+    vi.doMock("node:dns/promises", () => ({ lookup: vi.fn(async () => [{ address: "192.168.1.20", family: 4 }]) }));
+    const { wordpressFetch } = await import("../src/lib/wordpress-http");
+    const creds = { endpoint: "https://site.local/wp-json/mcp/mcp-adapter-default-server", username: "u", password: "p" };
+    const send = wordpressFetch(creds, new AbortController().signal);
+    await expect(send(creds.endpoint, { method: "POST", body: "{}" })).rejects.toThrow(/BRICKSSNAP_ALLOW_PRIVATE_WORDPRESS/);
+    expect((await send(creds.endpoint, { method: "GET" })).status).toBe(405);
+    await expect(send("https://other.example/wp-json/mcp/x", { method: "DELETE" })).rejects.toThrow(/unexpected endpoint/);
+    vi.doUnmock("node:dns/promises");
+    vi.resetModules();
+  });
+});

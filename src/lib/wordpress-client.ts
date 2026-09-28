@@ -22,6 +22,7 @@ type InputSchema = { properties?: JsonRecord } | undefined;
 /** One MCP connection plus the tool/ability input schemas learned during it. */
 type Session = {
   client: Client;
+  transport: StreamableHTTPClientTransport;
   tools: Map<string, InputSchema>;
   abilitySchemas: Map<string, InputSchema>;
 };
@@ -52,7 +53,7 @@ async function openSession(credentials: WordPressCredentials, signal: AbortSigna
       cursor = result.nextCursor;
       if (!cursor) break;
     }
-    return { client, tools, abilitySchemas: new Map() };
+    return { client, transport, tools, abilitySchemas: new Map() };
   } catch (error) {
     await client.close().catch(() => {});
     throw error;
@@ -64,6 +65,8 @@ async function withSession<T>(credentials: WordPressCredentials, signal: AbortSi
   try {
     return await run(session);
   } finally {
+    // DELETE ends the adapter's HTTP session instead of leaving it to expire.
+    await session.transport.terminateSession().catch(() => {});
     await session.client.close().catch(() => {});
   }
 }
@@ -168,11 +171,12 @@ export function readAbilityStatus(result: unknown): Record<string, boolean> | un
 }
 
 /** bricks/get-mcp-version returns bricksVersion, wordpressVersion, abilitiesApiActive and related fields. */
-export function readVersion(result: unknown): { version?: string; wordpressVersion?: string } {
+export function readVersion(result: unknown): { version?: string; wordpressVersion?: string; abilitiesVersion?: string } {
   if (typeof result === "string") return { version: result };
   if (!isRecord(result)) return {};
   const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
-  return { version: text(result.bricksVersion) ?? text(result.version), wordpressVersion: text(result.wordpressVersion) };
+  const abilitiesVersion = text(result.bricksAbilitiesVersion);
+  return { version: text(result.bricksVersion) ?? text(result.version), wordpressVersion: text(result.wordpressVersion), ...(abilitiesVersion ? { abilitiesVersion } : {}) };
 }
 
 export async function connectWordPress(credentials: WordPressCredentials, signal: AbortSignal): Promise<WordPressConnectResult> {
@@ -210,6 +214,7 @@ export async function connectWordPress(credentials: WordPressCredentials, signal
       endpoint: credentials.endpoint,
       version: versionInfo.version ?? "unknown",
       wordpressVersion: versionInfo.wordpressVersion,
+      ...(versionInfo.abilitiesVersion ? { abilitiesVersion: versionInfo.abilitiesVersion } : {}),
       abilities,
       missingAbilities,
       warnings: warnings.length > 0 ? warnings : undefined,
@@ -315,8 +320,17 @@ export async function getWordPressPage(
         warnings.push("Could not read the site's global classes (bricks/list-global-classes); class conflicts are not checked.");
       }
     }
+    // Response shapes follow the abilities version; record it with the baseline.
+    let versions: ReturnType<typeof readVersion> = {};
+    try { versions = readVersion(await callAbility(session, "bricks/get-mcp-version")); } catch { /* optional */ }
+
     const postTitle = title ?? `Page #${postId}`;
-    const source: WordPressSource = { endpoint: credentials.endpoint, postId, postTitle, fetchedAt, pageHash, ...(documentDigest ? { documentDigest } : {}) };
+    const source: WordPressSource = {
+      endpoint: credentials.endpoint, postId, postTitle, fetchedAt, pageHash,
+      ...(documentDigest ? { documentDigest } : {}),
+      ...(versions.version ? { bricksVersion: versions.version } : {}),
+      ...(versions.abilitiesVersion ? { abilitiesVersion: versions.abilitiesVersion } : {}),
+    };
 
     return { postId, postTitle, template, pageHash, ...(documentDigest ? { documentDigest } : {}), fetchedAt, endpoint: credentials.endpoint, source, settings, ...(warnings.length ? { warnings } : {}) };
   });
