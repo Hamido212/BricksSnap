@@ -40,10 +40,10 @@ Before release: verify actual write/revision behavior on staging. Do not invent 
 
 ## v0.6 — Distribute templates and client guidance
 
-Status:
-- **Remote library.** Implemented against the legacy Bricks response shape captured from a Bricks 2.4.2 source ([remote library](REMOTE-LIBRARY.md)).
-- **Client guidance.** Written ([AI clients](CLIENTS.md)).
-- **Pending.** The end-to-end browse/insert from a Bricks site needs a publicly reachable deployment. On the project's Vercel deployment, the firewall currently denies `/wp-json/*` paths (`x-vercel-mitigated: deny`).
+Delivered in 0.6.0 (see [release notes](RELEASE-0.6.0.md)):
+- **Remote library.** Built against the legacy Bricks response shape captured from a Bricks 2.4.2 source ([remote library](REMOTE-LIBRARY.md)). Verified end to end: a Bricks site listed all 60 templates from the public deployment and inserted one into a draft page.
+- **Client guidance.** [AI clients](CLIENTS.md).
+- **Not included.** No standalone npm package is published; the MCP server is built from the repository.
 
 The original scope follows.
 

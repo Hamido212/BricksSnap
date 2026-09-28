@@ -36,11 +36,17 @@ The catalog is public in the app anyway, so the library is enabled by default. R
 
 ## Hosting notes
 
-- **Blocked `/wp-json/` paths.** Some hosting firewalls block these paths on non-WordPress sites as scanner protection. On the project's Vercel deployment, `/wp-json/bricks/v1/*` currently returns 403 with `x-vercel-mitigated: deny`. Allow `/wp-json/bricks/v1/get-templates-data` and `/wp-json/bricks/v1/get-templates` in the firewall settings, or Bricks cannot reach the library.
+- **Blocked `/wp-json/` paths.** Hosting firewalls can block these paths on non-WordPress sites as scanner protection. Before the library existed, Vercel's automatic DDoS mitigation denied requests from one test network to non-existent `/wp-json/*` paths (`x-vercel-mitigated: deny`). After deployment, the endpoints answered normally, including requests from the Bricks site's server. If requests are denied, check the hosting firewall. On Vercel, system bypass rules for specific IPs need a Pro plan.
 - **Reachability.** The Bricks site's server must be able to reach the deployment. Protected previews (for example Vercel preview SSO) and `localhost` do not work.
 - **Sample images.** Built-in templates use sample images from Unsplash. Some host firewalls block requests containing external URLs (see [WordPress connection](WORDPRESS.md#apply-a-reviewed-change-v05)); replace the images after inserting.
 
 ## Verification status
 
 - **Automated.** Tests check the response against the key sets captured from a Bricks 2.4.2 source, the element-tree validity of all 60 templates, the access rules and the fallback route.
-- **Not yet done.** An end-to-end browse/insert from a Bricks site needs a publicly reachable deployment and is still pending (see the [roadmap](ROADMAP.md)).
+- **End to end (Bricks 2.4.2 site, `https://bricks-snap.vercel.app` as source).** Bricks' own consumer ran through its abilities.
+  - `bricks/list-remote-templates` returned all 60 templates with bundles and no error.
+  - `bricks/insert-remote-template` inserted "Pricing - Three Tiers" into a draft page (83 elements, component and design-asset import with nothing to import) and created a revision. The page was then restored.
+  - This confirms that Bricks 2.4 falls back from the package protocol to BricksSnap's legacy responses.
+- **Not verified.**
+  - The password parameter name.
+  - Thumbnails inside the builder UI (the builder was not opened; the thumbnail URLs are served as SVG).

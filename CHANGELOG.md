@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 — 2026-09-29
+
+Distribute the catalog to Bricks sites and document AI client setups.
+
+- **Remote library.** Every BricksSnap deployment is a Bricks remote template source.
+  - `GET /wp-json/bricks/v1/get-templates-data?site=…` and `get-templates` return the 60 catalog templates in the legacy Bricks response shape, captured from a Bricks 2.4.2 source.
+  - Templates carry stable numeric IDs, categories as bundles, tags, section/content/header/footer types and SVG thumbnails.
+  - `remote-library/*` answers `rest_no_route`, so Bricks 2.4 falls back to the legacy protocol.
+- **Access rules.** The requesting site is required (`no_site_url`). An origin whitelist and a password are optional (`BRICKSSNAP_REMOTE_LIBRARY_WHITELIST`, `BRICKSSNAP_REMOTE_LIBRARY_PASSWORD`), and `BRICKSSNAP_REMOTE_LIBRARY=false` disables the library.
+- **Docs.** [Remote library](docs/REMOTE-LIBRARY.md) (setup, protocol, hosting notes) and [AI clients](docs/CLIENTS.md): BricksSnap's MCP server alongside a site's Bricks abilities in Claude Code, Codex and other clients, with safe defaults and guarded digest-based workflows.
+
+Verified end to end on a live Bricks 2.4.2 site using the public deployment as source: all 60 templates listed, one template inserted into a draft page (83 elements, revision created), page restored.
+
 ## 0.5.0 — 2026-09-28
 
 Review a change as Bricks renders it, save it to the connected page with Bricks' atomic conflict check, and restore the previous version.

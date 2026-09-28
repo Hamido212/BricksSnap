@@ -13,7 +13,9 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Use buil
 - Save with Bricks' atomic document-digest guard, verify the read-back and restore the previous revision.
 - Runs locally through the official WordPress MCP Adapter.
 
-Builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [template staging and local MCP](docs/STAGING-MCP.md). See the [release plan](docs/ROADMAP.md) and the [Bricks AI/MCP research](docs/RESEARCH-2026-09-28-BRICKS-MCP.md).
+**v0.6: [Bricks remote library](docs/REMOTE-LIBRARY.md) and [AI client guidance](docs/CLIENTS.md)** ([release notes](docs/RELEASE-0.6.0.md)). Add a BricksSnap deployment under Bricks → Remote libraries to browse and insert the catalog inside the builder.
+
+v0.5 builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [template staging and local MCP](docs/STAGING-MCP.md). See the [release plan](docs/ROADMAP.md) and the [Bricks AI/MCP research](docs/RESEARCH-2026-09-28-BRICKS-MCP.md).
 
 ## Features
 
@@ -29,6 +31,7 @@ Builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [templ
 - Eight MCP tools over optional HTTP or local stdio; section generation, page assembly, merge and comparison
 - Local WordPress connection: page search, live page import with Bricks' document digest, site class and palette import, class conflict warnings
 - Bricks-rendered before/after preview (1280/390 px), guarded apply with read-back verification and revision restore
+- Bricks remote template library (`/wp-json/bricks/v1/get-templates-data`) with optional whitelist/password
 
 ## Prerequisites
 
