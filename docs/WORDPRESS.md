@@ -1,6 +1,6 @@
-# Connect a WordPress site (read-only, v0.4)
+# Connect a WordPress site
 
-BricksSnap can read a live Bricks page and the site's global classes through the official WordPress MCP Adapter, and use them as the staging baseline. This release reads only; it does not change the site. Background and ability details are in the [research](RESEARCH-2026-09-28-BRICKS-MCP.md).
+BricksSnap can read a live Bricks page and the site's global classes through the official WordPress MCP Adapter, and use them as the staging baseline (v0.4). Since v0.5 it can also save a reviewed change back to that page and restore the previous version. Background and ability details are in the [research](RESEARCH-2026-09-28-BRICKS-MCP.md).
 
 ## Requirements
 
@@ -11,7 +11,7 @@ BricksSnap can read a live Bricks page and the site's global classes through the
   - required: `get-page-elements` and `get-design-context`;
   - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version` and `list-ability-status`.
 
-  Write abilities are not used by this release.
+  Saving additionally needs `set-page-elements`, and restoring needs `restore-revision`. Keep both disabled if you only want to read.
 
 ## Connect
 
@@ -24,6 +24,27 @@ BricksSnap can read a live Bricks page and the site's global classes through the
 7. Add a section or version on the right and **Review changes** as usual. Download the reviewed template and import it in Bricks.
 
 The password is kept only in the open browser tab and sent to the local BricksSnap server for each request. It is not stored.
+
+## Apply a reviewed change (v0.5)
+
+After **Review changes**, section **5. Apply to WordPress** shows the target page, the site and the baseline digest.
+
+1. Confirm that you reviewed the change, then select **Apply to WordPress**.
+2. BricksSnap checks before saving:
+   - `set-page-elements` is enabled;
+   - the page is not open in the Bricks builder (you can override this explicitly);
+   - the page still has the digest it had when you loaded it;
+   - every global class the change uses exists on the site.
+3. Bricks saves the complete reviewed element tree with `expectedDocumentDigest`. It refuses the save atomically if someone changed the page in the meantime (`bricks_conflict_document_digest_mismatch`). Before saving, Bricks keeps a revision of the previous state.
+4. BricksSnap reads the page back and compares it with the reviewed version. The read-back becomes the new baseline.
+5. **Restore previous version** restores that revision with `restore-revision`, but only while the page still has the digest BricksSnap saved. Bricks keeps another revision of the replaced state, so the restore can be undone in Bricks too.
+
+What to expect:
+
+- **Read-back differences** are usually normalization: Bricks 2.4 converts custom CSS rules into native style controls, for example `transition` → `_cssTransition` and a hover background → `_background:hover`. Check the page in Bricks when differences are reported.
+- **"The web host answered with a page … instead of WordPress"** means a host firewall, rate limit or maintenance mode blocked the request, and nothing was confirmed as saved. On the test site, the host's firewall blocked writes containing external image URLs (the sample images in BricksSnap's built-in sections). Use media from your own site, or ask your host to allow requests to `/wp-json/mcp/`.
+- **Scope of a save.** Only elements are saved. Page settings are not changed, and global class definitions are never created; classes must already exist.
+- **Empty pages.** A page that was empty has no previous version to restore.
 
 ## Local and staging sites
 
@@ -47,6 +68,9 @@ This allows private and loopback addresses and custom ports; HTTPS stays mandato
 | Ability … is disabled | An administrator turned it off under Bricks → AI → Abilities. |
 | WordPress must resolve to public internet addresses | The site is local or private; use the opt-in above. |
 | WordPress redirected the request | Use the final HTTPS URL. BricksSnap does not follow redirects with credentials. |
+| The page changed since it was loaded | Someone saved the page after you loaded it. Load it into the baseline again and review. |
+| Saving is disabled on this site | Enable `set-page-elements` (or `restore-revision`) under Bricks → AI → Abilities. |
+| … is open in the Bricks builder | Close the builder or confirm applying anyway; the builder's next save would overwrite the change. |
 
 ## Limits
 
@@ -55,4 +79,4 @@ This allows private and loopback addresses and custom ports; HTTPS stays mandato
 - **Colors.** Brand colors are mapped by palette color name (primary, secondary, background, text, …). Bricks' built-in default palette is ignored.
 - **Review scope.** The comparison is structural. Check rendering, dynamic data and forms in Bricks.
 
-Writing changes back is planned for 0.5 (see the [roadmap](ROADMAP.md)).
+See the [roadmap](ROADMAP.md) for what comes next.

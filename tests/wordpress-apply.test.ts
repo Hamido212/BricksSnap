@@ -39,13 +39,18 @@ class FakeBricksSite {
         return { items: this.classes, hasMore: false };
       case "bricks/set-page-elements": {
         if (this.editBeforeWrite) this.otherEdit();
-        if (params.expectedDocumentDigest !== this.digest()) throw new Error("bricks_document_digest_mismatch: The document changed since it was read.");
+        // Error text as returned live by Bricks 2.4.2 for a stale digest.
+        if (params.expectedDocumentDigest !== this.digest()) throw new Error(`The Bricks document changed after the candidate was prepared. Re-read the page and preview the write again. | data: {"code":"bricks_conflict_document_digest_mismatch"}`);
         const revisionId = this.elements.length ? this.nextRevision++ : null;
         if (revisionId) this.revisions.set(revisionId, structuredClone(this.elements));
         this.elements = structuredClone(params.elements as BricksElement[]);
         if (this.normalize) this.elements = this.elements.map(el => { const { _cssCustom, ...settings } = el.settings; void _cssCustom; return { ...el, settings }; });
         this.writes++;
         return { elementIds: this.elements.map(el => el.id), elementCount: this.elements.length, revisionId, documentDigest: this.digest(), changed: true };
+      }
+      case "bricks/render-elements": {
+        const elements = (params.elements as BricksElement[] | undefined) ?? this.elements;
+        return { html: elements.map(el => `<div id="brxe-${el.id}">${el.label ?? el.name}</div>`).join(""), css: elements.map(el => `#brxe-${el.id}{margin:0}`).join("") };
       }
       case "bricks/restore-revision": {
         const snapshot = this.revisions.get(params.revisionId as number);
@@ -188,6 +193,25 @@ describe("guarded apply and restore", () => {
     const applied = await apply({ content: section("feat01", "Features") }, site.digest());
     site.otherEdit();
     await expect(restore(applied.revisionId!, applied.documentDigest)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("renders the saved page and the proposal without saving", async () => {
+    const site = new FakeBricksSite(section("hero01", "Hero"));
+    await connectTo(site);
+    const { handleWordPressRequest } = await import("../src/lib/wordpress-client");
+    const result = await handleWordPressRequest({ action: "render", credentials: creds, postId: 7, template: { content: [...section("hero01", "Hero"), ...section("feat01", "Features")] } }, new AbortController().signal) as { before: { html: string }; after: { html: string; css: string }; stylesheets: string[]; siteUrl: string };
+    expect(result.before.html).not.toContain("Features");
+    expect(result.after.html).toContain("Features");
+    expect(result.after.css).toContain("#brxe-feat01");
+    expect(result.stylesheets).toEqual(["https://example.com/wp-content/themes/bricks/assets/css/frontend-layer.min.css"]);
+    expect(site.writes).toBe(0);
+  });
+
+  it("derives the site root from both endpoint forms", async () => {
+    const { siteRoot } = await import("../src/lib/wordpress-client");
+    expect(siteRoot("https://example.com/wp-json/mcp/mcp-adapter-default-server")).toBe("https://example.com/");
+    expect(siteRoot("https://example.com/blog/wp-json/mcp/mcp-adapter-default-server/")).toBe("https://example.com/blog/");
+    expect(siteRoot("https://example.com/?rest_route=/mcp/mcp-adapter-default-server")).toBe("https://example.com/");
   });
 
   it("requires explicit confirmation and a digest in the request", () => {

@@ -45,9 +45,9 @@ Global classes and supplied component metadata are preserved. Definitions must b
 
 For direct site editing, use the [official Bricks AI integration](https://academy.bricksbuilder.io/builder/features/ai-abilities-and-skills/). BricksSnap remains a template workspace.
 
-## WordPress connection (local, read-only)
+## WordPress connection (local)
 
-With `npm run dev:local`, the Staging tab can read a page and its global classes from a Bricks 2.4+ site through the WordPress MCP Adapter and use it as the baseline. It needs an application password; nothing is written to the site. See [Connect a WordPress site](WORDPRESS.md).
+With `npm run dev:local`, the Staging tab can read a page and its global classes from a Bricks 2.4+ site through the WordPress MCP Adapter and use it as the baseline. After review, it can save the change back with Bricks' document-digest guard and restore the previous revision. Both need an application password, and saving needs the `set-page-elements` ability enabled. See [Connect a WordPress site](WORDPRESS.md).
 
 ## HTTP API
 

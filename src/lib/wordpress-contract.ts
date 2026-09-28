@@ -55,6 +55,8 @@ export const wpRequestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("search"), credentials: wpCredentialsSchema, search: z.string().trim().max(200) }).strict(),
   z.object({ action: z.literal("page"), credentials: wpCredentialsSchema, postId: z.number().int().positive() }).strict(),
   z.object({ action: z.literal("design"), credentials: wpCredentialsSchema }).strict(),
+  // Let Bricks render the saved page and a proposal without saving (read-only).
+  z.object({ action: z.literal("render"), credentials: wpCredentialsSchema, postId: z.number().int().positive(), template: z.unknown() }).strict(),
   // Replace the page's elements only if Bricks' stored document still has the reviewed baseline digest.
   z.object({
     action: z.literal("apply"), credentials: wpCredentialsSchema, postId: z.number().int().positive(),
@@ -135,6 +137,19 @@ export type WordPressApplyResult = {
   /** Differences between the reviewed proposal and the read-back page (normalization by Bricks). */
   verification: { matches: boolean; added: number; removed: number; changed: number; moved: number; fields: string[] };
   warnings?: string[];
+};
+
+export type RenderedMarkup = { html: string; css: string };
+
+export type WordPressRenderResult = {
+  postId: number;
+  /** The page as currently saved, rendered by Bricks. */
+  before: RenderedMarkup;
+  /** The proposal rendered by Bricks without saving. */
+  after: RenderedMarkup;
+  /** Bricks' frontend stylesheet on the site, for rendering the markup outside WordPress. */
+  stylesheets: string[];
+  siteUrl: string;
 };
 
 export type WordPressRestoreResult = {

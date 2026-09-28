@@ -40,6 +40,11 @@ Captured with `scripts/capture-wordpress-fixtures.mjs`, which executes only abil
 - **Annotations.** Read abilities declare `readonly: true`. Write abilities leave `readonly` unset, and destructive ones set `destructive: true`.
 - **Errors.** A wrong application password surfaces as HTTP 401, which BricksSnap reports as "WordPress rejected access". An unknown MCP server path returns `rest_no_route` (404), reported as "MCP endpoint not found".
 - **Installation.** Bricks' one-click adapter installer can fail when the host cannot reach GitHub ("could not fetch the latest version"). Uploading the release ZIP works.
+- **Writes (draft page, with the site owner's approval).**
+  - `set-page-elements` enforces `expectedDocumentDigest` and snapshots a revision before saving.
+  - `restore-revision` returns the page to the exact previous digest.
+  - The host firewall blocked writes containing external image URLs.
+  - Details are under [v0.5](#v05--review-and-apply-changes).
 
 ## Versions and status
 
@@ -166,14 +171,22 @@ What Bricks does provide:
 
 The live schema adds a page-level guard: `set-page-elements` accepts `expectedDocumentDigest`, and `get-page-elements` returns that digest. `add-element` has no digest parameter.
 
-Recommended order of investigation on a **staging** site (or with explicit approval on the test site):
+Outcome (implemented in 0.5.0 and verified on a draft page of the live site):
 
-1. **Whole-page write.** Test `set-page-elements` with the baseline's `documentDigest`, sending the complete merged tree that staging already produces. Confirm that a stale digest is rejected. If it is, this is the atomic conflict check, and v0.5 can apply every staged merge this way.
-2. **Additive write.** Compare with `add-element (parentId, position)`. It changes only the new subtree but has no digest guard. Use it only when a fresh-read digest still matches, and accept the small race that remains.
-3. **Page workspaces.** Evaluate `checkout-page-workspace` → `preview-page-workspace` → `apply-page-workspace`. The preview token plus idempotency key may provide a reviewed, resumable apply.
-4. **Read back and recover.** After each write, read the page back and diff it against the proposal with BricksSnap's existing `diffTemplates`. Record the new revision from `list-revisions`. Test `restore-revision` as the recovery path.
-5. **Locks.** Respect `locked` from `find-post`: a page open in the builder can be overwritten by the editor's next save. Global classes and variables that BricksSnap exports need ownership-guarded writes and a transfer-package backup, because they have no revisions.
-5. Expect partial rejection. One unsupported value anywhere on a page can block every write. The HTML/CSS importer omits content the user may not create. Show these responses verbatim instead of retrying.
+1. **Whole-page write with the digest guard.** Every staged merge is applied with `set-page-elements` and `expectedDocumentDigest`. Bricks rejects a stale digest atomically with `bricks_conflict_document_digest_mismatch` ("The Bricks document changed after the candidate was prepared…"), and the page stays unchanged. BricksSnap also checks a fresh digest beforehand, to give a clearer message.
+2. **Additive writes.** `add-element` was not used, because it has no digest guard.
+3. **Page workspaces.** `checkout-page-workspace` → `preview-page-workspace` → `apply-page-workspace` remain unevaluated. They could add a server-side preview.
+4. **Read back and recover.**
+   - `set-page-elements` returns the `revisionId` of the snapshot taken before saving (`null` for an empty page), the new `documentDigest` and `changed`.
+   - `restore-revision` returns `fromRevisionId` and `newRevisionId` (a snapshot of the replaced state). The restored page had exactly the pre-apply digest.
+   - The read-back is diffed against the proposal.
+5. **Locks.** `find-post` reports `locked` when a page is open in the builder. BricksSnap asks for explicit confirmation before applying anyway.
+6. **Normalization.** Bricks converts custom CSS rules into native controls on save: `transition` → `_cssTransition`, `cursor` → `_cursor`, a hover background → `_background:hover`, and font families into `_typography`. The read-back reports these as changed setting keys.
+7. **Host firewalls.** The test host answered writes containing external image URLs (`https://images.unsplash.com/...`) with an Apache "503 Service Unavailable" page served as HTTP 200 and `application/x-httpd-php`. Writes without such URLs succeeded. BricksSnap reports this as a blocked request and names the external URLs.
+8. **Empty settings.** Bricks returns empty `settings` as `[]` (PHP encoding); the reader normalizes them.
+9. **Partial rejection.** One unsupported value anywhere on a page can block every write (forum report). Error texts are shown verbatim instead of being retried.
+
+Global classes and variables are not written by BricksSnap. Writing them would need ownership-guarded writes and a transfer-package backup, because they have no revisions.
 
 ### v0.6 — distribution
 

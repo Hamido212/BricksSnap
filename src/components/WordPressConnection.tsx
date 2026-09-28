@@ -14,6 +14,8 @@ import type {
 interface WordPressConnectionProps {
   onImportBaseline: (template: BricksTemplate, source: WordPressSource) => void;
   onImportDesign?: (tokens: Partial<DesignTokens>, classes: BricksGlobalClass[]) => void;
+  /** Credentials of the verified connection (memory only), or null after disconnecting or a failed check. */
+  onCredentials?: (credentials: WordPressCredentials | null) => void;
   currentSource: WordPressSource | null;
 }
 
@@ -23,6 +25,7 @@ const buttonClass = "rounded-lg border border-border px-3 py-1.5 text-xs hover:b
 export default function WordPressConnection({
   onImportBaseline,
   onImportDesign,
+  onCredentials,
   currentSource,
 }: WordPressConnectionProps) {
   const [open, setOpen] = useState(false);
@@ -67,6 +70,7 @@ export default function WordPressConnection({
 
       const result = data as WordPressConnectResult;
       setConnected(true);
+      onCredentials?.(credentials);
       setVersion(result.version || "unknown");
       setStatus(`Connected to Bricks ${result.version || "unknown"}${result.wordpressVersion ? ` on WordPress ${result.wordpressVersion}` : ""}. Abilities discovered.`);
 
@@ -78,6 +82,7 @@ export default function WordPressConnection({
       void handleSearch("", true);
     } catch (err) {
       setConnected(false);
+      onCredentials?.(null);
       setError(err instanceof Error ? err.message : "Connection failed.");
       setStatus("");
     } finally {
@@ -278,6 +283,7 @@ export default function WordPressConnection({
                   disabled={busy}
                   onClick={() => {
                     setConnected(false);
+                    onCredentials?.(null);
                     setStatus("Disconnected.");
                   }}
                 >

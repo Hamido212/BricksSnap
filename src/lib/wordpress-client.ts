@@ -7,6 +7,7 @@ import {
   WP_READ_ABILITIES,
   WP_WRITE_ABILITIES,
   type WordPressApplyResult,
+  type WordPressRenderResult,
   type WordPressRestoreResult,
   type WordPressCredentials,
   type WordPressRequest,
@@ -18,6 +19,7 @@ import {
 } from "./wordpress-contract";
 import { diffTemplates, readStagingTemplate, stableJson } from "./template-staging";
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
+import packageJson from "../../package.json";
 
 type JsonRecord = Record<string, unknown>;
 type InputSchema = { properties?: JsonRecord } | undefined;
@@ -42,7 +44,7 @@ const isRecord = (value: unknown): value is JsonRecord => !!value && typeof valu
 
 /** Connect a scoped MCP client using the hardened loopback-isolated transport. */
 async function openSession(credentials: WordPressCredentials, signal: AbortSignal): Promise<Session> {
-  const client = new Client({ name: "brickssnap", version: "0.4.0" }, { capabilities: {} });
+  const client = new Client({ name: "brickssnap", version: packageJson.version }, { capabilities: {} });
   const transport = new StreamableHTTPClientTransport(new URL(credentials.endpoint), {
     fetch: wordpressFetch(credentials, signal),
   });
@@ -541,6 +543,36 @@ export async function applyWordPressPage(
   });
 }
 
+/** Site root for an MCP endpoint (/wp-json/mcp/… or /?rest_route=/mcp/…). */
+export function siteRoot(endpoint: string): string {
+  const url = new URL(endpoint);
+  const path = url.pathname.replace(/wp-json\/mcp\/[^/]+\/?$/, "");
+  return `${url.origin}${path.endsWith("/") ? path : `${path}/`}`;
+}
+
+function readMarkup(value: unknown): { html: string; css: string } {
+  const record = isRecord(value) ? value : {};
+  return { html: typeof record.html === "string" ? record.html : "", css: typeof record.css === "string" ? record.css : "" };
+}
+
+/** Bricks renders the saved page and the proposal (render-elements is read-only; nothing is saved). */
+export async function renderWordPressPreview(
+  credentials: WordPressCredentials,
+  request: { postId: number; template: unknown },
+  signal: AbortSignal
+): Promise<WordPressRenderResult> {
+  const proposal = readStagingTemplate(request.template);
+  const { postId } = request;
+  return withSession(credentials, signal, async session => {
+    const format: Argument = { names: ["responseFormat"], value: "detailed" };
+    const before = readMarkup(await callAbility(session, "bricks/render-elements", [postArgument(postId), format]));
+    const after = readMarkup(await callAbility(session, "bricks/render-elements", [postArgument(postId), { names: ["elements"], value: proposal.content, required: true }, format]));
+    const siteUrl = siteRoot(credentials.endpoint);
+    // Standard location of Bricks' frontend styles; theme styles and global class CSS are not included.
+    return { postId, before, after, stylesheets: [`${siteUrl}wp-content/themes/bricks/assets/css/frontend-layer.min.css`], siteUrl };
+  });
+}
+
 export async function restoreWordPressRevision(
   credentials: WordPressCredentials,
   request: { postId: number; revisionId: number; expectedDocumentDigest: string },
@@ -576,7 +608,7 @@ export async function restoreWordPressRevision(
 export async function handleWordPressRequest(
   request: WordPressRequest,
   signal: AbortSignal
-): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult> {
+): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult> {
   switch (request.action) {
     case "connect":
       return connectWordPress(request.credentials, signal);
@@ -586,6 +618,8 @@ export async function handleWordPressRequest(
       return getWordPressPage(request.credentials, request.postId, signal);
     case "design":
       return getWordPressDesignContext(request.credentials, signal);
+    case "render":
+      return renderWordPressPreview(request.credentials, request, signal);
     case "apply":
       return applyWordPressPage(request.credentials, request, signal);
     case "restore":
