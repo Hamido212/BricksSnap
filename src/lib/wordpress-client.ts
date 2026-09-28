@@ -16,165 +16,205 @@ import {
 import { readStagingTemplate, stableJson } from "./template-staging";
 import type { BricksGlobalClass, DesignTokens } from "./bricks-engine";
 
-/** Connect a scoped MCP client using the hardened loopback-isolated transport. */
-async function createClient(credentials: WordPressCredentials, signal: AbortSignal) {
-  const client = new Client(
-    { name: "brickssnap", version: "0.4.0" },
-    { capabilities: {} }
-  );
+type JsonRecord = Record<string, unknown>;
+type InputSchema = { properties?: JsonRecord } | undefined;
 
+/** One MCP connection plus the tool/ability input schemas learned during it. */
+type Session = {
+  client: Client;
+  tools: Map<string, InputSchema>;
+  abilitySchemas: Map<string, InputSchema>;
+};
+
+/** A semantic argument with the parameter names Bricks has used for it, preferred name first. */
+type Argument = { names: string[]; value: unknown; required?: boolean };
+
+// MCP Adapter registers abilities with "/" and exposes tools with "-" (McpNameSanitizer).
+const DISPATCHERS = ["mcp-adapter-execute-ability", "mcp-adapter/execute-ability"];
+const ABILITY_INFO = ["mcp-adapter-get-ability-info", "mcp-adapter/get-ability-info"];
+const CRITICAL_ABILITIES = ["bricks/get-page-elements", "bricks/get-design-context"];
+
+const isRecord = (value: unknown): value is JsonRecord => !!value && typeof value === "object" && !Array.isArray(value);
+
+/** Connect a scoped MCP client using the hardened loopback-isolated transport. */
+async function openSession(credentials: WordPressCredentials, signal: AbortSignal): Promise<Session> {
+  const client = new Client({ name: "brickssnap", version: "0.4.0" }, { capabilities: {} });
   const transport = new StreamableHTTPClientTransport(new URL(credentials.endpoint), {
     fetch: wordpressFetch(credentials, signal),
   });
-
   await client.connect(transport);
-  return client;
+  try {
+    const tools = new Map<string, InputSchema>();
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const result = await client.listTools(cursor ? { cursor } : undefined);
+      for (const tool of result.tools || []) tools.set(tool.name, tool.inputSchema as InputSchema);
+      cursor = result.nextCursor;
+      if (!cursor) break;
+    }
+    return { client, tools, abilitySchemas: new Map() };
+  } catch (error) {
+    await client.close().catch(() => {});
+    throw error;
+  }
 }
 
-/** Execute a Bricks ability either through a direct tool or through mcp-adapter-execute-ability. */
-async function callAbility(
-  client: Client,
-  availableTools: Set<string>,
-  abilityName: string,
-  parameters: Record<string, unknown> = {}
-): Promise<unknown> {
-  const hyphenName = abilityName.replace(/\//g, "-");
-  let directName: string | undefined;
-
-  if (availableTools.has(abilityName)) directName = abilityName;
-  else if (availableTools.has(hyphenName)) directName = hyphenName;
-
-  let toolResult: Awaited<ReturnType<Client["callTool"]>>;
-
-  if (directName) {
-    toolResult = await client.callTool({ name: directName, arguments: parameters });
-  } else {
-    const dispatcher = ["mcp-adapter-execute-ability", "mcp-adapter/execute-ability"].find(d => availableTools.has(d));
-    if (!dispatcher) {
-      throw new RequestError(
-        `The ability "${abilityName}" is not available on this WordPress site. Check Bricks → AI → Abilities.`,
-        502
-      );
-    }
-    toolResult = await client.callTool({
-      name: dispatcher,
-      arguments: {
-        ability_name: abilityName,
-        parameters,
-      },
-    });
+async function withSession<T>(credentials: WordPressCredentials, signal: AbortSignal, run: (session: Session) => Promise<T>): Promise<T> {
+  const session = await openSession(credentials, signal);
+  try {
+    return await run(session);
+  } finally {
+    await session.client.close().catch(() => {});
   }
+}
 
-  if (toolResult.isError) {
-    const content = toolResult.content as Array<{ type: string; text?: string }> | undefined;
-    const errorText = content?.find(c => c.type === "text")?.text || `Error executing ability ${abilityName}`;
-    throw new RequestError(errorText, 502);
-  }
+const directTool = (session: Session, abilityName: string) =>
+  [abilityName, abilityName.replace(/\//g, "-")].find(name => session.tools.has(name));
+
+const firstTool = (session: Session, names: string[]) => names.find(name => session.tools.has(name));
+
+/** Extract the ability payload from an MCP tool result, unwrapping the adapter's { success, data } envelope. */
+function readToolPayload(toolResult: Awaited<ReturnType<Client["callTool"]>>, label: string): unknown {
+  const content = toolResult.content as Array<{ type: string; text?: string }> | undefined;
+  const text = content?.find(c => c.type === "text")?.text;
+  if (toolResult.isError) throw new RequestError(text || `Error executing ${label}`, 502);
 
   let payload: unknown;
-  if ("structuredContent" in toolResult && toolResult.structuredContent !== undefined) {
-    payload = toolResult.structuredContent;
-  } else {
-    const content = toolResult.content as Array<{ type: string; text?: string }> | undefined;
-    const textItem = content?.find(c => c.type === "text");
-    if (textItem?.text) {
-      try {
-        payload = JSON.parse(textItem.text);
-      } catch {
-        payload = textItem.text;
-      }
-    }
+  if ("structuredContent" in toolResult && toolResult.structuredContent !== undefined) payload = toolResult.structuredContent;
+  else if (text) {
+    try { payload = JSON.parse(text); } catch { payload = text; }
   }
 
-  if (payload && typeof payload === "object" && "success" in payload) {
-    const wrapper = payload as { success: boolean; data?: unknown; error?: string };
-    if (!wrapper.success) {
-      throw new RequestError(wrapper.error || `Ability ${abilityName} failed.`, 502);
+  if (isRecord(payload) && typeof payload.success === "boolean") {
+    if (!payload.success) {
+      const error = payload.error;
+      const message = typeof error === "string" ? error : isRecord(error) && typeof error.message === "string" ? error.message : `${label} failed.`;
+      throw new RequestError(message, 502);
     }
-    return wrapper.data !== undefined ? wrapper.data : payload;
+    return payload.data !== undefined ? payload.data : payload;
   }
-
   return payload;
 }
 
-export async function connectWordPress(
-  credentials: WordPressCredentials,
-  signal: AbortSignal
-): Promise<WordPressConnectResult> {
-  const client = await createClient(credentials, signal);
-  try {
-    const toolsResult = await client.listTools();
-    const availableTools = new Set((toolsResult.tools || []).map(t => t.name));
+/**
+ * Input schema of an ability. Direct tools publish it in tools/list; dispatcher-only abilities
+ * publish it through mcp-adapter-get-ability-info. Unknown when neither is available.
+ */
+async function abilityInputSchema(session: Session, abilityName: string): Promise<InputSchema> {
+  const direct = directTool(session, abilityName);
+  if (direct) return session.tools.get(direct);
+  if (session.abilitySchemas.has(abilityName)) return session.abilitySchemas.get(abilityName);
 
-    let version = "unknown";
+  let schema: InputSchema;
+  const infoTool = firstTool(session, ABILITY_INFO);
+  if (infoTool) {
     try {
-      const versionResult = await callAbility(client, availableTools, "bricks/get-mcp-version");
-      if (typeof versionResult === "string") version = versionResult;
-      else if (versionResult && typeof versionResult === "object") {
-        const v = (versionResult as Record<string, unknown>).version;
-        if (typeof v === "string") version = v;
-      }
+      const info = readToolPayload(await session.client.callTool({ name: infoTool, arguments: { ability_name: abilityName } }), abilityName);
+      const candidate = isRecord(info) ? info.input_schema ?? info.inputSchema : undefined;
+      if (isRecord(candidate)) schema = candidate as InputSchema;
     } catch {
-      // Fallback if version ability is restricted
+      // Schema lookup is advisory; execution reports the authoritative error.
     }
+  }
+  session.abilitySchemas.set(abilityName, schema);
+  return schema;
+}
 
-    const abilitiesStatus: Record<string, boolean> = {};
-    try {
-      const statusResult = await callAbility(client, availableTools, "bricks/list-ability-status");
-      if (Array.isArray(statusResult)) {
-        for (const item of statusResult) {
-          if (item && typeof item === "object" && "name" in item) {
-            const name = String(item.name);
-            const enabled = (item as Record<string, unknown>).enabled !== false && (item as Record<string, unknown>).status !== "disabled";
-            abilitiesStatus[name] = enabled;
-          }
-        }
-      } else if (statusResult && typeof statusResult === "object") {
-        for (const [key, val] of Object.entries(statusResult as Record<string, unknown>)) {
-          if (typeof val === "boolean") abilitiesStatus[key] = val;
-          else if (val && typeof val === "object") {
-            abilitiesStatus[key] = (val as Record<string, unknown>).enabled !== false;
-          }
-        }
-      }
-    } catch {
-      // If list-ability-status is unavailable, infer from tools list
-      for (const name of WP_READ_ABILITIES) {
-        const hyphen = name.replace(/\//g, "-");
-        abilitiesStatus[name] = availableTools.has(name) || availableTools.has(hyphen);
-      }
+/**
+ * Send each argument under the one name the ability's schema declares, instead of guessing
+ * several aliases that a strict schema (additionalProperties: false) would reject.
+ */
+export function pickArguments(schema: InputSchema, abilityName: string, args: Argument[]): JsonRecord {
+  const properties = isRecord(schema?.properties) ? schema.properties : undefined;
+  const picked: JsonRecord = {};
+  for (const arg of args) {
+    const name = properties ? arg.names.find(n => n in properties) : arg.names[0];
+    if (name) picked[name] = arg.value;
+    else if (arg.required) throw new RequestError(`The installed ${abilityName} ability does not accept a ${arg.names[0]} parameter. Check the Bricks version.`, 502);
+  }
+  return picked;
+}
+
+/** Execute a Bricks ability either through a direct tool or through mcp-adapter-execute-ability. */
+async function callAbility(session: Session, abilityName: string, args: Argument[] = []): Promise<unknown> {
+  const parameters = args.length ? pickArguments(await abilityInputSchema(session, abilityName), abilityName, args) : {};
+  const direct = directTool(session, abilityName);
+  if (direct) return readToolPayload(await session.client.callTool({ name: direct, arguments: parameters }), abilityName);
+
+  const dispatcher = firstTool(session, DISPATCHERS);
+  if (!dispatcher) throw new RequestError(`The ability "${abilityName}" is not available on this WordPress site. Check Bricks → AI → Abilities.`, 502);
+  return readToolPayload(await session.client.callTool({ name: dispatcher, arguments: { ability_name: abilityName, parameters } }), abilityName);
+}
+
+/**
+ * bricks/list-ability-status returns { abilities: [{ name, enabled, defaultEnabled, category }], total, enabled, disabled }.
+ * Arrays and name→boolean maps are accepted for older builds. Returns undefined when no rows are recognizable.
+ */
+export function readAbilityStatus(result: unknown): Record<string, boolean> | undefined {
+  const rows = Array.isArray(result) ? result : isRecord(result) && Array.isArray(result.abilities) ? result.abilities : undefined;
+  const status: Record<string, boolean> = {};
+  if (rows) {
+    for (const row of rows) {
+      if (isRecord(row) && typeof row.name === "string") status[row.name] = row.enabled !== false && row.status !== "disabled";
     }
+  } else if (isRecord(result)) {
+    for (const [key, value] of Object.entries(result)) {
+      if (!key.includes("/")) continue;
+      if (typeof value === "boolean") status[key] = value;
+      else if (isRecord(value)) status[key] = value.enabled !== false;
+    }
+  }
+  return Object.keys(status).length ? status : undefined;
+}
 
-    const missingAbilities: string[] = [];
+/** bricks/get-mcp-version returns bricksVersion, wordpressVersion, abilitiesApiActive and related fields. */
+export function readVersion(result: unknown): { version?: string; wordpressVersion?: string } {
+  if (typeof result === "string") return { version: result };
+  if (!isRecord(result)) return {};
+  const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
+  return { version: text(result.bricksVersion) ?? text(result.version), wordpressVersion: text(result.wordpressVersion) };
+}
+
+export async function connectWordPress(credentials: WordPressCredentials, signal: AbortSignal): Promise<WordPressConnectResult> {
+  return withSession(credentials, signal, async session => {
     const warnings: string[] = [];
 
-    const criticalAbilities = ["bricks/get-page-elements", "bricks/get-design-context"];
-    for (const ability of criticalAbilities) {
-      const hyphen = ability.replace(/\//g, "-");
-      const isAvailable =
-        abilitiesStatus[ability] === true ||
-        availableTools.has(ability) ||
-        availableTools.has(hyphen) ||
-        availableTools.has("mcp-adapter-execute-ability") ||
-        availableTools.has("mcp-adapter/execute-ability");
+    let versionInfo: ReturnType<typeof readVersion> = {};
+    try {
+      versionInfo = readVersion(await callAbility(session, "bricks/get-mcp-version"));
+    } catch {
+      warnings.push("Could not read the Bricks version (bricks/get-mcp-version).");
+    }
 
-      if (!isAvailable) {
-        missingAbilities.push(ability);
-        warnings.push(`Ability ${ability} is not enabled in Bricks → AI → Abilities.`);
-      }
+    // The summary hides disabled rows unless exact abilityNames are requested.
+    let status: Record<string, boolean> | undefined;
+    try {
+      status = readAbilityStatus(await callAbility(session, "bricks/list-ability-status", [{ names: ["abilityNames"], value: [...WP_READ_ABILITIES] }]));
+    } catch {
+      warnings.push("Could not read ability status (bricks/list-ability-status); availability is inferred from the tool list.");
+    }
+
+    const dispatcher = !!firstTool(session, DISPATCHERS);
+    const abilities: Record<string, boolean> = {};
+    for (const name of WP_READ_ABILITIES) abilities[name] = status ? status[name] === true : !!directTool(session, name) || dispatcher;
+
+    const missingAbilities = CRITICAL_ABILITIES.filter(name => !abilities[name]);
+    for (const name of missingAbilities) {
+      warnings.push(status && name in status
+        ? `Ability ${name} is disabled in Bricks → AI → Abilities.`
+        : `Ability ${name} is not available. Check that Bricks abilities and the MCP Adapter are active.`);
     }
 
     return {
       connected: true,
       endpoint: credentials.endpoint,
-      version,
-      abilities: abilitiesStatus,
+      version: versionInfo.version ?? "unknown",
+      wordpressVersion: versionInfo.wordpressVersion,
+      abilities,
       missingAbilities,
       warnings: warnings.length > 0 ? warnings : undefined,
     };
-  } finally {
-    await client.close().catch(() => {});
-  }
+  });
 }
 
 export async function searchWordPressPages(
@@ -182,43 +222,30 @@ export async function searchWordPressPages(
   search: string,
   signal: AbortSignal
 ): Promise<{ pages: WordPressPageSummary[] }> {
-  const client = await createClient(credentials, signal);
-  try {
-    const toolsResult = await client.listTools();
-    const availableTools = new Set((toolsResult.tools || []).map(t => t.name));
+  return withSession(credentials, signal, async session => {
+    const result = await callAbility(session, "bricks/find-post", [{ names: ["search", "query", "s"], value: search.trim(), required: true }]);
 
-    const result = await callAbility(client, availableTools, "bricks/find-post", {
-      search: search.trim(),
-      query: search.trim(),
-      s: search.trim(),
-    });
-
-    const pages: WordPressPageSummary[] = [];
     const items = Array.isArray(result)
       ? result
-      : result && typeof result === "object" && "posts" in result && Array.isArray((result as { posts: unknown[] }).posts)
-      ? (result as { posts: unknown[] }).posts
+      : isRecord(result) && Array.isArray(result.posts) ? result.posts
+      : isRecord(result) && Array.isArray(result.results) ? result.results
       : [];
 
+    const pages: WordPressPageSummary[] = [];
     for (const item of items) {
-      if (!item || typeof item !== "object") continue;
-      const rec = item as Record<string, unknown>;
-      const id = Number(rec.id ?? rec.ID ?? rec.post_id ?? 0);
+      if (!isRecord(item)) continue;
+      const id = Number(item.id ?? item.ID ?? item.postId ?? item.post_id ?? 0);
       if (!id || id <= 0) continue;
-
       pages.push({
         id,
-        title: String(rec.title ?? rec.post_title ?? rec.name ?? `Page #${id}`),
-        slug: typeof rec.slug === "string" ? rec.slug : typeof rec.post_name === "string" ? rec.post_name : undefined,
-        type: typeof rec.type === "string" ? rec.type : typeof rec.post_type === "string" ? rec.post_type : undefined,
-        modified: typeof rec.modified === "string" ? rec.modified : typeof rec.post_modified === "string" ? rec.post_modified : undefined,
+        title: String(item.title ?? item.post_title ?? item.name ?? `Page #${id}`),
+        slug: typeof item.slug === "string" ? item.slug : typeof item.post_name === "string" ? item.post_name : undefined,
+        type: typeof item.type === "string" ? item.type : typeof item.postType === "string" ? item.postType : typeof item.post_type === "string" ? item.post_type : undefined,
+        modified: typeof item.modified === "string" ? item.modified : typeof item.post_modified === "string" ? item.post_modified : undefined,
       });
     }
-
     return { pages };
-  } finally {
-    await client.close().catch(() => {});
-  }
+  });
 }
 
 export async function getWordPressPage(
@@ -226,131 +253,87 @@ export async function getWordPressPage(
   postId: number,
   signal: AbortSignal
 ): Promise<WordPressPageResult> {
-  const client = await createClient(credentials, signal);
-  try {
-    const toolsResult = await client.listTools();
-    const availableTools = new Set((toolsResult.tools || []).map(t => t.name));
+  return withSession(credentials, signal, async session => {
+    const postArg: Argument = { names: ["postId", "post_id", "id"], value: postId, required: true };
+    const elementsResult = await callAbility(session, "bricks/get-page-elements", [postArg]);
 
-    const elementsResult = await callAbility(client, availableTools, "bricks/get-page-elements", {
-      post_id: postId,
-      postId: postId,
-    });
-
-    let settingsResult: Record<string, unknown> | undefined;
+    // Not listed in Bricks' published ability references; read only when the site provides it.
+    let settings: JsonRecord | undefined;
     try {
-      const s = await callAbility(client, availableTools, "bricks/get-page-settings", {
-        post_id: postId,
-        postId: postId,
-      });
-      if (s && typeof s === "object" && !Array.isArray(s)) settingsResult = s as Record<string, unknown>;
+      const s = await callAbility(session, "bricks/get-page-settings", [postArg]);
+      if (isRecord(s)) settings = s;
     } catch {
       // Optional settings read
     }
 
     let rawElements: unknown[] = [];
-    if (Array.isArray(elementsResult)) {
-      rawElements = elementsResult;
-    } else if (elementsResult && typeof elementsResult === "object") {
-      const obj = elementsResult as Record<string, unknown>;
-      if (Array.isArray(obj.elements)) rawElements = obj.elements;
-      else if (Array.isArray(obj.content)) rawElements = obj.content;
+    let title: string | undefined;
+    if (Array.isArray(elementsResult)) rawElements = elementsResult;
+    else if (isRecord(elementsResult)) {
+      if (Array.isArray(elementsResult.elements)) rawElements = elementsResult.elements;
+      else if (Array.isArray(elementsResult.content)) rawElements = elementsResult.content;
+      const t = elementsResult.title ?? elementsResult.postTitle;
+      if (typeof t === "string" && t.trim()) title = t.trim();
     }
 
-    const template = readStagingTemplate(
-      Array.isArray(rawElements) ? { content: rawElements } : rawElements,
-      true
-    );
-
-    const pageHash = createHash("sha256")
-      .update(stableJson(template.content))
-      .digest("hex")
-      .slice(0, 16);
-
+    const template = readStagingTemplate({ content: rawElements }, true);
+    const pageHash = createHash("sha256").update(stableJson(template.content)).digest("hex").slice(0, 16);
     const fetchedAt = new Date().toISOString();
-    const postTitle = `Page #${postId}`;
+    const postTitle = title ?? `Page #${postId}`;
+    const source: WordPressSource = { endpoint: credentials.endpoint, postId, postTitle, fetchedAt, pageHash };
 
-    const source: WordPressSource = {
-      endpoint: credentials.endpoint,
-      postId,
-      postTitle,
-      fetchedAt,
-      pageHash,
-    };
-
-    return {
-      postId,
-      postTitle,
-      template,
-      pageHash,
-      fetchedAt,
-      endpoint: credentials.endpoint,
-      source,
-      settings: settingsResult,
-    };
-  } finally {
-    await client.close().catch(() => {});
-  }
+    return { postId, postTitle, template, pageHash, fetchedAt, endpoint: credentials.endpoint, source, settings };
+  });
 }
 
-export async function getWordPressDesignContext(
-  credentials: WordPressCredentials,
-  signal: AbortSignal
-): Promise<WordPressDesignResult> {
-  const client = await createClient(credentials, signal);
-  try {
-    const toolsResult = await client.listTools();
-    const availableTools = new Set((toolsResult.tools || []).map(t => t.name));
+/** Bricks 2.4 palette colors are { id, raw, light, dark }; older exports used { name, hex }. */
+function readColors(context: JsonRecord): Array<{ name: string; value: string }> {
+  const colors: Array<{ name: string; value: string }> = [];
+  const add = (item: unknown) => {
+    if (!isRecord(item)) return;
+    const value = [item.hex, item.light, item.color, item.value].find(v => typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v)) as string | undefined;
+    const name = [item.name, item.label, item.raw, item.id].find(v => typeof v === "string" && v) as string | undefined;
+    if (value) colors.push({ name: (name || "").replace(/^var\(--|\)$/g, "").toLowerCase(), value });
+  };
+  for (const key of ["colorPalettes", "palettes", "colorPalette", "colors"]) {
+    const list = context[key];
+    if (!Array.isArray(list)) continue;
+    for (const entry of list) {
+      if (isRecord(entry) && Array.isArray(entry.colors)) entry.colors.forEach(add);
+      else add(entry);
+    }
+  }
+  return colors;
+}
 
-    const result = await callAbility(client, availableTools, "bricks/get-design-context", {});
+export async function getWordPressDesignContext(credentials: WordPressCredentials, signal: AbortSignal): Promise<WordPressDesignResult> {
+  return withSession(credentials, signal, async session => {
+    const result = await callAbility(session, "bricks/get-design-context");
     const fetchedAt = new Date().toISOString();
 
     const designTokens: Partial<DesignTokens> = {};
     const globalClasses: BricksGlobalClass[] = [];
 
-    if (result && typeof result === "object") {
-      const ctx = result as Record<string, unknown>;
-
-      // Extract colors from palettes
-      const colors = (Array.isArray(ctx.colors) ? ctx.colors : Array.isArray(ctx.colorPalette) ? ctx.colorPalette : []) as Array<Record<string, unknown>>;
-      for (const item of colors) {
-        if (!item || typeof item !== "object") continue;
-        const name = String(item.name || "").toLowerCase();
-        const hex = String(item.hex || item.color || item.value || "");
-        if (!hex || !/^#[0-9a-fA-F]{3,8}$/.test(hex)) continue;
-
-        if (name.includes("primary") && !designTokens.primaryColor) designTokens.primaryColor = hex;
-        else if (name.includes("secondary") && !designTokens.secondaryColor) designTokens.secondaryColor = hex;
-        else if ((name.includes("background") || name.includes("base") || name.includes("light")) && !designTokens.backgroundColor) designTokens.backgroundColor = hex;
-        else if (name.includes("surface") || name.includes("card") || name.includes("muted")) designTokens.surfaceColor = hex;
-        else if (name.includes("text") || name.includes("body") || name.includes("dark")) designTokens.textColor = hex;
+    if (isRecord(result)) {
+      for (const { name, value } of readColors(result)) {
+        if (name.includes("primary") && !designTokens.primaryColor) designTokens.primaryColor = value;
+        else if (name.includes("secondary") && !designTokens.secondaryColor) designTokens.secondaryColor = value;
+        else if ((name.includes("background") || name.includes("base") || name.includes("light")) && !designTokens.backgroundColor) designTokens.backgroundColor = value;
+        else if (name.includes("surface") || name.includes("card") || name.includes("muted")) designTokens.surfaceColor = value;
+        else if (name.includes("text") || name.includes("body") || name.includes("dark")) designTokens.textColor = value;
       }
 
-      // Extract global classes
-      if (Array.isArray(ctx.globalClasses)) {
-        for (const cls of ctx.globalClasses) {
-          if (cls && typeof cls === "object" && typeof (cls as Record<string, unknown>).id === "string" && typeof (cls as Record<string, unknown>).name === "string") {
-            globalClasses.push({
-              id: String((cls as Record<string, unknown>).id),
-              name: String((cls as Record<string, unknown>).name),
-              settings: ((cls as Record<string, unknown>).settings && typeof (cls as Record<string, unknown>).settings === "object"
-                ? (cls as Record<string, unknown>).settings
-                : {}) as Record<string, unknown>,
-            });
+      if (Array.isArray(result.globalClasses)) {
+        for (const cls of result.globalClasses) {
+          if (isRecord(cls) && typeof cls.id === "string" && typeof cls.name === "string") {
+            globalClasses.push({ id: cls.id, name: cls.name, settings: isRecord(cls.settings) ? cls.settings : {} });
           }
         }
       }
     }
 
-    return {
-      endpoint: credentials.endpoint,
-      fetchedAt,
-      designTokens,
-      globalClasses,
-      rawDesignContext: result,
-    };
-  } finally {
-    await client.close().catch(() => {});
-  }
+    return { endpoint: credentials.endpoint, fetchedAt, designTokens, globalClasses, rawDesignContext: result };
+  });
 }
 
 export async function handleWordPressRequest(

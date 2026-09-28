@@ -1,7 +1,8 @@
 import { z } from "zod";
-import type { BricksElement, BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
+import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 
 // This release cannot accept arbitrary tool names, endpoints per call or write operations.
+// bricks/get-page-settings is not in Bricks' published ability references and is read only if present.
 export const WP_READ_ABILITIES = [
   "bricks/get-mcp-version",
   "bricks/list-ability-status",
@@ -57,6 +58,7 @@ export type WordPressConnectResult = {
   connected: boolean;
   endpoint: string;
   version?: string;
+  wordpressVersion?: string;
   abilities: Record<string, boolean>;
   missingAbilities: string[];
   warnings?: string[];

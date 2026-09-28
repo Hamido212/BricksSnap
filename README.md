@@ -7,7 +7,7 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Use buil
 
 **Start here: [setup, both AI connections and import guide](docs/SETUP.md).**
 
-**v0.3: [template staging and local MCP](docs/STAGING-MCP.md)** — combine exports, inspect structural changes, and use the same engine from an MCP client. See the [staged release plan](docs/ROADMAP.md) for the planned WordPress integration.
+**v0.3: [template staging and local MCP](docs/STAGING-MCP.md)** — combine exports, inspect structural changes, and use the same engine from an MCP client. See the [staged release plan](docs/ROADMAP.md) for the planned WordPress integration and the [Bricks AI/MCP research](docs/RESEARCH-2026-09-28-BRICKS-MCP.md) behind it.
 
 ## Features
 
