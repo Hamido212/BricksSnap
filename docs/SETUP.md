@@ -43,7 +43,11 @@ The registry covers 182 native element names and control names from the Bricks 2
 
 Global classes and supplied component metadata are preserved. Definitions must be included or already present on the destination site; preservation does not guarantee every Bricks import mechanism resolves them. Custom breakpoints, fonts, media, menus, query data, form actions, recipients, login/social sign-in integrations and placeholder links need destination-side review. Countdowns default to 30 days ahead. Review executable code independently.
 
-For direct site editing, use the [official Bricks AI integration](https://academy.bricksbuilder.io/builder/features/ai-abilities-and-skills/). BricksSnap remains a standalone template workspace.
+For direct site editing, use the [official Bricks AI integration](https://academy.bricksbuilder.io/builder/features/ai-abilities-and-skills/). BricksSnap remains a template workspace.
+
+## WordPress connection (local, read-only)
+
+With `npm run dev:local`, the Staging tab can read a page and its global classes from a Bricks 2.4+ site through the WordPress MCP Adapter and use it as the baseline. It needs an application password; nothing is written to the site. See [Connect a WordPress site](WORDPRESS.md).
 
 ## HTTP API
 
@@ -70,4 +74,4 @@ npm audit
 npm start
 ```
 
-Refresh the registry deliberately with `node scripts/sync-bricks-schema.mjs`, review its changes and run tests. Tests cover all catalog templates, reference repair, dependency round trips, XSS escaping, request validation, mocked providers and MCP protocol calls. Real provider availability, ChatGPT setup and WordPress import require separate integration checks.
+Refresh the registry deliberately with `node scripts/sync-bricks-schema.mjs`, review its changes and run tests. Tests cover all catalog templates, reference repair, dependency round trips, XSS escaping, request validation, mocked providers and MCP protocol calls. Real provider availability, ChatGPT setup and WordPress import require separate integration checks. `scripts/capture-wordpress-fixtures.mjs` records read-only responses from a real MCP Adapter endpoint for refreshing the WordPress test fixtures.

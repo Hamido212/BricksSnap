@@ -7,7 +7,7 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Use buil
 
 **Start here: [setup, both AI connections and import guide](docs/SETUP.md).**
 
-**v0.3: [template staging and local MCP](docs/STAGING-MCP.md)** — combine exports, inspect structural changes, and use the same engine from an MCP client. See the [staged release plan](docs/ROADMAP.md) for the planned WordPress integration and the [Bricks AI/MCP research](docs/RESEARCH-2026-09-28-BRICKS-MCP.md) behind it.
+**v0.4: [read a connected WordPress site](docs/WORDPRESS.md)** ([release notes](docs/RELEASE-0.4.0.md)) — load a live Bricks page and its global classes as the staging baseline through the official WordPress MCP Adapter (local, read-only). Builds on v0.3's [template staging and local MCP](docs/STAGING-MCP.md). See the [staged release plan](docs/ROADMAP.md) for the planned WordPress integration and the [Bricks AI/MCP research](docs/RESEARCH-2026-09-28-BRICKS-MCP.md) behind it.
 
 ## Features
 
@@ -21,6 +21,7 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Use buil
 - Export types and preservation of global classes/component metadata
 - Staging workspace: prepend/append sections or insert after a root, with ID collision handling and structural comparison
 - Eight MCP tools over optional HTTP or local stdio; section generation, page assembly, merge and comparison
+- Local read-only WordPress connection: page search, live page import with Bricks' document digest, site class and palette import, class conflict warnings
 
 ## Prerequisites
 
@@ -67,6 +68,7 @@ Request fields:
 - `src/app/page.tsx` – Main UI
 - `src/app/api/generate/route.ts` – Generation API
 - `src/lib/bricks-engine.ts` – Bricks JSON engine + section generators
+- `src/lib/wordpress-client.ts` – MCP Adapter client for Bricks abilities (`/api/wordpress`, local only)
 - `src/lib/templates.ts` – Template catalog
 - `src/components/*` – UI components (form, preview, cards)
 

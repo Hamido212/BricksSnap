@@ -142,17 +142,12 @@ Adjusted after the live capture:
 - The automatic page list after connecting never ran, because of a stale React state closure.
 - Tests replay the sanitized live fixtures.
 
-Still open before release:
+Completed for 0.4.0:
 
-1. **Apply the design import.** Browser review at 1440 px and 390 px passed against the live site: connect, page list, page import, review and design import. The imported design context is not yet used anywhere, because `StagingWorkspace` does not pass `onImportDesign`.
-2. **Decide how local and staging sites connect.** Bricks recommends testing on local or staging sites, but the current transport rejects:
-   - private and loopback addresses (LocalWP, DDEV, LAN staging);
-   - custom ports;
-   - the `?rest_route=` endpoint form.
-
-   A local-only process connecting to a site the user typed carries little SSRF risk. An explicit opt-in (for example an environment flag) for private targets and custom ports would keep the default strict. Self-signed certificates can be trusted through Node's `NODE_EXTRA_CA_CERTS`; do not disable TLS verification.
-3. **Clean up sessions.** HTTP sessions are never terminated: the transport rejects non-POST requests, and closing the client does not send `DELETE`. Allowing `DELETE` to the same endpoint would clean up adapter sessions.
-4. **Record where the baseline came from.** Source, timestamp and `documentDigest` are kept. Add the ability version (`bricksAbilitiesVersion`) as well, because response shapes are tied to it.
+- Page imports carry the site's definitions of referenced global classes. The design import feeds review warnings for class collisions.
+- The client ends every adapter session with `DELETE`; the live site returned 200.
+- `BRICKSSNAP_ALLOW_PRIVATE_WORDPRESS=true` opts into local/staging hosts and custom ports. The `?rest_route=` endpoint form is accepted.
+- Baselines record `bricksVersion` and `abilitiesVersion`.
 
 Alternative transports exist, but none is simpler for this use case:
 

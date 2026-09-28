@@ -1,27 +1,26 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 — 2026-09-28
 
-- Started the read-only WordPress connection (v0.4): local-only route, MCP Adapter client, page search, page import as staging baseline, and design context import.
-- Aligned the client with Bricks 2.4's documented ability responses. The version comes from `bricksVersion`, the `{ abilities: [...] }` status envelope is parsed, and exact ability names are requested so disabled abilities are visible.
-- Disabled or unregistered abilities are now reported as missing. Before, the dispatcher's presence counted as availability.
-- Arguments are sent under the parameter name each ability's input schema declares, instead of several guessed aliases.
-- Design-token import reads Bricks 2.4 palette colors (`{ id, raw, light }`).
-- Added [research on Bricks AI abilities, the MCP Adapter and the Abilities API](docs/RESEARCH-2026-09-28-BRICKS-MCP.md) with a capability matrix and consequences for v0.4–v0.6.
+Read a connected Bricks site and use a live page as the staging baseline. The connection is local-only and read-only.
 
-- Added `scripts/capture-wordpress-fixtures.mjs`. It records real responses from a WordPress MCP Adapter endpoint, executing only abilities that the site annotates as read-only. For write abilities it records only their schemas. Output goes to `artifacts/` with secrets redacted.
+- **Connection.** Connect a Bricks 2.4+ site through the official WordPress MCP Adapter with an application password; the route is available only in `npm run dev:local`.
+  - Reports the Bricks, WordPress and abilities versions and any missing abilities.
+  - Every request ends its adapter session.
+- **Page search and import.** Lists recent Bricks pages and templates and filters them by title; shows when a page is open in the builder.
+  - Imports a page's element tree with Bricks' document digest, title, page settings and the site's definitions of referenced global classes.
+- **Design import.** Loads global classes and palette colors from the paginated list abilities, ignoring Bricks' default palette.
+  - Review then warns about class name/ID collisions, changed class definitions and undefined class references.
+- **Ability calls follow the live schemas.**
+  - Arguments are sent under the names each ability declares (all Bricks schemas reject unknown keys).
+  - Dispatcher `{ success, data }` envelopes and direct-tool payloads are both read.
+  - Disabled abilities are reported instead of assumed available.
+- **Transport.** HTTPS with pinned DNS, public addresses and port 443 by default. `BRICKSSNAP_ALLOW_PRIVATE_WORDPRESS=true` allows local/staging hosts and custom ports. The `?rest_route=` endpoint form is accepted. Redirects are not followed with credentials; responses are capped at 3 MB.
+- **Staging fixes.** A stale "insert after" choice no longer survives a baseline replacement; the page picker fits narrow screens.
+- **Fixture capture.** `scripts/capture-wordpress-fixtures.mjs` records read-only ability responses (only abilities annotated read-only are executed) for refreshing test fixtures.
+- **Docs.** Added the [WordPress connection guide](docs/WORDPRESS.md) and the [research on Bricks AI abilities, the MCP Adapter and the Abilities API](docs/RESEARCH-2026-09-28-BRICKS-MCP.md), including abilities verified on a live site that the documentation omits.
 
-- Verified the read path against a live Bricks 2.4.2 site (read-only).
-  - The page import keeps Bricks' `documentDigest`, unwraps page settings and resolves the page title.
-  - The search lists recent Bricks content for an empty query and shows the builder lock state.
-  - The design import reads the paginated palette and class lists and ignores Bricks' default palette.
-  - The page list now loads after connecting.
-  - Tests replay sanitized captured responses.
-- Browser-tested the Staging connection flow in Chromium against the live site at 1440 px and 390 px: connect, page list, page import, review and design import, with no console errors and no horizontal overflow.
-  - Fixed a stale "insert after" section that survived a baseline replacement, which made review fail.
-  - Fixed the page picker overflowing narrow screens.
-
-See the research document for open items.
+Verified against a live Bricks 2.4.2 / WordPress 7.1.2 / MCP Adapter 0.6.1 site, including a Chromium run of the Staging flow at 1440 px and 390 px. This release does not write to WordPress.
 
 ## 0.3.0 — 2026-09-28
 
