@@ -60,6 +60,20 @@ export function wordpressFetch(credentials: WordPressCredentials, signal: AbortS
         const responseHeaders = new Headers();
         for (const key of ["content-type", "mcp-session-id", "mcp-protocol-version"]) if (typeof response.headers[key] === "string") responseHeaders.set(key, response.headers[key]);
         if ([202, 204].includes(status)) { response.resume(); resolve(new Response(null, { status, headers: responseHeaders })); return; }
+        // Some hosts answer blocked or throttled requests with an HTML page and status 200.
+        const contentType = responseHeaders.get("content-type") ?? "";
+        if (method === "POST" && !/application\/json|text\/event-stream/i.test(contentType)) {
+          let html = "";
+          response.setEncoding("utf8");
+          response.on("data", (chunk: string) => { if (html.length < 4096) html += chunk; else response.destroy(); });
+          const fail = () => {
+            const title = /<title>([^<]{1,120})<\/title>/i.exec(html)?.[1]?.trim();
+            reject(new RequestError(`The web host answered with a page${title ? ` ("${title}")` : ""} instead of WordPress. A firewall, rate limit or maintenance mode may have blocked the request; a write was not confirmed. Wait, reload the page and retry.`, 502));
+          };
+          response.on("end", fail);
+          response.on("close", fail);
+          return;
+        }
         let bytes = 0;
         const body = new ReadableStream<Uint8Array>({
           start(controller) {

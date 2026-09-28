@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 
-// This release cannot accept arbitrary tool names, endpoints per call or write operations.
+// Only these fixed abilities are called; no arbitrary tool names or endpoints per call.
 export const WP_READ_ABILITIES = [
   "bricks/get-mcp-version",
   "bricks/list-ability-status",
@@ -14,6 +14,11 @@ export const WP_READ_ABILITIES = [
 ] as const;
 
 export type ReadAbility = typeof WP_READ_ABILITIES[number];
+
+/** Writes are limited to guarded whole-page replacement and restoring the revision it created. */
+export const WP_WRITE_ABILITIES = ["bricks/set-page-elements", "bricks/restore-revision"] as const;
+
+const digestSchema = z.string().regex(/^[a-f0-9]{64}$/, "Reload the page into the baseline: Bricks' document digest is missing.");
 
 /** Local/staging sites (private addresses, custom ports) are opt-in for the local server process. */
 export const allowPrivateWordPress = () => typeof process !== "undefined" && process.env?.BRICKSSNAP_ALLOW_PRIVATE_WORDPRESS === "true";
@@ -50,6 +55,16 @@ export const wpRequestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("search"), credentials: wpCredentialsSchema, search: z.string().trim().max(200) }).strict(),
   z.object({ action: z.literal("page"), credentials: wpCredentialsSchema, postId: z.number().int().positive() }).strict(),
   z.object({ action: z.literal("design"), credentials: wpCredentialsSchema }).strict(),
+  // Replace the page's elements only if Bricks' stored document still has the reviewed baseline digest.
+  z.object({
+    action: z.literal("apply"), credentials: wpCredentialsSchema, postId: z.number().int().positive(),
+    expectedDocumentDigest: digestSchema, template: z.unknown(), confirm: z.literal(true), allowLocked: z.boolean().default(false),
+  }).strict(),
+  // Restore the snapshot an apply created, only while the page still has the applied digest.
+  z.object({
+    action: z.literal("restore"), credentials: wpCredentialsSchema, postId: z.number().int().positive(),
+    revisionId: z.number().int().positive(), expectedDocumentDigest: digestSchema, confirm: z.literal(true),
+  }).strict(),
 ]);
 
 export type WordPressRequest = z.infer<typeof wpRequestSchema>;
@@ -106,4 +121,29 @@ export type WordPressDesignResult = {
   designTokens: Partial<DesignTokens>;
   globalClasses: BricksGlobalClass[];
   rawDesignContext?: unknown;
+};
+
+export type WordPressApplyResult = {
+  postId: number;
+  applied: boolean;
+  /** Snapshot Bricks captured before saving; pass it to restore. Null when the page was empty. */
+  revisionId: number | null;
+  documentDigest: string;
+  /** The page as read back after saving. */
+  template: BricksTemplate;
+  source: WordPressSource;
+  /** Differences between the reviewed proposal and the read-back page (normalization by Bricks). */
+  verification: { matches: boolean; added: number; removed: number; changed: number; moved: number; fields: string[] };
+  warnings?: string[];
+};
+
+export type WordPressRestoreResult = {
+  postId: number;
+  restored: boolean;
+  fromRevisionId: number;
+  /** Snapshot of the state before the restore, so the restore itself can be undone in Bricks. */
+  newRevisionId?: number;
+  documentDigest: string;
+  template: BricksTemplate;
+  source: WordPressSource;
 };

@@ -640,3 +640,33 @@ describe("WordPress endpoint rules and local/staging opt-in", () => {
     vi.resetModules();
   });
 });
+
+describe("host pages instead of MCP responses", () => {
+  afterEach(() => { vi.doUnmock("node:dns/promises"); vi.doUnmock("node:https"); vi.resetModules(); });
+
+  it("reports a firewall/maintenance page served with status 200 as a blocked request", async () => {
+    vi.resetModules();
+    vi.doMock("node:dns/promises", () => ({ lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]) }));
+    vi.doMock("node:https", async () => {
+      const { PassThrough } = await import("node:stream");
+      const { EventEmitter } = await import("node:events");
+      return {
+        request: (_url: URL, _options: unknown, callback: (res: unknown) => void) => {
+          const req = Object.assign(new EventEmitter(), {
+            end: () => {
+              const res = Object.assign(new PassThrough(), { statusCode: 200, headers: { "content-type": "application/x-httpd-php" } });
+              callback(res);
+              res.end("<html><head><title>503 Service Unavailable</title></head><body>capacity problems</body></html>");
+            },
+            destroy: () => {},
+          });
+          return req;
+        },
+      };
+    });
+    const { wordpressFetch } = await import("../src/lib/wordpress-http");
+    const creds = { endpoint: "https://example.com/wp-json/mcp/mcp-adapter-default-server", username: "u", password: "p" };
+    await expect(wordpressFetch(creds, new AbortController().signal)(creds.endpoint, { method: "POST", body: "{}" }))
+      .rejects.toMatchObject({ status: 502, message: expect.stringMatching(/"503 Service Unavailable".*write was not confirmed/) });
+  });
+});

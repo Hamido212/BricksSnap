@@ -5,6 +5,9 @@ import { RequestError } from "./api-request";
 import { wordpressFetch } from "./wordpress-http";
 import {
   WP_READ_ABILITIES,
+  WP_WRITE_ABILITIES,
+  type WordPressApplyResult,
+  type WordPressRestoreResult,
   type WordPressCredentials,
   type WordPressRequest,
   type WordPressConnectResult,
@@ -13,8 +16,8 @@ import {
   type WordPressPageSummary,
   type WordPressSource,
 } from "./wordpress-contract";
-import { readStagingTemplate, stableJson } from "./template-staging";
-import type { BricksGlobalClass, DesignTokens } from "./bricks-engine";
+import { diffTemplates, readStagingTemplate, stableJson } from "./template-staging";
+import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 
 type JsonRecord = Record<string, unknown>;
 type InputSchema = { properties?: JsonRecord } | undefined;
@@ -264,8 +267,10 @@ export async function getWordPressPage(
   signal: AbortSignal
 ): Promise<WordPressPageResult> {
   return withSession(credentials, signal, async session => {
-    const postArg: Argument = { names: ["postId", "post_id", "id"], value: postId, required: true };
-    const elementsResult = await callAbility(session, "bricks/get-page-elements", [postArg]);
+    const postArg = postArgument(postId);
+    const document = await readDocument(session, postId);
+    const { template, documentDigest } = document;
+    let title = document.title;
 
     const fetchedAt = new Date().toISOString();
 
@@ -277,18 +282,6 @@ export async function getWordPressPage(
       settings = isRecord(value) ? value : {};
     } catch {
       // Optional settings read
-    }
-
-    let rawElements: unknown[] = [];
-    let title: string | undefined;
-    let documentDigest: string | undefined;
-    if (Array.isArray(elementsResult)) rawElements = elementsResult;
-    else if (isRecord(elementsResult)) {
-      if (Array.isArray(elementsResult.elements)) rawElements = elementsResult.elements;
-      else if (Array.isArray(elementsResult.content)) rawElements = elementsResult.content;
-      const t = elementsResult.title ?? elementsResult.postTitle;
-      if (typeof t === "string" && t.trim()) title = t.trim();
-      if (typeof elementsResult.documentDigest === "string") documentDigest = elementsResult.documentDigest;
     }
 
     // get-page-elements carries no title; find-post by ID does.
@@ -303,8 +296,7 @@ export async function getWordPressPage(
       }
     }
 
-    const template = readStagingTemplate({ content: rawElements }, true);
-    const pageHash = createHash("sha256").update(stableJson(template.content)).digest("hex").slice(0, 16);
+    const pageHash = shortHash(template);
 
     // Include the site's definitions of referenced global classes so staging can check class conflicts.
     const warnings: string[] = [];
@@ -404,10 +396,187 @@ export async function getWordPressDesignContext(credentials: WordPressCredential
   });
 }
 
+const postArgument = (postId: number): Argument => ({ names: ["postId", "post_id", "id"], value: postId, required: true });
+const shortHash = (template: BricksTemplate) => createHash("sha256").update(stableJson(template.content)).digest("hex").slice(0, 16);
+
+/** PHP's JSON encoder writes an empty associative array as []; Bricks stores empty settings that way. */
+export function fromPhpElements(elements: unknown[]): unknown[] {
+  return elements.map(el => isRecord(el) && Array.isArray(el.settings) && el.settings.length === 0 ? { ...el, settings: {} } : el);
+}
+
+/** Current element tree and Bricks' document digest of a page or template. */
+async function readDocument(session: Session, postId: number): Promise<{ template: BricksTemplate; documentDigest?: string; title?: string }> {
+  const result = await callAbility(session, "bricks/get-page-elements", [postArgument(postId)]);
+  const record = isRecord(result) ? result : {};
+  const elements = Array.isArray(result) ? result : Array.isArray(record.elements) ? record.elements : Array.isArray(record.content) ? record.content : [];
+  const title = [record.title, record.postTitle].find(t => typeof t === "string" && t.trim()) as string | undefined;
+  return {
+    template: readStagingTemplate({ content: fromPhpElements(elements) }, true),
+    ...(typeof record.documentDigest === "string" ? { documentDigest: record.documentDigest } : {}),
+    ...(title ? { title: title.trim() } : {}),
+  };
+}
+
+/** Writes must be enabled by the site administrator; never route around a disabled ability. */
+async function requireWriteAbility(session: Session, ability: typeof WP_WRITE_ABILITIES[number]) {
+  let status: Record<string, boolean> | undefined;
+  try {
+    status = readAbilityStatus(await callAbility(session, "bricks/list-ability-status", [{ names: ["abilityNames"], value: [...WP_WRITE_ABILITIES] }]));
+  } catch {
+    // Execution reports the authoritative error below.
+  }
+  if (status && status[ability] !== true) throw new RequestError(`Saving is disabled on this site. Enable ${ability} under Bricks → AI → Abilities.`, 403);
+}
+
+/** Bricks rejects a stale expectedDocumentDigest; surface that as a conflict rather than a gateway error. */
+async function guardedWrite(session: Session, ability: string, args: Argument[]): Promise<unknown> {
+  try {
+    return await callAbility(session, ability, args);
+  } catch (error) {
+    if (error instanceof RequestError && /digest|conflict|stale|changed/i.test(error.message)) throw new RequestError(`WordPress refused the change because the page was modified: ${error.message}`, 409);
+    throw error;
+  }
+}
+
+const numberOrNull = (value: unknown) => (typeof value === "number" && Number.isInteger(value) ? value : null);
+
+/** Absolute http(s) URLs in element settings that point to hosts other than the site. */
+export function externalUrls(template: BricksTemplate, siteHost: string): string[] {
+  const found = new Set<string>();
+  const visit = (value: unknown) => {
+    if (typeof value === "string") {
+      for (const match of value.matchAll(/https?:\/\/[^\s"'()<>]+/gi)) {
+        try { if (new URL(match[0]).hostname !== siteHost) found.add(new URL(match[0]).origin); } catch { /* not a URL */ }
+      }
+    } else if (Array.isArray(value)) value.forEach(visit);
+    else if (isRecord(value)) Object.values(value).forEach(visit);
+  };
+  template.content.forEach(el => visit(el.settings));
+  return [...found];
+}
+
+export async function applyWordPressPage(
+  credentials: WordPressCredentials,
+  request: { postId: number; expectedDocumentDigest: string; template: unknown; allowLocked: boolean },
+  signal: AbortSignal
+): Promise<WordPressApplyResult> {
+  const proposal = readStagingTemplate(request.template);
+  const { postId, expectedDocumentDigest } = request;
+  return withSession(credentials, signal, async session => {
+    await requireWriteAbility(session, "bricks/set-page-elements");
+
+    let title: string | undefined;
+    try {
+      const found = await callAbility(session, "bricks/find-post", [postArgument(postId)]);
+      const row = (isRecord(found) && Array.isArray(found.results) ? found.results : []).find(r => isRecord(r) && Number(r.id) === postId);
+      if (isRecord(row)) {
+        if (typeof row.title === "string") title = row.title;
+        if (row.locked === true && !request.allowLocked) throw new RequestError(`${title ?? `Post #${postId}`} is open in the Bricks builder. Saving there later would overwrite this change. Close the builder, or confirm applying anyway.`, 409);
+      }
+    } catch (error) {
+      if (error instanceof RequestError && error.status === 409) throw error;
+    }
+
+    // Fail fast with a clear message; Bricks enforces the same digest atomically on write.
+    const current = await readDocument(session, postId);
+    if (!current.documentDigest) throw new RequestError("This Bricks version does not report a document digest; guarded writes are unavailable.", 422);
+    if (current.documentDigest !== expectedDocumentDigest) throw new RequestError("The page changed since it was loaded. Load it into the baseline again and review the change.", 409);
+
+    // set-page-elements saves elements only; class definitions must already exist on the site.
+    const warnings: string[] = [];
+    const referenced = new Set(proposal.content.flatMap(el => Array.isArray(el.settings._cssGlobalClasses) ? el.settings._cssGlobalClasses.filter((id): id is string => typeof id === "string") : []));
+    if (referenced.size) {
+      const site = new Map((await listAll(session, "bricks/list-global-classes")).filter(isRecord).map(c => [String(c.id), c]));
+      const missing = [...referenced].filter(id => !site.has(id));
+      if (missing.length) throw new RequestError(`The change uses global classes that do not exist on the site: ${missing.join(", ")}. Create them in Bricks first or remove them from the section.`, 422);
+      for (const cls of proposal.globalClasses ?? []) {
+        const existing = site.get(cls.id);
+        if (referenced.has(cls.id) && existing && stableJson(isRecord(existing.settings) ? existing.settings : {}) !== stableJson(cls.settings ?? {})) warnings.push(`Global class ${cls.name} keeps the site's definition; staged settings for it are not saved.`);
+      }
+    }
+
+    let written: unknown;
+    try {
+      written = await guardedWrite(session, "bricks/set-page-elements", [
+        postArgument(postId),
+        { names: ["elements"], value: proposal.content, required: true },
+        { names: ["expectedDocumentDigest"], value: expectedDocumentDigest, required: true },
+      ]);
+    } catch (error) {
+      // Observed live: a host firewall answered writes containing external image URLs with an HTML page.
+      const external = externalUrls(proposal, new URL(credentials.endpoint).hostname);
+      if (error instanceof RequestError && error.message.startsWith("The web host answered") && external.length) {
+        throw new RequestError(`${error.message} The change contains external URLs (${external.slice(0, 3).join(", ")}${external.length > 3 ? ", …" : ""}); some host firewalls block these. Replace them with media from this site and retry.`, error.status);
+      }
+      throw error;
+    }
+    const saved = isRecord(written) ? written : {};
+
+    const after = await readDocument(session, postId);
+    const diff = diffTemplates({ content: proposal.content }, { content: after.template.content });
+    // Name changed setting keys (e.g. settings._cssCustom) so normalization by Bricks is reviewable.
+    const proposed = new Map(proposal.content.map(el => [el.id, el]));
+    const settingKeys = new Set<string>();
+    for (const el of after.template.content) {
+      const sent = proposed.get(el.id);
+      if (!sent) continue;
+      for (const key of new Set([...Object.keys(sent.settings), ...Object.keys(el.settings)])) if (stableJson(sent.settings[key]) !== stableJson(el.settings[key])) settingKeys.add(`settings.${key}`);
+    }
+    const fields = [...new Set([...diff.elements.flatMap(e => e.fields).filter(f => f !== "settings"), ...settingKeys])];
+    if (typeof saved.documentDigest === "string" && after.documentDigest && saved.documentDigest !== after.documentDigest) warnings.push("The page changed again right after saving. Reload it before further changes.");
+    const documentDigest = after.documentDigest ?? (typeof saved.documentDigest === "string" ? saved.documentDigest : "");
+    const template = { ...after.template, globalClasses: (proposal.globalClasses ?? []).filter(c => referenced.has(c.id)) };
+    const fetchedAt = new Date().toISOString();
+
+    return {
+      postId,
+      applied: saved.changed !== false,
+      revisionId: numberOrNull(saved.revisionId),
+      documentDigest,
+      template,
+      source: { endpoint: credentials.endpoint, postId, postTitle: title ?? current.title ?? `Page #${postId}`, fetchedAt, pageHash: shortHash(template), ...(documentDigest ? { documentDigest } : {}) },
+      verification: { matches: diff.elements.length === 0, ...diff.counts, fields },
+      ...(warnings.length ? { warnings } : {}),
+    };
+  });
+}
+
+export async function restoreWordPressRevision(
+  credentials: WordPressCredentials,
+  request: { postId: number; revisionId: number; expectedDocumentDigest: string },
+  signal: AbortSignal
+): Promise<WordPressRestoreResult> {
+  const { postId, revisionId, expectedDocumentDigest } = request;
+  return withSession(credentials, signal, async session => {
+    await requireWriteAbility(session, "bricks/restore-revision");
+    // restore-revision has no digest precondition; refuse when someone edited after the apply.
+    const current = await readDocument(session, postId);
+    if (current.documentDigest !== expectedDocumentDigest) throw new RequestError("The page changed after the change was applied. Restoring would discard those edits; use Bricks → Revisions instead.", 409);
+
+    const result = await callAbility(session, "bricks/restore-revision", [
+      { names: ["revisionId"], value: revisionId, required: true },
+      postArgument(postId),
+    ]);
+    const restored = isRecord(result) ? result : {};
+    const after = await readDocument(session, postId);
+    const documentDigest = after.documentDigest ?? "";
+    const newRevisionId = numberOrNull(restored.newRevisionId);
+    return {
+      postId,
+      restored: restored.restored !== false,
+      fromRevisionId: numberOrNull(restored.fromRevisionId) ?? revisionId,
+      ...(newRevisionId ? { newRevisionId } : {}),
+      documentDigest,
+      template: after.template,
+      source: { endpoint: credentials.endpoint, postId, postTitle: current.title ?? `Page #${postId}`, fetchedAt: new Date().toISOString(), pageHash: shortHash(after.template), ...(documentDigest ? { documentDigest } : {}) },
+    };
+  });
+}
+
 export async function handleWordPressRequest(
   request: WordPressRequest,
   signal: AbortSignal
-): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult> {
+): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult> {
   switch (request.action) {
     case "connect":
       return connectWordPress(request.credentials, signal);
@@ -417,5 +586,9 @@ export async function handleWordPressRequest(
       return getWordPressPage(request.credentials, request.postId, signal);
     case "design":
       return getWordPressDesignContext(request.credentials, signal);
+    case "apply":
+      return applyWordPressPage(request.credentials, request, signal);
+    case "restore":
+      return restoreWordPressRevision(request.credentials, request, signal);
   }
 }

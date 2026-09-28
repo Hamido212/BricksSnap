@@ -8,10 +8,11 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     assertLocalWordPress(request);
-    const body = wpRequestSchema.parse(await readJson(request, 100_000));
+    // Apply carries a complete page (up to the 2 MB staging limit).
+    const body = wpRequestSchema.parse(await readJson(request, 2_200_000));
     const result = await handleWordPressRequest(
       body,
-      AbortSignal.any([request.signal, AbortSignal.timeout(30_000)])
+      AbortSignal.any([request.signal, AbortSignal.timeout(body.action === "apply" || body.action === "restore" ? 60_000 : 30_000)])
     );
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
