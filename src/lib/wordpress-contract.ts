@@ -80,6 +80,7 @@ export type WordPressPageResult = {
   endpoint: string;
   source: WordPressSource;
   settings?: Record<string, unknown>;
+  warnings?: string[];
 };
 
 export type WordPressDesignResult = {

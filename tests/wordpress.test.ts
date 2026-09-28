@@ -579,3 +579,29 @@ describe("WordPress client against captured Bricks 2.4.2 responses", () => {
     expect(Object.keys(result.globalClasses[0].settings).length).toBeGreaterThan(0);
   });
 });
+
+describe("WordPress page import with global classes", () => {
+  const creds: WordPressCredentials = { endpoint: "https://example.com/wp-json/mcp/mcp-adapter-default-server", username: "u", password: "p" };
+  afterEach(() => vi.restoreAllMocks());
+
+  it("attaches the site's definitions of referenced classes without ownership fields", async () => {
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    vi.spyOn(Client.prototype, "connect").mockResolvedValue(undefined);
+    vi.spyOn(Client.prototype, "close").mockResolvedValue(undefined);
+    vi.spyOn(Client.prototype, "listTools").mockResolvedValue({ tools: [{ name: "mcp-adapter-execute-ability", inputSchema: { type: "object" as const } }] });
+    vi.spyOn(Client.prototype, "callTool").mockImplementation(async params => {
+      const { ability_name: ability } = params.arguments as { ability_name: string };
+      const data = ability === "bricks/get-page-elements"
+        ? { postId: 5, documentDigest: "a".repeat(64), elements: [{ id: "sec001", name: "section", parent: 0, children: [], settings: { _cssGlobalClasses: ["cls001", "gone01"] } }] }
+        : ability === "bricks/list-global-classes"
+        ? { items: [{ id: "cls001", name: "btn", settings: { _gap: "1rem" }, itemOwnership: { version: 3 }, itemDigest: "x" }, { id: "cls002", name: "unused", settings: {} }], hasMore: false }
+        : ability === "bricks/find-post" ? { results: [{ id: 5, title: "Kontakt" }] } : { settings: [], postId: 5 };
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, data }) }] } as never;
+    });
+    const { handleWordPressRequest } = await import("../src/lib/wordpress-client");
+    const result = await handleWordPressRequest({ action: "page", credentials: creds, postId: 5 }, new AbortController().signal) as { template: { globalClasses: unknown[] }; warnings: string[]; postTitle: string };
+    expect(result.template.globalClasses).toEqual([{ id: "cls001", name: "btn", settings: { _gap: "1rem" } }]);
+    expect(result.warnings).toEqual(["The page references global classes that do not exist on the site: gone01."]);
+    expect(result.postTitle).toBe("Kontakt");
+  });
+});

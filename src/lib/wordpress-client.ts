@@ -300,10 +300,25 @@ export async function getWordPressPage(
 
     const template = readStagingTemplate({ content: rawElements }, true);
     const pageHash = createHash("sha256").update(stableJson(template.content)).digest("hex").slice(0, 16);
+
+    // Include the site's definitions of referenced global classes so staging can check class conflicts.
+    const warnings: string[] = [];
+    const referenced = new Set(template.content.flatMap(el => Array.isArray(el.settings._cssGlobalClasses) ? el.settings._cssGlobalClasses.filter((id): id is string => typeof id === "string") : []));
+    if (referenced.size) {
+      try {
+        const classes = (await listAll(session, "bricks/list-global-classes")).filter(isRecord);
+        template.globalClasses = classes.filter(c => typeof c.id === "string" && typeof c.name === "string" && referenced.has(c.id)).map(siteClass);
+        const found = new Set(template.globalClasses.map(c => c.id));
+        const missing = [...referenced].filter(id => !found.has(id));
+        if (missing.length) warnings.push(`The page references global classes that do not exist on the site: ${missing.join(", ")}.`);
+      } catch {
+        warnings.push("Could not read the site's global classes (bricks/list-global-classes); class conflicts are not checked.");
+      }
+    }
     const postTitle = title ?? `Page #${postId}`;
     const source: WordPressSource = { endpoint: credentials.endpoint, postId, postTitle, fetchedAt, pageHash, ...(documentDigest ? { documentDigest } : {}) };
 
-    return { postId, postTitle, template, pageHash, ...(documentDigest ? { documentDigest } : {}), fetchedAt, endpoint: credentials.endpoint, source, settings };
+    return { postId, postTitle, template, pageHash, ...(documentDigest ? { documentDigest } : {}), fetchedAt, endpoint: credentials.endpoint, source, settings, ...(warnings.length ? { warnings } : {}) };
   });
 }
 
@@ -325,6 +340,12 @@ function readColors(context: JsonRecord): Array<{ name: string; value: string }>
     }
   }
   return colors;
+}
+
+/** A global class as the site stores it, without the write-precondition fields list abilities add. */
+function siteClass(cls: JsonRecord): BricksGlobalClass {
+  const kept = Object.fromEntries(Object.entries(cls).filter(([key]) => !/(Ownership|Digest)$/.test(key)));
+  return { ...kept, id: String(cls.id), name: String(cls.name), settings: isRecord(cls.settings) ? cls.settings : {} };
 }
 
 /** Read every page of a paginated Bricks list ability ({ items, hasMore }). */
@@ -362,9 +383,7 @@ export async function getWordPressDesignContext(credentials: WordPressCredential
 
     const globalClasses: BricksGlobalClass[] = [];
     for (const cls of classes) {
-      if (isRecord(cls) && typeof cls.id === "string" && typeof cls.name === "string") {
-        globalClasses.push({ id: cls.id, name: cls.name, settings: isRecord(cls.settings) ? cls.settings : {} });
-      }
+      if (isRecord(cls) && typeof cls.id === "string" && typeof cls.name === "string") globalClasses.push(siteClass(cls));
     }
 
     return { endpoint: credentials.endpoint, fetchedAt, designTokens, globalClasses, rawDesignContext: result };

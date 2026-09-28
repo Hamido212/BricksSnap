@@ -134,7 +134,8 @@ export default function WordPressConnection({
 
       const pageResult = data as WordPressPageResult;
       onImportBaseline(pageResult.template, pageResult.source);
-      setStatus(`Imported page #${pageResult.postId} (${pageResult.template.content.length} elements).`);
+      const classCount = pageResult.template.globalClasses?.length ?? 0;
+      setStatus([`Imported ${pageResult.postTitle} (#${pageResult.postId}): ${pageResult.template.content.length} elements${classCount ? `, ${classCount} global classes` : ""}.`, ...(pageResult.warnings ?? [])].join(" "));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load page.");
     } finally {
@@ -164,7 +165,8 @@ export default function WordPressConnection({
       if (onImportDesign) {
         onImportDesign(designResult.designTokens, designResult.globalClasses);
       }
-      setStatus(`Imported design context (${designResult.globalClasses.length} global classes).`);
+      const colors = Object.keys(designResult.designTokens).length;
+      setStatus(`Imported design context: ${designResult.globalClasses.length} global classes${colors ? `, ${colors} brand colors` : ""}. Review now checks staged classes against the site.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load design context.");
     } finally {

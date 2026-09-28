@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import type { BricksTemplate } from "@/lib/bricks-engine";
-import { diffTemplates, mergeTemplates, readStagingTemplate } from "@/lib/template-staging";
+import type { BricksGlobalClass, BricksTemplate } from "@/lib/bricks-engine";
+import { diffTemplates, mergeTemplates, readStagingTemplate, siteClassWarnings } from "@/lib/template-staging";
 import { generateMcpPage } from "@/lib/mcp-generation";
 import JsonPreview from "./JsonPreview";
 import StructurePreview from "./StructurePreview";
@@ -21,6 +21,8 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState("");
   const [source, setSource] = useState<WordPressSource | null>(null);
+  // Global classes imported from the connected site; review checks staged classes against them.
+  const [siteClasses, setSiteClasses] = useState<BricksGlobalClass[] | null>(null);
   // A slow file read must not overwrite a subsequent edit or show a stale review.
   const revision = useRef(0);
   const invalidate = () => { revision.current++; setReview(null); setError(""); };
@@ -49,10 +51,10 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
       const addition = JSON.parse(candidate);
       if (mode === "compare") {
         const template = readStagingTemplate(addition, true);
-        setReview({ before, template, diff: diffTemplates(before, template), warnings: ["Comparison can include removals. Export contains the full candidate, not only the differences.", "Structure comparison only. Check layout, dynamic data, links and forms in Bricks before publishing."] });
+        setReview({ before, template, diff: diffTemplates(before, template), warnings: [...(siteClasses ? siteClassWarnings(template, siteClasses) : []), "Comparison can include removals. Export contains the full candidate, not only the differences.", "Structure comparison only. Check layout, dynamic data, links and forms in Bricks before publishing."] });
       } else {
         const merged = mergeTemplates(before, addition, mode === "after" ? { mode, afterId: selectedAfter } : { mode });
-        setReview({ before, ...merged });
+        setReview({ before, ...merged, warnings: [...(siteClasses ? siteClassWarnings(merged.template, siteClasses) : []), ...merged.warnings] });
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Could not review templates."); }
   };
@@ -82,6 +84,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
     </div>
     <WordPressConnection
       currentSource={source}
+      onImportDesign={(_tokens, classes) => { invalidate(); setSiteClasses(classes); }}
       onImportBaseline={(template, newSource) => {
         invalidate();
         setBaseline(JSON.stringify(template, null, 2));

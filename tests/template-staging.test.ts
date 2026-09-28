@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffTemplates, mergeTemplates, readStagingTemplate } from "../src/lib/template-staging";
+import { diffTemplates, mergeTemplates, readStagingTemplate, siteClassWarnings } from "../src/lib/template-staging";
 import { type BricksElement, wrapTemplate } from "../src/lib/bricks-engine";
 import { TEMPLATES } from "../src/lib/templates";
 import { generateMcpPage } from "../src/lib/mcp-generation";
@@ -89,5 +89,27 @@ describe("strict staging", () => {
     expect(result.template.content.filter(e => e.parent === 0)).toHaveLength(3);
     expect(() => generateMcpPage({ prompt: "x", sections: ["nope"] })).toThrow(/section/);
     expect(() => generateMcpPage({ prompt: "x", sections: ["hero"], stylePreset: "nope" })).toThrow(/preset/);
+  });
+});
+
+describe("site class checks", () => {
+  const el = (id: string, classes: string[]): BricksElement => ({ id, name: "section", parent: 0, children: [], settings: { _cssGlobalClasses: classes } });
+  const site = [{ id: "cls001", name: "btn", settings: { _padding: { top: "1rem" } } }, { id: "cls002", name: "card", settings: {} }];
+
+  it("accepts classes identical to the site's definitions", () => {
+    const template = { ...wrapTemplate([el("aaa001", ["cls001"])]), globalClasses: [site[0]] };
+    expect(siteClassWarnings(template, site)).toEqual([]);
+  });
+
+  it("reports a reused name under another ID, changed settings and undefined references", () => {
+    const template = {
+      ...wrapTemplate([el("aaa001", ["new001", "cls002", "ghost1"])]),
+      globalClasses: [{ id: "new001", name: "btn", settings: {} }, { id: "cls002", name: "card", settings: { _gap: "2rem" } }],
+    };
+    expect(siteClassWarnings(template, site)).toEqual([
+      "Global class name btn already exists on the site with ID cls001; importing would create a second class.",
+      "Global class card (cls002) differs from the site's definition of card.",
+      "Global classes not defined in the template or on the site: ghost1.",
+    ]);
   });
 });
