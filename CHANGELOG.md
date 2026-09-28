@@ -9,6 +9,8 @@
 - Design-token import reads Bricks 2.4 palette colors (`{ id, raw, light }`).
 - Added [research on Bricks AI abilities, the MCP Adapter and the Abilities API](docs/RESEARCH-2026-09-28-BRICKS-MCP.md) with a capability matrix and consequences for v0.4–v0.6.
 
+- Added `scripts/capture-wordpress-fixtures.mjs`. It records real responses from a WordPress MCP Adapter endpoint, executing only abilities that the site annotates as read-only. For write abilities it records only their schemas. Output goes to `artifacts/` with secrets redacted.
+
 Not yet verified against a live site. See the research document for open items.
 
 ## 0.3.0 — 2026-09-28
