@@ -1,15 +1,17 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import type { BricksTemplate } from "@/lib/bricks-engine";
-import { diffTemplates, mergeTemplates, readStagingTemplate } from "@/lib/template-staging";
+import type { BricksGlobalClass, BricksTemplate } from "@/lib/bricks-engine";
+import { diffTemplates, mergeTemplates, readStagingTemplate, siteClassWarnings } from "@/lib/template-staging";
 import { generateMcpPage } from "@/lib/mcp-generation";
 import JsonPreview from "./JsonPreview";
 import StructurePreview from "./StructurePreview";
 import WordPressConnection from "./WordPressConnection";
-import type { WordPressSource } from "@/lib/wordpress-contract";
+import WordPressApply from "./WordPressApply";
+import BricksRenderPreview from "./BricksRenderPreview";
+import type { WordPressCredentials, WordPressSource } from "@/lib/wordpress-contract";
 
-type Review = { before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
+type Review = { id: number; before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
 const control = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
 const button = "rounded-lg border border-border px-3 py-2 text-sm hover:bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed";
 
@@ -21,6 +23,10 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState("");
   const [source, setSource] = useState<WordPressSource | null>(null);
+  // Global classes imported from the connected site; review checks staged classes against them.
+  const [siteClasses, setSiteClasses] = useState<BricksGlobalClass[] | null>(null);
+  // Verified connection credentials, kept in memory for applying reviewed changes.
+  const [credentials, setCredentials] = useState<WordPressCredentials | null>(null);
   // A slow file read must not overwrite a subsequent edit or show a stale review.
   const revision = useRef(0);
   const invalidate = () => { revision.current++; setReview(null); setError(""); };
@@ -49,10 +55,10 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
       const addition = JSON.parse(candidate);
       if (mode === "compare") {
         const template = readStagingTemplate(addition, true);
-        setReview({ before, template, diff: diffTemplates(before, template), warnings: ["Comparison can include removals. Export contains the full candidate, not only the differences.", "Structure comparison only. Check layout, dynamic data, links and forms in Bricks before publishing."] });
+        setReview({ id: revision.current, before, template, diff: diffTemplates(before, template), warnings: [...(siteClasses ? siteClassWarnings(template, siteClasses) : []), "Comparison can include removals. Export contains the full candidate, not only the differences.", "Structure comparison only. Check layout, dynamic data, links and forms in Bricks before publishing."] });
       } else {
-        const merged = mergeTemplates(before, addition, mode === "after" ? { mode, afterId: afterId.trim() } : { mode });
-        setReview({ before, ...merged });
+        const merged = mergeTemplates(before, addition, mode === "after" ? { mode, afterId: selectedAfter } : { mode });
+        setReview({ id: revision.current, before, ...merged, warnings: [...(siteClasses ? siteClassWarnings(merged.template, siteClasses) : []), ...merged.warnings] });
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Could not review templates."); }
   };
@@ -68,6 +74,8 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
     try { return readStagingTemplate(JSON.parse(baseline.trim() || "[]"), true).content.filter(el => el.parent === 0).map(el => ({ id: el.id, label: el.label || el.name })); }
     catch { return []; } // Keep invalid drafts editable; report errors on Review.
   }, [baseline]);
+  // A replaced baseline (demo, file, WordPress page) can drop the previously chosen section.
+  const selectedAfter = roots.some(root => root.id === afterId.trim()) ? afterId.trim() : "";
 
   return <section className="space-y-6" aria-labelledby="staging-title">
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -80,6 +88,8 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
     </div>
     <WordPressConnection
       currentSource={source}
+      onImportDesign={(_tokens, classes) => { invalidate(); setSiteClasses(classes); }}
+      onCredentials={setCredentials}
       onImportBaseline={(template, newSource) => {
         invalidate();
         setBaseline(JSON.stringify(template, null, 2));
@@ -106,7 +116,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         </select>
       </div>
       {mode === "after" && <div className="grow sm:grow-0 min-w-0"><label className="block text-xs text-muted mb-2" htmlFor="staging-after">After section</label>
-        <select id="staging-after" className={control} value={afterId} onChange={e => { invalidate(); setAfterId(e.target.value); }}><option value="">Choose a section</option>{roots.map(root => <option key={root.id} value={root.id}>{root.label} · {root.id}</option>)}</select>
+        <select id="staging-after" className={control} value={selectedAfter} onChange={e => { invalidate(); setAfterId(e.target.value); }}><option value="">Choose a section</option>{roots.map(root => <option key={root.id} value={root.id}>{root.label} · {root.id}</option>)}</select>
       </div>}
       <button className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-40" disabled={!candidate.trim()} onClick={inspect}>Review changes</button>
       <p className="text-xs text-muted sm:ml-auto">{source ? `Connected WordPress baseline (Post #${source.postId})` : "No WordPress connection required"}</p>
@@ -123,8 +133,20 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         <div className="min-w-0 rounded-xl border border-border p-4"><h4 className="font-medium mb-3">Before · structure</h4><StructurePreview elements={review.before.content}/></div>
         <div className="min-w-0 rounded-xl border border-border p-4"><h4 className="font-medium mb-3">After · structure</h4><StructurePreview elements={review.template.content}/></div>
       </div>
+      {source && credentials && credentials.endpoint === source.endpoint && <BricksRenderPreview key={review.id} source={source} credentials={credentials} proposal={review.template} changedIds={review.diff.elements.filter(el => el.status === "added" || el.status === "changed").map(el => el.id)}/>}
       <ul className="rounded-xl border border-border p-5 space-y-2 text-xs text-muted">{review.warnings.map((warning, i) => <li className="break-words" key={i}>{warning}</li>)}</ul>
       <div className="min-w-0"><h3 className="font-medium mb-3">4. Export reviewed template</h3><JsonPreview data={review.template} templateName="BricksSnap Staged Page" initialType="content" maxHeight="320px"/></div>
     </div>}
+    {source?.documentDigest && credentials && credentials.endpoint === source.endpoint && <WordPressApply
+      key={`${source.endpoint}#${source.postId}`}
+      source={source}
+      credentials={credentials}
+      proposal={review?.template ?? null}
+      onUpdated={(template, newSource) => {
+        invalidate();
+        setBaseline(JSON.stringify(template, null, 2));
+        setSource(newSource);
+      }}
+    />}
   </section>;
 }

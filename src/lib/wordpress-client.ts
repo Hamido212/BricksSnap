@@ -5,6 +5,10 @@ import { RequestError } from "./api-request";
 import { wordpressFetch } from "./wordpress-http";
 import {
   WP_READ_ABILITIES,
+  WP_WRITE_ABILITIES,
+  type WordPressApplyResult,
+  type WordPressRenderResult,
+  type WordPressRestoreResult,
   type WordPressCredentials,
   type WordPressRequest,
   type WordPressConnectResult,
@@ -13,8 +17,9 @@ import {
   type WordPressPageSummary,
   type WordPressSource,
 } from "./wordpress-contract";
-import { readStagingTemplate, stableJson } from "./template-staging";
-import type { BricksGlobalClass, DesignTokens } from "./bricks-engine";
+import { diffTemplates, readStagingTemplate, stableJson } from "./template-staging";
+import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
+import packageJson from "../../package.json";
 
 type JsonRecord = Record<string, unknown>;
 type InputSchema = { properties?: JsonRecord } | undefined;
@@ -22,6 +27,7 @@ type InputSchema = { properties?: JsonRecord } | undefined;
 /** One MCP connection plus the tool/ability input schemas learned during it. */
 type Session = {
   client: Client;
+  transport: StreamableHTTPClientTransport;
   tools: Map<string, InputSchema>;
   abilitySchemas: Map<string, InputSchema>;
 };
@@ -38,7 +44,7 @@ const isRecord = (value: unknown): value is JsonRecord => !!value && typeof valu
 
 /** Connect a scoped MCP client using the hardened loopback-isolated transport. */
 async function openSession(credentials: WordPressCredentials, signal: AbortSignal): Promise<Session> {
-  const client = new Client({ name: "brickssnap", version: "0.4.0" }, { capabilities: {} });
+  const client = new Client({ name: "brickssnap", version: packageJson.version }, { capabilities: {} });
   const transport = new StreamableHTTPClientTransport(new URL(credentials.endpoint), {
     fetch: wordpressFetch(credentials, signal),
   });
@@ -52,7 +58,7 @@ async function openSession(credentials: WordPressCredentials, signal: AbortSigna
       cursor = result.nextCursor;
       if (!cursor) break;
     }
-    return { client, tools, abilitySchemas: new Map() };
+    return { client, transport, tools, abilitySchemas: new Map() };
   } catch (error) {
     await client.close().catch(() => {});
     throw error;
@@ -64,6 +70,8 @@ async function withSession<T>(credentials: WordPressCredentials, signal: AbortSi
   try {
     return await run(session);
   } finally {
+    // DELETE ends the adapter's HTTP session instead of leaving it to expire.
+    await session.transport.terminateSession().catch(() => {});
     await session.client.close().catch(() => {});
   }
 }
@@ -168,11 +176,12 @@ export function readAbilityStatus(result: unknown): Record<string, boolean> | un
 }
 
 /** bricks/get-mcp-version returns bricksVersion, wordpressVersion, abilitiesApiActive and related fields. */
-export function readVersion(result: unknown): { version?: string; wordpressVersion?: string } {
+export function readVersion(result: unknown): { version?: string; wordpressVersion?: string; abilitiesVersion?: string } {
   if (typeof result === "string") return { version: result };
   if (!isRecord(result)) return {};
   const text = (value: unknown) => (typeof value === "string" && value ? value : undefined);
-  return { version: text(result.bricksVersion) ?? text(result.version), wordpressVersion: text(result.wordpressVersion) };
+  const abilitiesVersion = text(result.bricksAbilitiesVersion);
+  return { version: text(result.bricksVersion) ?? text(result.version), wordpressVersion: text(result.wordpressVersion), ...(abilitiesVersion ? { abilitiesVersion } : {}) };
 }
 
 export async function connectWordPress(credentials: WordPressCredentials, signal: AbortSignal): Promise<WordPressConnectResult> {
@@ -210,6 +219,7 @@ export async function connectWordPress(credentials: WordPressCredentials, signal
       endpoint: credentials.endpoint,
       version: versionInfo.version ?? "unknown",
       wordpressVersion: versionInfo.wordpressVersion,
+      ...(versionInfo.abilitiesVersion ? { abilitiesVersion: versionInfo.abilitiesVersion } : {}),
       abilities,
       missingAbilities,
       warnings: warnings.length > 0 ? warnings : undefined,
@@ -223,7 +233,11 @@ export async function searchWordPressPages(
   signal: AbortSignal
 ): Promise<{ pages: WordPressPageSummary[] }> {
   return withSession(credentials, signal, async session => {
-    const result = await callAbility(session, "bricks/find-post", [{ names: ["search", "query", "s"], value: search.trim(), required: true }]);
+    const result = await callAbility(session, "bricks/find-post", [
+      { names: ["query", "search", "s"], value: search.trim(), required: true },
+      { names: ["bricksOnly"], value: true },
+      { names: ["limit"], value: 50 },
+    ]);
 
     const items = Array.isArray(result)
       ? result
@@ -241,7 +255,8 @@ export async function searchWordPressPages(
         title: String(item.title ?? item.post_title ?? item.name ?? `Page #${id}`),
         slug: typeof item.slug === "string" ? item.slug : typeof item.post_name === "string" ? item.post_name : undefined,
         type: typeof item.type === "string" ? item.type : typeof item.postType === "string" ? item.postType : typeof item.post_type === "string" ? item.post_type : undefined,
-        modified: typeof item.modified === "string" ? item.modified : typeof item.post_modified === "string" ? item.post_modified : undefined,
+        modified: typeof item.modifiedGmt === "string" ? item.modifiedGmt : typeof item.modified === "string" ? item.modified : typeof item.post_modified === "string" ? item.post_modified : undefined,
+        ...(typeof item.locked === "boolean" ? { locked: item.locked } : {}),
       });
     }
     return { pages };
@@ -254,35 +269,64 @@ export async function getWordPressPage(
   signal: AbortSignal
 ): Promise<WordPressPageResult> {
   return withSession(credentials, signal, async session => {
-    const postArg: Argument = { names: ["postId", "post_id", "id"], value: postId, required: true };
-    const elementsResult = await callAbility(session, "bricks/get-page-elements", [postArg]);
+    const postArg = postArgument(postId);
+    const document = await readDocument(session, postId);
+    const { template, documentDigest } = document;
+    let title = document.title;
 
-    // Not listed in Bricks' published ability references; read only when the site provides it.
+    const fetchedAt = new Date().toISOString();
+
+    // Returns { settings, postId }; PHP encodes empty settings as [].
     let settings: JsonRecord | undefined;
     try {
       const s = await callAbility(session, "bricks/get-page-settings", [postArg]);
-      if (isRecord(s)) settings = s;
+      const value = isRecord(s) && "settings" in s ? s.settings : s;
+      settings = isRecord(value) ? value : {};
     } catch {
       // Optional settings read
     }
 
-    let rawElements: unknown[] = [];
-    let title: string | undefined;
-    if (Array.isArray(elementsResult)) rawElements = elementsResult;
-    else if (isRecord(elementsResult)) {
-      if (Array.isArray(elementsResult.elements)) rawElements = elementsResult.elements;
-      else if (Array.isArray(elementsResult.content)) rawElements = elementsResult.content;
-      const t = elementsResult.title ?? elementsResult.postTitle;
-      if (typeof t === "string" && t.trim()) title = t.trim();
+    // get-page-elements carries no title; find-post by ID does.
+    if (!title) {
+      try {
+        const found = await callAbility(session, "bricks/find-post", [postArg]);
+        const rows = isRecord(found) && Array.isArray(found.results) ? found.results : Array.isArray(found) ? found : [];
+        const row = rows.find(r => isRecord(r) && Number(r.id) === postId);
+        if (isRecord(row) && typeof row.title === "string" && row.title.trim()) title = row.title.trim();
+      } catch {
+        // Title is cosmetic
+      }
     }
 
-    const template = readStagingTemplate({ content: rawElements }, true);
-    const pageHash = createHash("sha256").update(stableJson(template.content)).digest("hex").slice(0, 16);
-    const fetchedAt = new Date().toISOString();
-    const postTitle = title ?? `Page #${postId}`;
-    const source: WordPressSource = { endpoint: credentials.endpoint, postId, postTitle, fetchedAt, pageHash };
+    const pageHash = shortHash(template);
 
-    return { postId, postTitle, template, pageHash, fetchedAt, endpoint: credentials.endpoint, source, settings };
+    // Include the site's definitions of referenced global classes so staging can check class conflicts.
+    const warnings: string[] = [];
+    const referenced = new Set(template.content.flatMap(el => Array.isArray(el.settings._cssGlobalClasses) ? el.settings._cssGlobalClasses.filter((id): id is string => typeof id === "string") : []));
+    if (referenced.size) {
+      try {
+        const classes = (await listAll(session, "bricks/list-global-classes")).filter(isRecord);
+        template.globalClasses = classes.filter(c => typeof c.id === "string" && typeof c.name === "string" && referenced.has(c.id)).map(siteClass);
+        const found = new Set(template.globalClasses.map(c => c.id));
+        const missing = [...referenced].filter(id => !found.has(id));
+        if (missing.length) warnings.push(`The page references global classes that do not exist on the site: ${missing.join(", ")}.`);
+      } catch {
+        warnings.push("Could not read the site's global classes (bricks/list-global-classes); class conflicts are not checked.");
+      }
+    }
+    // Response shapes follow the abilities version; record it with the baseline.
+    let versions: ReturnType<typeof readVersion> = {};
+    try { versions = readVersion(await callAbility(session, "bricks/get-mcp-version")); } catch { /* optional */ }
+
+    const postTitle = title ?? `Page #${postId}`;
+    const source: WordPressSource = {
+      endpoint: credentials.endpoint, postId, postTitle, fetchedAt, pageHash,
+      ...(documentDigest ? { documentDigest } : {}),
+      ...(versions.version ? { bricksVersion: versions.version } : {}),
+      ...(versions.abilitiesVersion ? { abilitiesVersion: versions.abilitiesVersion } : {}),
+    };
+
+    return { postId, postTitle, template, pageHash, ...(documentDigest ? { documentDigest } : {}), fetchedAt, endpoint: credentials.endpoint, source, settings, ...(warnings.length ? { warnings } : {}) };
   });
 }
 
@@ -306,40 +350,265 @@ function readColors(context: JsonRecord): Array<{ name: string; value: string }>
   return colors;
 }
 
+/** A global class as the site stores it, without the write-precondition fields list abilities add. */
+function siteClass(cls: JsonRecord): BricksGlobalClass {
+  const kept = Object.fromEntries(Object.entries(cls).filter(([key]) => !/(Ownership|Digest)$/.test(key)));
+  return { ...kept, id: String(cls.id), name: String(cls.name), settings: isRecord(cls.settings) ? cls.settings : {} };
+}
+
+/** Read every page of a paginated Bricks list ability ({ items, hasMore }). */
+async function listAll(session: Session, abilityName: string): Promise<unknown[]> {
+  const items: unknown[] = [];
+  for (let page = 1; page <= 20; page++) {
+    const result = await callAbility(session, abilityName, [{ names: ["page"], value: page }, { names: ["perPage"], value: 100 }]);
+    const rows = isRecord(result) && Array.isArray(result.items) ? result.items : Array.isArray(result) ? result : [];
+    items.push(...rows);
+    if (!isRecord(result) || result.hasMore !== true || !rows.length) break;
+  }
+  return items;
+}
+
 export async function getWordPressDesignContext(credentials: WordPressCredentials, signal: AbortSignal): Promise<WordPressDesignResult> {
   return withSession(credentials, signal, async session => {
+    // The design context only summarizes palettes and classes (counts, hasSettings); values come from the list abilities.
     const result = await callAbility(session, "bricks/get-design-context");
     const fetchedAt = new Date().toISOString();
+    const palettes = await listAll(session, "bricks/list-color-palettes").catch(() => []);
+    const classes = await listAll(session, "bricks/list-global-classes").catch(() => []);
 
     const designTokens: Partial<DesignTokens> = {};
+    for (const { name, value } of readColors({ colorPalettes: palettes })) {
+      // Bricks' built-in palette (--bricks-color-light-blue, …) is not a brand system.
+      if (name.startsWith("bricks-color-")) continue;
+      const words = new Set(name.split(/[^a-z0-9]+/));
+      const has = (...candidates: string[]) => candidates.some(word => words.has(word));
+      if (has("primary") && !designTokens.primaryColor) designTokens.primaryColor = value;
+      else if (has("secondary") && !designTokens.secondaryColor) designTokens.secondaryColor = value;
+      else if (has("background", "bg", "base", "light") && !designTokens.backgroundColor) designTokens.backgroundColor = value;
+      else if (has("surface", "card", "muted") && !designTokens.surfaceColor) designTokens.surfaceColor = value;
+      else if (has("text", "body", "dark") && !designTokens.textColor) designTokens.textColor = value;
+    }
+
     const globalClasses: BricksGlobalClass[] = [];
-
-    if (isRecord(result)) {
-      for (const { name, value } of readColors(result)) {
-        if (name.includes("primary") && !designTokens.primaryColor) designTokens.primaryColor = value;
-        else if (name.includes("secondary") && !designTokens.secondaryColor) designTokens.secondaryColor = value;
-        else if ((name.includes("background") || name.includes("base") || name.includes("light")) && !designTokens.backgroundColor) designTokens.backgroundColor = value;
-        else if (name.includes("surface") || name.includes("card") || name.includes("muted")) designTokens.surfaceColor = value;
-        else if (name.includes("text") || name.includes("body") || name.includes("dark")) designTokens.textColor = value;
-      }
-
-      if (Array.isArray(result.globalClasses)) {
-        for (const cls of result.globalClasses) {
-          if (isRecord(cls) && typeof cls.id === "string" && typeof cls.name === "string") {
-            globalClasses.push({ id: cls.id, name: cls.name, settings: isRecord(cls.settings) ? cls.settings : {} });
-          }
-        }
-      }
+    for (const cls of classes) {
+      if (isRecord(cls) && typeof cls.id === "string" && typeof cls.name === "string") globalClasses.push(siteClass(cls));
     }
 
     return { endpoint: credentials.endpoint, fetchedAt, designTokens, globalClasses, rawDesignContext: result };
   });
 }
 
+const postArgument = (postId: number): Argument => ({ names: ["postId", "post_id", "id"], value: postId, required: true });
+const shortHash = (template: BricksTemplate) => createHash("sha256").update(stableJson(template.content)).digest("hex").slice(0, 16);
+
+/** PHP's JSON encoder writes an empty associative array as []; Bricks stores empty settings that way. */
+export function fromPhpElements(elements: unknown[]): unknown[] {
+  return elements.map(el => isRecord(el) && Array.isArray(el.settings) && el.settings.length === 0 ? { ...el, settings: {} } : el);
+}
+
+/** Current element tree and Bricks' document digest of a page or template. */
+async function readDocument(session: Session, postId: number): Promise<{ template: BricksTemplate; documentDigest?: string; title?: string }> {
+  const result = await callAbility(session, "bricks/get-page-elements", [postArgument(postId)]);
+  const record = isRecord(result) ? result : {};
+  const elements = Array.isArray(result) ? result : Array.isArray(record.elements) ? record.elements : Array.isArray(record.content) ? record.content : [];
+  const title = [record.title, record.postTitle].find(t => typeof t === "string" && t.trim()) as string | undefined;
+  return {
+    template: readStagingTemplate({ content: fromPhpElements(elements) }, true),
+    ...(typeof record.documentDigest === "string" ? { documentDigest: record.documentDigest } : {}),
+    ...(title ? { title: title.trim() } : {}),
+  };
+}
+
+/** Writes must be enabled by the site administrator; never route around a disabled ability. */
+async function requireWriteAbility(session: Session, ability: typeof WP_WRITE_ABILITIES[number]) {
+  let status: Record<string, boolean> | undefined;
+  try {
+    status = readAbilityStatus(await callAbility(session, "bricks/list-ability-status", [{ names: ["abilityNames"], value: [...WP_WRITE_ABILITIES] }]));
+  } catch {
+    // Execution reports the authoritative error below.
+  }
+  if (status && status[ability] !== true) throw new RequestError(`Saving is disabled on this site. Enable ${ability} under Bricks → AI → Abilities.`, 403);
+}
+
+/** Bricks rejects a stale expectedDocumentDigest; surface that as a conflict rather than a gateway error. */
+async function guardedWrite(session: Session, ability: string, args: Argument[]): Promise<unknown> {
+  try {
+    return await callAbility(session, ability, args);
+  } catch (error) {
+    if (error instanceof RequestError && /digest|conflict|stale|changed/i.test(error.message)) throw new RequestError(`WordPress refused the change because the page was modified: ${error.message}`, 409);
+    throw error;
+  }
+}
+
+const numberOrNull = (value: unknown) => (typeof value === "number" && Number.isInteger(value) ? value : null);
+
+/** Absolute http(s) URLs in element settings that point to hosts other than the site. */
+export function externalUrls(template: BricksTemplate, siteHost: string): string[] {
+  const found = new Set<string>();
+  const visit = (value: unknown) => {
+    if (typeof value === "string") {
+      for (const match of value.matchAll(/https?:\/\/[^\s"'()<>]+/gi)) {
+        try { if (new URL(match[0]).hostname !== siteHost) found.add(new URL(match[0]).origin); } catch { /* not a URL */ }
+      }
+    } else if (Array.isArray(value)) value.forEach(visit);
+    else if (isRecord(value)) Object.values(value).forEach(visit);
+  };
+  template.content.forEach(el => visit(el.settings));
+  return [...found];
+}
+
+export async function applyWordPressPage(
+  credentials: WordPressCredentials,
+  request: { postId: number; expectedDocumentDigest: string; template: unknown; allowLocked: boolean },
+  signal: AbortSignal
+): Promise<WordPressApplyResult> {
+  const proposal = readStagingTemplate(request.template);
+  const { postId, expectedDocumentDigest } = request;
+  return withSession(credentials, signal, async session => {
+    await requireWriteAbility(session, "bricks/set-page-elements");
+
+    let title: string | undefined;
+    try {
+      const found = await callAbility(session, "bricks/find-post", [postArgument(postId)]);
+      const row = (isRecord(found) && Array.isArray(found.results) ? found.results : []).find(r => isRecord(r) && Number(r.id) === postId);
+      if (isRecord(row)) {
+        if (typeof row.title === "string") title = row.title;
+        if (row.locked === true && !request.allowLocked) throw new RequestError(`${title ?? `Post #${postId}`} is open in the Bricks builder. Saving there later would overwrite this change. Close the builder, or confirm applying anyway.`, 409);
+      }
+    } catch (error) {
+      if (error instanceof RequestError && error.status === 409) throw error;
+    }
+
+    // Fail fast with a clear message; Bricks enforces the same digest atomically on write.
+    const current = await readDocument(session, postId);
+    if (!current.documentDigest) throw new RequestError("This Bricks version does not report a document digest; guarded writes are unavailable.", 422);
+    if (current.documentDigest !== expectedDocumentDigest) throw new RequestError("The page changed since it was loaded. Load it into the baseline again and review the change.", 409);
+
+    // set-page-elements saves elements only; class definitions must already exist on the site.
+    const warnings: string[] = [];
+    const referenced = new Set(proposal.content.flatMap(el => Array.isArray(el.settings._cssGlobalClasses) ? el.settings._cssGlobalClasses.filter((id): id is string => typeof id === "string") : []));
+    if (referenced.size) {
+      const site = new Map((await listAll(session, "bricks/list-global-classes")).filter(isRecord).map(c => [String(c.id), c]));
+      const missing = [...referenced].filter(id => !site.has(id));
+      if (missing.length) throw new RequestError(`The change uses global classes that do not exist on the site: ${missing.join(", ")}. Create them in Bricks first or remove them from the section.`, 422);
+      for (const cls of proposal.globalClasses ?? []) {
+        const existing = site.get(cls.id);
+        if (referenced.has(cls.id) && existing && stableJson(isRecord(existing.settings) ? existing.settings : {}) !== stableJson(cls.settings ?? {})) warnings.push(`Global class ${cls.name} keeps the site's definition; staged settings for it are not saved.`);
+      }
+    }
+
+    let written: unknown;
+    try {
+      written = await guardedWrite(session, "bricks/set-page-elements", [
+        postArgument(postId),
+        { names: ["elements"], value: proposal.content, required: true },
+        { names: ["expectedDocumentDigest"], value: expectedDocumentDigest, required: true },
+      ]);
+    } catch (error) {
+      // Observed live: a host firewall answered writes containing external image URLs with an HTML page.
+      const external = externalUrls(proposal, new URL(credentials.endpoint).hostname);
+      if (error instanceof RequestError && error.message.startsWith("The web host answered") && external.length) {
+        throw new RequestError(`${error.message} The change contains external URLs (${external.slice(0, 3).join(", ")}${external.length > 3 ? ", …" : ""}); some host firewalls block these. Replace them with media from this site and retry.`, error.status);
+      }
+      throw error;
+    }
+    const saved = isRecord(written) ? written : {};
+
+    const after = await readDocument(session, postId);
+    const diff = diffTemplates({ content: proposal.content }, { content: after.template.content });
+    // Name changed setting keys (e.g. settings._cssCustom) so normalization by Bricks is reviewable.
+    const proposed = new Map(proposal.content.map(el => [el.id, el]));
+    const settingKeys = new Set<string>();
+    for (const el of after.template.content) {
+      const sent = proposed.get(el.id);
+      if (!sent) continue;
+      for (const key of new Set([...Object.keys(sent.settings), ...Object.keys(el.settings)])) if (stableJson(sent.settings[key]) !== stableJson(el.settings[key])) settingKeys.add(`settings.${key}`);
+    }
+    const fields = [...new Set([...diff.elements.flatMap(e => e.fields).filter(f => f !== "settings"), ...settingKeys])];
+    if (typeof saved.documentDigest === "string" && after.documentDigest && saved.documentDigest !== after.documentDigest) warnings.push("The page changed again right after saving. Reload it before further changes.");
+    const documentDigest = after.documentDigest ?? (typeof saved.documentDigest === "string" ? saved.documentDigest : "");
+    const template = { ...after.template, globalClasses: (proposal.globalClasses ?? []).filter(c => referenced.has(c.id)) };
+    const fetchedAt = new Date().toISOString();
+
+    return {
+      postId,
+      applied: saved.changed !== false,
+      revisionId: numberOrNull(saved.revisionId),
+      documentDigest,
+      template,
+      source: { endpoint: credentials.endpoint, postId, postTitle: title ?? current.title ?? `Page #${postId}`, fetchedAt, pageHash: shortHash(template), ...(documentDigest ? { documentDigest } : {}) },
+      verification: { matches: diff.elements.length === 0, ...diff.counts, fields },
+      ...(warnings.length ? { warnings } : {}),
+    };
+  });
+}
+
+/** Site root for an MCP endpoint (/wp-json/mcp/… or /?rest_route=/mcp/…). */
+export function siteRoot(endpoint: string): string {
+  const url = new URL(endpoint);
+  const path = url.pathname.replace(/wp-json\/mcp\/[^/]+\/?$/, "");
+  return `${url.origin}${path.endsWith("/") ? path : `${path}/`}`;
+}
+
+function readMarkup(value: unknown): { html: string; css: string } {
+  const record = isRecord(value) ? value : {};
+  return { html: typeof record.html === "string" ? record.html : "", css: typeof record.css === "string" ? record.css : "" };
+}
+
+/** Bricks renders the saved page and the proposal (render-elements is read-only; nothing is saved). */
+export async function renderWordPressPreview(
+  credentials: WordPressCredentials,
+  request: { postId: number; template: unknown },
+  signal: AbortSignal
+): Promise<WordPressRenderResult> {
+  const proposal = readStagingTemplate(request.template);
+  const { postId } = request;
+  return withSession(credentials, signal, async session => {
+    const format: Argument = { names: ["responseFormat"], value: "detailed" };
+    const before = readMarkup(await callAbility(session, "bricks/render-elements", [postArgument(postId), format]));
+    const after = readMarkup(await callAbility(session, "bricks/render-elements", [postArgument(postId), { names: ["elements"], value: proposal.content, required: true }, format]));
+    const siteUrl = siteRoot(credentials.endpoint);
+    // Standard location of Bricks' frontend styles; theme styles and global class CSS are not included.
+    return { postId, before, after, stylesheets: [`${siteUrl}wp-content/themes/bricks/assets/css/frontend-layer.min.css`], siteUrl };
+  });
+}
+
+export async function restoreWordPressRevision(
+  credentials: WordPressCredentials,
+  request: { postId: number; revisionId: number; expectedDocumentDigest: string },
+  signal: AbortSignal
+): Promise<WordPressRestoreResult> {
+  const { postId, revisionId, expectedDocumentDigest } = request;
+  return withSession(credentials, signal, async session => {
+    await requireWriteAbility(session, "bricks/restore-revision");
+    // restore-revision has no digest precondition; refuse when someone edited after the apply.
+    const current = await readDocument(session, postId);
+    if (current.documentDigest !== expectedDocumentDigest) throw new RequestError("The page changed after the change was applied. Restoring would discard those edits; use Bricks → Revisions instead.", 409);
+
+    const result = await callAbility(session, "bricks/restore-revision", [
+      { names: ["revisionId"], value: revisionId, required: true },
+      postArgument(postId),
+    ]);
+    const restored = isRecord(result) ? result : {};
+    const after = await readDocument(session, postId);
+    const documentDigest = after.documentDigest ?? "";
+    const newRevisionId = numberOrNull(restored.newRevisionId);
+    return {
+      postId,
+      restored: restored.restored !== false,
+      fromRevisionId: numberOrNull(restored.fromRevisionId) ?? revisionId,
+      ...(newRevisionId ? { newRevisionId } : {}),
+      documentDigest,
+      template: after.template,
+      source: { endpoint: credentials.endpoint, postId, postTitle: current.title ?? `Page #${postId}`, fetchedAt: new Date().toISOString(), pageHash: shortHash(after.template), ...(documentDigest ? { documentDigest } : {}) },
+    };
+  });
+}
+
 export async function handleWordPressRequest(
   request: WordPressRequest,
   signal: AbortSignal
-): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult> {
+): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult> {
   switch (request.action) {
     case "connect":
       return connectWordPress(request.credentials, signal);
@@ -349,5 +618,11 @@ export async function handleWordPressRequest(
       return getWordPressPage(request.credentials, request.postId, signal);
     case "design":
       return getWordPressDesignContext(request.credentials, signal);
+    case "render":
+      return renderWordPressPreview(request.credentials, request, signal);
+    case "apply":
+      return applyWordPressPage(request.credentials, request, signal);
+    case "restore":
+      return restoreWordPressRevision(request.credentials, request, signal);
   }
 }

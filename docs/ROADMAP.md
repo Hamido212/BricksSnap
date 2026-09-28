@@ -22,19 +22,30 @@ Acceptance: catalog-wide merge tests, real stdio protocol integration, HTTP chec
 
 ## v0.4 — Read a connected WordPress site
 
+Delivered in 0.4.0 (see [the connection guide](WORDPRESS.md)). The original scope follows.
+
 Deliver one complete read-only path: connection setup, capability/version discovery, page selection, read page structure and import available design context. Show which source and timestamp each baseline came from. Preserve unknown data without claiming full support for third-party CSS frameworks.
 
-Status: a read-only client for the MCP Adapter's default server is in progress (`src/lib/wordpress-client.ts`). It selects arguments from each ability's published input schema and parses the documented version/status envelopes. Open items are listed in the [research](RESEARCH-2026-09-28-BRICKS-MCP.md#v04--read-a-connected-site): real response fixtures, the unverified `bricks/get-page-settings`, and an opt-in for local/staging targets.
+Status: the read-only client (`src/lib/wordpress-client.ts`) ran connect, page search, page import and design import end to end against a live Bricks 2.4.2 / WordPress 7.1.2 / MCP Adapter 0.6.1 site. Tests replay sanitized captured responses. A Chromium review of the Staging flow at desktop and 390 px widths passed. The design import, session termination and the local/staging opt-in were completed for 0.4.0.
 
 Before release: inspect the installed abilities' actual schemas and permissions; test missing capabilities, revoked credentials, timeouts and inconsistent responses. Choose an explicit local-only or authenticated server-side credential model. For hosted connections, implement tenant isolation and outbound request protections before accepting arbitrary site URLs. Do not store WordPress secrets in the current obfuscation helper.
 
 ## v0.5 — Review and apply changes to WordPress
 
+Delivered in 0.5.0 (see [release notes](RELEASE-0.5.0.md)). Writes use Bricks' atomic `expectedDocumentDigest` guard, verified live, and recovery through `restore-revision` was verified live. The before/after render comes from Bricks' own `render-elements` at 1280 and 390 px. The original scope follows.
+
 Deliver a visible target page and reviewed proposal, conflict detection against a fresh baseline, controlled apply, read-back verification and a tested recovery path. Reuse v0.3's additive assembly and diff.
 
-Before release: verify actual write/revision behavior on staging. Do not invent an `expected_hash` parameter or call client-side hashes atomic locking. Bricks documents compare-and-set guards for global data (ownership/digests) and exact value edits (`expectedValue`), but none for whole-page writes (`set-page-elements`, `add-element`). Test whether `resolve-agent-file`/`commit-agent-file` enforce a document baseline; otherwise a fresh-read hash check only narrows the race. Page element writes create Bricks revisions; global classes/variables need a transfer-package backup instead. If the native interface cannot provide atomic conflict detection, document that limit and disable unsafe unattended writes. A saved JSON backup is not evidence that revision rollback works. Render before/after on the actual Bricks installation at desktop/mobile widths; a local iframe sketch is insufficient.
+Before release: verify actual write/revision behavior on staging. Do not invent an `expected_hash` parameter or call client-side hashes atomic locking. The live schema shows `set-page-elements` accepting `expectedDocumentDigest`, which `get-page-elements` returns. Test on staging that a stale digest is rejected before relying on it; `add-element` has no such guard. `restore-revision` exists for page recovery; global classes/variables need a transfer-package backup instead. If the native interface cannot provide atomic conflict detection, document that limit and disable unsafe unattended writes. A saved JSON backup is not evidence that revision rollback works. Render before/after on the actual Bricks installation at desktop/mobile widths; a local iframe sketch is insufficient.
 
 ## v0.6 — Distribute templates and client guidance
+
+Status:
+- **Remote library.** Implemented against the legacy Bricks response shape captured from a Bricks 2.4.2 source ([remote library](REMOTE-LIBRARY.md)).
+- **Client guidance.** Written ([AI clients](CLIENTS.md)).
+- **Pending.** The end-to-end browse/insert from a Bricks site needs a publicly reachable deployment. On the project's Vercel deployment, the firewall currently denies `/wp-json/*` paths (`x-vercel-mitigated: deny`).
+
+The original scope follows.
 
 Deliver a Bricks-compatible remote library after testing its real consumer contract, with pagination, asset handling and access rules where needed. Add reusable guidance for supported AI clients, using tool discovery and the existing Bricks schemas rather than duplicating stale element rules.
 

@@ -14,6 +14,8 @@ import type {
 interface WordPressConnectionProps {
   onImportBaseline: (template: BricksTemplate, source: WordPressSource) => void;
   onImportDesign?: (tokens: Partial<DesignTokens>, classes: BricksGlobalClass[]) => void;
+  /** Credentials of the verified connection (memory only), or null after disconnecting or a failed check. */
+  onCredentials?: (credentials: WordPressCredentials | null) => void;
   currentSource: WordPressSource | null;
 }
 
@@ -23,6 +25,7 @@ const buttonClass = "rounded-lg border border-border px-3 py-1.5 text-xs hover:b
 export default function WordPressConnection({
   onImportBaseline,
   onImportDesign,
+  onCredentials,
   currentSource,
 }: WordPressConnectionProps) {
   const [open, setOpen] = useState(false);
@@ -67,6 +70,7 @@ export default function WordPressConnection({
 
       const result = data as WordPressConnectResult;
       setConnected(true);
+      onCredentials?.(credentials);
       setVersion(result.version || "unknown");
       setStatus(`Connected to Bricks ${result.version || "unknown"}${result.wordpressVersion ? ` on WordPress ${result.wordpressVersion}` : ""}. Abilities discovered.`);
 
@@ -75,9 +79,10 @@ export default function WordPressConnection({
       }
 
       // Automatically search for initial pages
-      void handleSearch("");
+      void handleSearch("", true);
     } catch (err) {
       setConnected(false);
+      onCredentials?.(null);
       setError(err instanceof Error ? err.message : "Connection failed.");
       setStatus("");
     } finally {
@@ -85,8 +90,9 @@ export default function WordPressConnection({
     }
   }
 
-  async function handleSearch(query = search) {
-    if (!connected) return;
+  // Right after connecting, the `connected` state in this closure is still false.
+  async function handleSearch(query = search, justConnected = false) {
+    if (!connected && !justConnected) return;
     setBusy(true);
     setError("");
     try {
@@ -97,7 +103,7 @@ export default function WordPressConnection({
           "Content-Type": "application/json",
           "X-BricksSnap-Local": "1",
         },
-        body: JSON.stringify({ action: "search", credentials, search: query.trim() || "page" }),
+        body: JSON.stringify({ action: "search", credentials, search: query.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Search failed.");
@@ -133,7 +139,8 @@ export default function WordPressConnection({
 
       const pageResult = data as WordPressPageResult;
       onImportBaseline(pageResult.template, pageResult.source);
-      setStatus(`Imported page #${pageResult.postId} (${pageResult.template.content.length} elements).`);
+      const classCount = pageResult.template.globalClasses?.length ?? 0;
+      setStatus([`Imported ${pageResult.postTitle} (#${pageResult.postId}): ${pageResult.template.content.length} elements${classCount ? `, ${classCount} global classes` : ""}.`, ...(pageResult.warnings ?? [])].join(" "));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load page.");
     } finally {
@@ -163,7 +170,8 @@ export default function WordPressConnection({
       if (onImportDesign) {
         onImportDesign(designResult.designTokens, designResult.globalClasses);
       }
-      setStatus(`Imported design context (${designResult.globalClasses.length} global classes).`);
+      const colors = Object.keys(designResult.designTokens).length;
+      setStatus(`Imported design context: ${designResult.globalClasses.length} global classes${colors ? `, ${colors} brand colors` : ""}. Review now checks staged classes against the site.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load design context.");
     } finally {
@@ -275,6 +283,7 @@ export default function WordPressConnection({
                   disabled={busy}
                   onClick={() => {
                     setConnected(false);
+                    onCredentials?.(null);
                     setStatus("Disconnected.");
                   }}
                 >
@@ -302,11 +311,11 @@ export default function WordPressConnection({
                   <select
                     value={selectedPostId ?? ""}
                     onChange={e => setSelectedPostId(Number(e.target.value))}
-                    className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs grow sm:max-w-md"
+                    className="w-full min-w-0 rounded-lg border border-border bg-card px-2.5 py-1 text-xs sm:w-auto sm:grow sm:max-w-md"
                   >
                     {pages.map(p => (
                       <option key={p.id} value={p.id}>
-                        #{p.id} · {p.title} {p.type ? `(${p.type})` : ""}
+                        #{p.id} · {p.title} {p.type ? `(${p.type})` : ""}{p.locked ? " · open in builder" : ""}
                       </option>
                     ))}
                   </select>

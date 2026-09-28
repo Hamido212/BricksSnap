@@ -167,3 +167,29 @@ export function diffTemplates(baseline: unknown, proposal: unknown) {
   const metadata = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(key => key !== "content" && stableJson(before[key]) !== stableJson(after[key]));
   return { elements: deltas, metadata, counts: { added: deltas.filter(e => e.status === "added").length, removed: deltas.filter(e => e.status === "removed").length, changed: deltas.filter(e => e.status === "changed").length, moved: deltas.filter(e => e.status === "moved").length, unchanged: after.content.length - deltas.filter(e => e.status !== "removed").length } };
 }
+
+type SiteClass = { id: string; name: string; settings?: unknown };
+
+/**
+ * Compare a staged template's global classes with the destination site's classes: a reused name under a
+ * different ID would create a second class in Bricks, and a shared ID with other settings would not be
+ * imported as reviewed. Elements referencing classes that neither the template nor the site defines are reported.
+ */
+export function siteClassWarnings(template: BricksTemplate, siteClasses: SiteClass[]): string[] {
+  const byId = new Map(siteClasses.map(c => [c.id, c]));
+  const byName = new Map(siteClasses.map(c => [c.name, c]));
+  const warnings: string[] = [];
+  for (const cls of template.globalClasses ?? []) {
+    const sameId = byId.get(cls.id);
+    const sameName = byName.get(cls.name);
+    if (sameId && (sameId.name !== cls.name || stableJson(sameId.settings ?? {}) !== stableJson(cls.settings ?? {}))) warnings.push(`Global class ${cls.name} (${cls.id}) differs from the site's definition of ${sameId.name}.`);
+    else if (!sameId && sameName) warnings.push(`Global class name ${cls.name} already exists on the site with ID ${sameName.id}; importing would create a second class.`);
+  }
+  const known = new Set([...(template.globalClasses ?? []).map(c => c.id), ...byId.keys()]);
+  const missing = new Set<string>();
+  for (const el of template.content) {
+    if (Array.isArray(el.settings._cssGlobalClasses)) for (const id of el.settings._cssGlobalClasses) if (typeof id === "string" && !known.has(id)) missing.add(id);
+  }
+  if (missing.size) warnings.push(`Global classes not defined in the template or on the site: ${[...missing].join(", ")}.`);
+  return warnings;
+}

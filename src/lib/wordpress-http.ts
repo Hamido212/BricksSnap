@@ -2,7 +2,7 @@ import { request as httpsRequest } from "node:https";
 import { lookup } from "node:dns/promises";
 import ipaddr from "ipaddr.js";
 import { RequestError } from "./api-request";
-import type { WordPressCredentials } from "./wordpress-contract";
+import { allowPrivateWordPress, wordpressEndpointProblem, type WordPressCredentials } from "./wordpress-contract";
 
 export function assertLocalWordPress(request: Request) {
   if (process.env.BRICKSSNAP_LOCAL_WORDPRESS !== "true") throw new RequestError("WordPress connections run locally. Start BricksSnap with npm run dev:local.", 403);
@@ -15,28 +15,30 @@ export function assertLocalWordPress(request: Request) {
 }
 
 export function wordpressEndpoint(value: string): URL {
-  let url: URL;
-  try { url = new URL(value); } catch { throw new RequestError("Enter the HTTPS MCP endpoint shown in Bricks → AI."); }
-  if (url.protocol !== "https:" || url.username || url.password || url.hash || url.search || (url.port && url.port !== "443")) throw new RequestError("Use an HTTPS MCP endpoint without embedded credentials, query parameters or a custom port.");
-  if (!/\/wp-json\/mcp\/[a-zA-Z0-9_-]+\/?$/.test(url.pathname)) throw new RequestError("Use the full MCP endpoint from Bricks → AI, ending in /wp-json/mcp/server-name.");
-  return url;
+  const problem = wordpressEndpointProblem(value);
+  if (problem) throw new RequestError(problem);
+  return new URL(value);
 }
 
 export function isPublicAddress(address: string): boolean {
   try { return ipaddr.process(address).range() === "unicast"; } catch { return false; }
 }
 
-/** HTTPS only, pinned public DNS address, bounded response, and no credential-bearing redirects. */
+/**
+ * HTTPS only, pinned DNS address (public unless BRICKSSNAP_ALLOW_PRIVATE_WORDPRESS=true), bounded
+ * response, and no credential-bearing redirects. POST carries MCP messages; DELETE ends the session.
+ */
 export function wordpressFetch(credentials: WordPressCredentials, signal: AbortSignal) {
   const endpoint = wordpressEndpoint(credentials.endpoint);
   return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     if (String(input) !== endpoint.href) throw new RequestError("The MCP client attempted an unexpected endpoint.", 502);
-    // This client needs only request/response MCP. No unsolicited server event stream or session writes.
-    if (init?.method !== "POST") return new Response(null, { status: 405 });
+    // Request/response MCP only: no standalone server event stream (GET).
+    if (!init || (init.method !== "POST" && init.method !== "DELETE")) return new Response(null, { status: 405 });
+    const method = init.method;
     let addresses;
     try { addresses = await lookup(endpoint.hostname.replace(/^\[|\]$/g, ""), { all: true }); }
     catch { throw new RequestError("Could not resolve the WordPress hostname.", 502); }
-    if (!addresses.length || addresses.some(item => !isPublicAddress(item.address))) throw new RequestError("WordPress must resolve to public internet addresses. Private/local targets are not supported.", 400);
+    if (!addresses.length || (!allowPrivateWordPress() && addresses.some(item => !isPublicAddress(item.address)))) throw new RequestError("WordPress must resolve to public internet addresses. For a local/staging site, start BricksSnap with BRICKSSNAP_ALLOW_PRIVATE_WORDPRESS=true.", 400);
     const selected = addresses[0];
     const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(15_000), ...(init.signal ? [init.signal] : [])]);
     return new Promise<Response>((resolve, reject) => {
@@ -44,7 +46,7 @@ export function wordpressFetch(credentials: WordPressCredentials, signal: AbortS
       headers.authorization = `Basic ${Buffer.from(`${credentials.username}:${credentials.password.replace(/\s/g, "")}`).toString("base64")}`;
       headers["accept-encoding"] = "identity";
       const req = httpsRequest(endpoint, {
-        method: "POST", headers, agent: false, rejectUnauthorized: true, signal: requestSignal,
+        method, headers, agent: false, rejectUnauthorized: true, signal: requestSignal,
         lookup: (_hostname, options, callback) => {
           if (options.all) callback(null, [selected]);
           else callback(null, selected.address, selected.family);
@@ -58,6 +60,20 @@ export function wordpressFetch(credentials: WordPressCredentials, signal: AbortS
         const responseHeaders = new Headers();
         for (const key of ["content-type", "mcp-session-id", "mcp-protocol-version"]) if (typeof response.headers[key] === "string") responseHeaders.set(key, response.headers[key]);
         if ([202, 204].includes(status)) { response.resume(); resolve(new Response(null, { status, headers: responseHeaders })); return; }
+        // Some hosts answer blocked or throttled requests with an HTML page and status 200.
+        const contentType = responseHeaders.get("content-type") ?? "";
+        if (method === "POST" && !/application\/json|text\/event-stream/i.test(contentType)) {
+          let html = "";
+          response.setEncoding("utf8");
+          response.on("data", (chunk: string) => { if (html.length < 4096) html += chunk; else response.destroy(); });
+          const fail = () => {
+            const title = /<title>([^<]{1,120})<\/title>/i.exec(html)?.[1]?.trim();
+            reject(new RequestError(`The web host answered with a page${title ? ` ("${title}")` : ""} instead of WordPress. A firewall, rate limit or maintenance mode may have blocked the request; a write was not confirmed. Wait, reload the page and retry.`, 502));
+          };
+          response.on("end", fail);
+          response.on("close", fail);
+          return;
+        }
         let bytes = 0;
         const body = new ReadableStream<Uint8Array>({
           start(controller) {
@@ -74,6 +90,7 @@ export function wordpressFetch(credentials: WordPressCredentials, signal: AbortS
         resolve(new Response(body, { status, headers: responseHeaders }));
       });
       req.on("error", () => reject(new RequestError(requestSignal.aborted ? "WordPress request timed out or was cancelled." : "Could not establish a verified HTTPS connection to WordPress.", requestSignal.aborted ? 504 : 502)));
+      if (method === "DELETE") { req.end(); return; }
       if (typeof init.body !== "string") { req.destroy(); reject(new RequestError("Invalid MCP request.", 500)); return; }
       req.end(init.body);
     });
