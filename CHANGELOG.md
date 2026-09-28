@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Started the read-only WordPress connection (v0.4): local-only route, MCP Adapter client, page search, page import as staging baseline, and design context import.
+- Aligned the client with Bricks 2.4's documented ability responses. The version comes from `bricksVersion`, the `{ abilities: [...] }` status envelope is parsed, and exact ability names are requested so disabled abilities are visible.
+- Disabled or unregistered abilities are now reported as missing. Before, the dispatcher's presence counted as availability.
+- Arguments are sent under the parameter name each ability's input schema declares, instead of several guessed aliases.
+- Design-token import reads Bricks 2.4 palette colors (`{ id, raw, light }`).
+- Added [research on Bricks AI abilities, the MCP Adapter and the Abilities API](docs/RESEARCH-2026-09-28-BRICKS-MCP.md) with a capability matrix and consequences for v0.4–v0.6.
+
+Not yet verified against a live site. See the research document for open items.
+
 ## 0.3.0 — 2026-09-28
 
 Add a Staging workspace for combining an existing Bricks export with new sections and reviewing structural differences before downloading a complete template.

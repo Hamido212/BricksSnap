@@ -68,7 +68,7 @@ export default function WordPressConnection({
       const result = data as WordPressConnectResult;
       setConnected(true);
       setVersion(result.version || "unknown");
-      setStatus(`Connected to Bricks ${result.version || ""}. Abilities discovered.`);
+      setStatus(`Connected to Bricks ${result.version || "unknown"}${result.wordpressVersion ? ` on WordPress ${result.wordpressVersion}` : ""}. Abilities discovered.`);
 
       if (result.warnings?.length) {
         setStatus(`Connected with warnings: ${result.warnings.join("; ")}`);
@@ -177,7 +177,7 @@ export default function WordPressConnection({
         <div>
           <div className="flex items-center gap-2">
             <span className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-emerald-400" : "bg-muted"}`} />
-            <h3 className="font-semibold text-sm">Connect WordPress site · local MCP</h3>
+            <h3 className="font-semibold text-sm">Connect WordPress site · local MCP{connected && version ? ` · Bricks ${version}` : ""}</h3>
           </div>
           <p className="text-xs text-muted mt-1 leading-relaxed">
             Read page elements and site design directly through the official WordPress MCP Adapter. Start with <code>npm run dev:local</code>. Passwords remain only in this browser tab.

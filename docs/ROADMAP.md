@@ -11,6 +11,7 @@ The opportunity is credible: combine native template generation with a reviewabl
 - Bricks' native AI integration is experimental and includes its own checks and some preview workflows. “Always blind” and “no safeguards” are inaccurate generalizations. See [Bricks AI Abilities and Skills](https://academy.bricksbuilder.io/builder/features/ai-abilities-and-skills/).
 - The [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) is the WordPress-side bridge. `@automattic/mcp-wordpress-remote` is a client-side proxy; it is not the WordPress plugin.
 - [Remote templates](https://academy.bricksbuilder.io/builder/features/remote-templates/) are supported by Bricks, but the proposed custom endpoint and response shape require an actual import test. A JSON catalog alone does not establish compatibility.
+- The [September 28 research](RESEARCH-2026-09-28-BRICKS-MCP.md) maps each Bricks 2.4 ability area (pages, elements, design system, templates, components, queries, conditions, breakpoints, revisions) with its evidence level and the consequences for v0.4–v0.6.
 - Source-file size is not a reliability measure. Existing obfuscated browser key storage is not an encrypted credential vault for a multi-user WordPress integration.
 
 ## v0.3 — Assemble and review templates
@@ -23,13 +24,15 @@ Acceptance: catalog-wide merge tests, real stdio protocol integration, HTTP chec
 
 Deliver one complete read-only path: connection setup, capability/version discovery, page selection, read page structure and import available design context. Show which source and timestamp each baseline came from. Preserve unknown data without claiming full support for third-party CSS frameworks.
 
+Status: a read-only client for the MCP Adapter's default server is in progress (`src/lib/wordpress-client.ts`). It selects arguments from each ability's published input schema and parses the documented version/status envelopes. Open items are listed in the [research](RESEARCH-2026-09-28-BRICKS-MCP.md#v04--read-a-connected-site): real response fixtures, the unverified `bricks/get-page-settings`, and an opt-in for local/staging targets.
+
 Before release: inspect the installed abilities' actual schemas and permissions; test missing capabilities, revoked credentials, timeouts and inconsistent responses. Choose an explicit local-only or authenticated server-side credential model. For hosted connections, implement tenant isolation and outbound request protections before accepting arbitrary site URLs. Do not store WordPress secrets in the current obfuscation helper.
 
 ## v0.5 — Review and apply changes to WordPress
 
 Deliver a visible target page and reviewed proposal, conflict detection against a fresh baseline, controlled apply, read-back verification and a tested recovery path. Reuse v0.3's additive assembly and diff.
 
-Before release: verify actual write/revision behavior on staging. Do not invent an `expected_hash` parameter or call client-side hashes atomic locking. If the native interface cannot provide atomic conflict detection, document that limit and disable unsafe unattended writes. A saved JSON backup is not evidence that revision rollback works. Render before/after on the actual Bricks installation at desktop/mobile widths; a local iframe sketch is insufficient.
+Before release: verify actual write/revision behavior on staging. Do not invent an `expected_hash` parameter or call client-side hashes atomic locking. Bricks documents compare-and-set guards for global data (ownership/digests) and exact value edits (`expectedValue`), but none for whole-page writes (`set-page-elements`, `add-element`). Test whether `resolve-agent-file`/`commit-agent-file` enforce a document baseline; otherwise a fresh-read hash check only narrows the race. Page element writes create Bricks revisions; global classes/variables need a transfer-package backup instead. If the native interface cannot provide atomic conflict detection, document that limit and disable unsafe unattended writes. A saved JSON backup is not evidence that revision rollback works. Render before/after on the actual Bricks installation at desktop/mobile widths; a local iframe sketch is insufficient.
 
 ## v0.6 — Distribute templates and client guidance
 

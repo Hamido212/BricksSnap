@@ -389,3 +389,122 @@ describe("WordPress client operations", () => {
   });
 });
 
+
+// Response shapes documented by the official Bricks skills (codeerhq/bricks-skills, bricks-ai-tab) and Bricks 2.4 schemas.
+describe("WordPress client with documented Bricks 2.4 response shapes", () => {
+  const validCreds: WordPressCredentials = {
+    endpoint: "https://example.com/wp-json/mcp/mcp-adapter-default-server",
+    username: "mcp-service-user",
+    password: "xxxx xxxx xxxx xxxx",
+  };
+  const text = (value: unknown) => ({ content: [{ type: "text", text: JSON.stringify(value) }] });
+
+  async function mockClient(tools: string[], respond: (name: string, args: Record<string, unknown>) => unknown) {
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    vi.spyOn(Client.prototype, "connect").mockResolvedValue(undefined);
+    vi.spyOn(Client.prototype, "close").mockResolvedValue(undefined);
+    vi.spyOn(Client.prototype, "listTools").mockResolvedValue({ tools: tools.map(name => ({ name, inputSchema: { type: "object" as const } })) });
+    return vi.spyOn(Client.prototype, "callTool").mockImplementation(async params => respond(params.name, (params.arguments ?? {}) as Record<string, unknown>) as never);
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("reads bricksVersion and reports abilities disabled in the status envelope", async () => {
+    const call = await mockClient(
+      ["bricks-get-mcp-version", "bricks-get-page-elements", "bricks-get-design-context", "mcp-adapter-discover-abilities", "mcp-adapter-get-ability-info", "mcp-adapter-execute-ability"],
+      (name, args) => {
+        if (name === "bricks-get-mcp-version") return text({ bricksVersion: "2.4.1", bricksAbilitiesVersion: "2.0.0", wordpressVersion: "7.0", abilitiesApiActive: true, disabledAbilityCount: 1 });
+        if (name === "mcp-adapter-get-ability-info") return text({ name: args.ability_name, input_schema: { type: "object", properties: { abilityNames: { type: "array" }, includeDisabled: { type: "boolean" }, responseFormat: { type: "string" } } } });
+        if (name === "mcp-adapter-execute-ability" && args.ability_name === "bricks/list-ability-status") {
+          return text({
+            abilities: [
+              { name: "bricks/get-page-elements", enabled: true, defaultEnabled: true, category: "bricks-elements" },
+              { name: "bricks/get-design-context", enabled: false, defaultEnabled: true, category: "bricks-design" },
+            ],
+            total: 164, enabled: 163, disabled: 1,
+          });
+        }
+        return text({});
+      }
+    );
+
+    const { handleWordPressRequest } = await import("../src/lib/wordpress-client");
+    const result = await handleWordPressRequest({ action: "connect", credentials: validCreds }, new AbortController().signal);
+
+    expect(result).toMatchObject({
+      version: "2.4.1",
+      wordpressVersion: "7.0",
+      missingAbilities: ["bricks/get-design-context"],
+      abilities: { "bricks/get-page-elements": true, "bricks/get-design-context": false },
+    });
+    expect((result as { warnings: string[] }).warnings).toContain("Ability bricks/get-design-context is disabled in Bricks → AI → Abilities.");
+    // Exact abilityNames are requested so that disabled rows are not hidden by the summary.
+    const statusCall = call.mock.calls.find(([p]) => p.name === "mcp-adapter-execute-ability" && (p.arguments as Record<string, unknown>).ability_name === "bricks/list-ability-status");
+    expect((statusCall?.[0].arguments as { parameters: { abilityNames: string[] } }).parameters.abilityNames).toContain("bricks/get-page-elements");
+  });
+
+  it("does not treat the dispatcher as proof that an unlisted ability is enabled", async () => {
+    await mockClient(["mcp-adapter-execute-ability"], (name, args) =>
+      args.ability_name === "bricks/list-ability-status"
+        ? text({ abilities: [{ name: "bricks/get-page-elements", enabled: true }], total: 1, enabled: 1, disabled: 0 })
+        : text({ bricksVersion: "2.4.1" })
+    );
+    const { handleWordPressRequest } = await import("../src/lib/wordpress-client");
+    const result = await handleWordPressRequest({ action: "connect", credentials: validCreds }, new AbortController().signal);
+    expect(result).toMatchObject({ missingAbilities: ["bricks/get-design-context"] });
+  });
+
+  it("sends only the parameter name declared by a dispatcher-only ability schema", async () => {
+    const call = await mockClient(["mcp-adapter-get-ability-info", "mcp-adapter-execute-ability"], (name, args) => {
+      if (name === "mcp-adapter-get-ability-info") {
+        return args.ability_name === "bricks/get-page-elements"
+          ? text({ input_schema: { type: "object", properties: { postId: { type: "integer" } }, additionalProperties: false } })
+          : text({ input_schema: { type: "object", properties: {} } });
+      }
+      if (args.ability_name === "bricks/get-page-elements") {
+        return text({ success: true, data: { postId: 12, title: "Startseite", elements: [{ id: "sec001", name: "section", parent: 0, children: [], settings: {} }] } });
+      }
+      return { isError: true, content: [{ type: "text", text: "Ability not found" }] };
+    });
+
+    const { handleWordPressRequest } = await import("../src/lib/wordpress-client");
+    const result = await handleWordPressRequest({ action: "page", credentials: validCreds, postId: 12 }, new AbortController().signal);
+
+    expect(result).toMatchObject({ postTitle: "Startseite", template: { content: [{ id: "sec001", name: "section" }] } });
+    const pageCall = call.mock.calls.find(([p]) => p.name === "mcp-adapter-execute-ability" && (p.arguments as Record<string, unknown>).ability_name === "bricks/get-page-elements");
+    expect((pageCall?.[0].arguments as { parameters: unknown }).parameters).toEqual({ postId: 12 });
+  });
+
+  it("rejects a required argument the installed ability schema does not declare", async () => {
+    const { pickArguments } = await import("../src/lib/wordpress-client");
+    expect(pickArguments({ properties: { query: {} } }, "bricks/find-post", [{ names: ["search", "query"], value: "home", required: true }])).toEqual({ query: "home" });
+    expect(() => pickArguments({ properties: { title: {} } }, "bricks/find-post", [{ names: ["search", "query"], value: "home", required: true }])).toThrow("does not accept a search parameter");
+    expect(pickArguments(undefined, "bricks/find-post", [{ names: ["search", "query"], value: "home" }])).toEqual({ search: "home" });
+  });
+
+  it("extracts Bricks 2.4 palette colors stored as { id, raw, light }", async () => {
+    await mockClient(["bricks-get-design-context"], () => text({
+      colorPalettes: [{ id: "pal1", name: "Brand", colors: [
+        { id: "c1", raw: "var(--primary)", light: "#1d4ed8" },
+        { id: "c2", raw: "var(--text-dark)", light: "#0f172a", dark: "#f8fafc" },
+      ] }],
+      globalClasses: [{ id: "abc123", name: "btn", settings: { _padding: { top: "1rem" } } }],
+    }));
+    const { handleWordPressRequest } = await import("../src/lib/wordpress-client");
+    const result = await handleWordPressRequest({ action: "design", credentials: validCreds }, new AbortController().signal);
+    expect(result).toMatchObject({
+      designTokens: { primaryColor: "#1d4ed8", textColor: "#0f172a" },
+      globalClasses: [{ id: "abc123", name: "btn" }],
+    });
+  });
+
+  it("parses ability status envelopes, arrays and legacy maps", async () => {
+    const { readAbilityStatus, readVersion } = await import("../src/lib/wordpress-client");
+    expect(readAbilityStatus({ abilities: [{ name: "bricks/a", enabled: false }], total: 1 })).toEqual({ "bricks/a": false });
+    expect(readAbilityStatus([{ name: "bricks/a", enabled: true }])).toEqual({ "bricks/a": true });
+    expect(readAbilityStatus({ "bricks/a": true, total: 3 })).toEqual({ "bricks/a": true });
+    expect(readAbilityStatus({ total: 0 })).toBeUndefined();
+    expect(readVersion({ bricksVersion: "2.4.1", wordpressVersion: "7.0" })).toEqual({ version: "2.4.1", wordpressVersion: "7.0" });
+    expect(readVersion({ version: "2.4.0" })).toEqual({ version: "2.4.0", wordpressVersion: undefined });
+  });
+});
