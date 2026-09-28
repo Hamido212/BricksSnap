@@ -4,9 +4,42 @@ Purpose: establish what the connected-site releases (v0.4–v0.6) can rely on to
 
 - **Doc** — stated in official Bricks Academy or WordPress/MCP documentation.
 - **Skill** — named in the official Bricks skills package ([codeerhq/bricks-skills](https://github.com/codeerhq/bricks-skills), release 0.1.0, September 16, 2026). The skills cite Bricks source paths and are maintained against Bricks 2.4 stable, but they are guidance, not an API contract. Parameter names and response shapes must be confirmed per site with `mcp-adapter-get-ability-info`.
+- **Live** — observed on a real Bricks 2.4.2 site through the MCP Adapter; see [Verified on a live site](#verified-on-a-live-site).
 - **Unverified** — used or assumed somewhere, but not found in any official source.
 
-No live Bricks site was queried for this report. The v0.4 client has not yet been exercised against a real site.
+Later the same day, a live site was queried read-only (Bricks 2.4.2, WordPress 7.1.2, MCP Adapter 0.6.1). Its findings are in [Verified on a live site](#verified-on-a-live-site) and override the documentation-based statements where they differ. The matrix below is corrected accordingly.
+
+## Verified on a live site
+
+Captured with `scripts/capture-wordpress-fixtures.mjs`, which executes only abilities the site annotates as read-only. Sanitized responses are in `tests/fixtures/wordpress-bricks-2.4.2.json`. Afterwards, BricksSnap's own client ran all four read actions end to end through its hardened transport.
+
+- **Connection.** The adapter reports protocol `2025-11-25` as "MCP Adapter Default Server".
+  - `tools/list` holds 14 tools: the 3 `mcp-adapter-*` meta-tools and 11 direct Bricks tools (`get-design-context`, `checkout-site-repository`, `resolve-agent-file`, `commit-exact-site-edits`, `checkout-site-edit-map`, `commit-site-edit-plan`, `commit-agent-file`, `create-post`, `commit-site-foundation`, `commit-html-css-page-import`, `apply-html-css-page-import`).
+  - Everything else, including `get-page-elements`, runs through the dispatcher.
+  - Bricks registers **170** abilities.
+- **Response envelopes.** Dispatcher results are wrapped as `{ success, data }`; direct tools return the bare payload.
+- **Strict schemas.** Every inspected input schema sets `additionalProperties: false`. Sending parameter aliases fails.
+- **Not in Abilities REST.** An authenticated administrator request to `/wp-json/wp-abilities/v1/abilities` lists only the 3 core abilities, so Bricks abilities are MCP/WP-CLI only.
+- **Diagnostics.** `get-mcp-version` returns `bricksVersion`, `bricksAbilitiesVersion` (2.0.0), `adapterVersion`, `wordpressVersion`, `abilitiesApiActive` and disabled counts (admin- and default-disabled). `list-ability-status` returns `{ abilities: [{ name, category, enabled, defaultEnabled }], total, enabled, disabled }`.
+- **Finding posts.** `find-post` takes `query`, `postId`, `slug`, `path`, `postType`, `status`, `bricksOnly`, `limit` and `orderBy`. It returns `{ results: [{ id, title, slug, path, postType, status, bricksEnabled, hasBricksData, locked, lockedBy, editUrl, builderUrl, modifiedGmt }], total }`. An empty query lists recent content. `locked` reports a page that is open in the builder.
+- **Reading pages.**
+  - `get-page-elements` takes `postId` (or `slug`/`path`/`title`), `elementId`, `maxDepth`, `includeSettings`, `responseFormat` and `returnFields`. It returns `{ elements, postId, documentDigest }` (SHA-256, 64 hex characters) and no title. `elementId` makes it the single-element read.
+  - **`get-page-settings` exists.** It returns `{ settings, postId }`, with `settings: []` when empty. `set-page-settings` exists too.
+- **Design system.**
+  - `get-design-context` (also with `responseFormat: "detailed"`) returns counts, palette summaries (`colorCount`) and class summaries (`hasSettings`, `hasSelectors`) plus breakpoints and a snapshot. It carries **no color values or class settings**.
+  - Values come from `list-color-palettes` (colors `{ id, raw, light, colorDigest, itemOwnership }`) and `list-global-classes` (settings, `ownership`, `lockOwnership`, `categoryOwnership`). Both are paginated with `page`, `perPage` (maximum 200) and `hasMore`.
+- **Revisions.**
+  - `list-revisions (postId, limit)` returns `{ revisions: [{ id, author, authorId, date, dateGmt, hasBricksData, areas }], total }`.
+  - **`get-revision (revisionId, area)` and `restore-revision (revisionId, postId)` exist.** `restore-revision` is annotated destructive.
+- **Page writes (schemas only, not executed).**
+  - **`set-page-elements` accepts `expectedDocumentDigest`.** This is the page-level compare-and-set that the documentation did not mention.
+  - `add-element` takes `postId`, `parentId`, `position` (integer) and `element`. `update-element` has `dryRun` and `returnFields`.
+  - Page workspaces exist: `checkout-page-workspace` (read-only), `preview-page-workspace`, and `apply-page-workspace (previewToken, idempotencyKey)`.
+  - `insert-remote-template` supports `position` values `replace`/`start`/`end`/`before`/`after`/`append`/`prepend` with `anchorElementId`.
+  - `get-reading-settings` exposes the front page.
+- **Annotations.** Read abilities declare `readonly: true`. Write abilities leave `readonly` unset, and destructive ones set `destructive: true`.
+- **Errors.** A wrong application password surfaces as HTTP 401, which BricksSnap reports as "WordPress rejected access". An unknown MCP server path returns `rest_no_route` (404), reported as "MCP endpoint not found".
+- **Installation.** Bricks' one-click adapter installer can fail when the host cannot reach GitHub ("could not fetch the latest version"). Uploading the release ZIP works.
 
 ## Versions and status
 
@@ -50,9 +83,9 @@ R = read, W = write. Names are ability names (`bricks/` prefix omitted after the
 | --- | --- | --- | --- |
 | Find pages | R: `bricks/find-post`, `checkout-site-repository` (query, postTypes, designKinds, cursors), `list-templates` (type filter) | `find-post` returns builder metadata including `builderUrl`, not a public permalink. `create-post` returns a permalink. No match does not prove nonexistence. | Skill |
 | Read page content / element tree | R: `get-page-elements (postId)`, `get-page-structure`, `resolve-agent-file` (canonical document + `editingContract`) | Flat tree with 6-character IDs and parent/children. Header/footer template trees are routed automatically from `_bricks_page_header_2` / `_bricks_page_footer_2`. | Doc (direct tool) + Skill |
-| Read single elements | No dedicated single-element read documented. Per-element: `get-element-conditions`, `get-element-interactions`; targeted discovery: `checkout-site-edit-map` with `elementIds` | Otherwise read the tree and select by ID. | Skill |
+| Read single elements | `get-page-elements` with `elementId` (and `maxDepth`, `returnFields`); per-element: `get-element-conditions`, `get-element-interactions`; targeted discovery: `checkout-site-edit-map` with `elementIds` | | Live schema + Skill |
 | Element catalog / schemas | R: `list-element-types`, `get-element-schema (elementName)` (dispatcher-only by default) | Runtime schema overrides bundled schemas; bundled resolved schemas (elements, controls, globals, page/template settings) ship in `bricks-element-schemas`. | Doc + Skill |
-| Design context | R: `get-design-context` (`responseFormat: "summary"`, `includeUsage: true`) | Summary includes component summaries and `variableCategories`. Its `version` must not be used as write ownership. | Doc (direct tool) + Skill |
+| Design context | R: `get-design-context` (`responseFormat`, `includeUsage`, `limit`) | Returns counts and summaries only, even when `detailed`. Read values through `list-color-palettes` and `list-global-classes`. Its `version` must not be used as write ownership. | Live + Skill |
 | Theme styles | R: `list-theme-styles`, `get-theme-styles`; W: `create-theme-style`, `update-theme-style`, `delete-theme-style` | Update/delete need the target `itemOwnership` from a complete read. Deleting a non-empty style also needs `acknowledgeStyleRemoval: true`. Empty `conditions` leave a style inert. | Skill |
 | Colors | R: `list-color-palettes`; W: `create/update/delete-color-palette`, `create/update/delete-color`, `generate-color-shades` | Bricks 2.4 color shape is `{ id, raw, light, dark, … }` (no `name`/`hex`). Resource `ownership` for creates, `itemOwnership` for updates/deletes. Deleting a color silently breaks `var()` references. | Skill + bundled schema |
 | Typography | W: `generate-scale-variables` (`save: false` preview only) → `set-global-variables`; R/W: `get-style-manager`, `set-style-manager`; fonts: `list/get/create/update/delete-custom-font`, `upload-custom-font-file` | Scale categories need `scaleScope`, `scaleNames`, `baseline`, `prefix`. Root font size resolves style manager → theme styles → 10px. | Skill |
@@ -67,16 +100,16 @@ R = read, W = write. Names are ability names (`bricks/` prefix omitted after the
 | Interactions | `get-element-interactions`, `update-element-interactions` | Check `effectiveInteractions` for rows inherited from classes. Inline JavaScript payloads are rejected. | Skill |
 | Dynamic data | R: `list-dynamic-data-tags`, `preview-dynamic-tag` (`rendered`, `isEmpty`, `unknownTags`), `list-cms-sources` | Never invent provider tags. Preview cannot represent arbitrary loop rows. | Skill |
 | Custom CSS / code | Element custom CSS through element writes (complete rule with the persisted selector); class, theme style and page CSS | CSS follows style-editing permissions. JavaScript needs `unfiltered_html`. PHP needs the PHP opt-in. HTML/CSS imports omit disallowed content and return partial results. | Doc |
-| Page settings | Schema documented (`bodyClasses`, `customCss`, `documentTitle`, `headerDisabled`, `footerDisabled`, scripts, …). **No dedicated read/write ability found.** | `bricks/get-page-settings`, which the v0.4 client probes, is **Unverified**. Confirm with `mcp-adapter-discover-abilities` on a real site. | Bundled schema; ability Unverified |
+| Page settings | R: `get-page-settings (postId)` → `{ settings, postId }`; W: `set-page-settings (postId, settings)` | Keys follow the bundled page-settings schema (`bodyClasses`, `customCss`, `documentTitle`, `headerDisabled`, `footerDisabled`, scripts, …). | Live |
 | Global (theme) settings | R: `list-settings-schema`, `get-global-settings`, `list-credential-status`; W: `set-global-settings` (only sent keys) | Allow-list. License/API keys, code-execution settings and template passwords are excluded. | Doc |
 | Breakpoints / responsive | R: `list-breakpoints` (`customEnabled`, `isMobileFirst`, `baseKey`, `baseWidth`, `breakpoints`, ownership); W: `set-breakpoints` (full list) | Exactly one `base: true`. Removing or renaming keys needs `allowRemovedBreakpoints: true`. Regenerate CSS afterwards. Responsive/pseudo keys are `_prop:breakpoint[:pseudo]`. | Skill |
 | Change elements | `update-element`, `batch-update-elements`, `remove-element`, `commit-exact-site-edits` (`expectedValue`, or explicit `allowBlindWrite: true`) | The exact-edit route is the only documented value-level compare-and-set for page content. | Skill |
-| Create elements / sections | `add-element (postId, parentId, element)` (nested input may omit IDs); `commit-html-css-page-import` (empty page body, `idempotencyKey`, `previewToken` → `apply-html-css-page-import`); `convert-html-css-to-bricks-data`; `commit-site-foundation` (greenfield only); `insert-remote-template` | The converter maps to a limited element set: section, container, block, div, heading, text-basic, text-link, icon, button, image, svg, video, audio, code, divider and form. | Doc + Skill |
-| Replace a page | `set-page-elements ({ postId, elements })` | Must receive the **complete** intended tree, never only a new section. **No page-level version/digest precondition is documented.** | Doc (direct tool) + Skill |
+| Create elements / sections | `add-element (postId, parentId, position, element)` (nested input may omit IDs); `commit-html-css-page-import` (empty page body, `idempotencyKey`, `previewToken` → `apply-html-css-page-import`); `convert-html-css-to-bricks-data`; `commit-site-foundation` (greenfield only); `insert-remote-template` | The converter maps to a limited element set: section, container, block, div, heading, text-basic, text-link, icon, button, image, svg, video, audio, code, divider and form. | Doc + Skill |
+| Replace a page | `set-page-elements ({ postId, elements, expectedDocumentDigest })` | Must receive the **complete** intended tree, never only a new section. The optional `expectedDocumentDigest` (from `get-page-elements`) is the page-level compare-and-set. It is not in the Academy docs and was confirmed in the live schema; its enforcement is not yet tested. Annotated destructive. | Live schema + Skill |
 | Multi-resource edits | `checkout-site-edit-map` → `commit-site-edit-plan` / `preview-site-edit-plan`; changesets of 2–25 resources | Stable idempotency keys make retries safe. Terminal states: `committed`, `failed_before_commit`, `partial_commit`, `manual_recovery`. There is no atomic whole-site transaction. | Skill |
 | Render / preview | `render-elements` (render a proposed tree without saving), `preview-site-edit-plan`, HTML/CSS import preview | Rendered HTML is verification evidence only, not editable source. | Doc (import preview) + Skill |
 | Save / housekeeping | Element writes persist through Bricks' save pipeline; `create-post`, `delete-post`; `regenerate-css-files`; `list-orphaned-elements`, `cleanup-orphaned-elements` | Never write post meta directly: that bypasses revisions, reindexing and validation. | Skill |
-| Revisions / history | R: `list-revisions` | Post and template element writes create Bricks revisions where supported. **No restore ability is documented**; restore happens in Bricks' revision UI. Global data (classes, variables, theme styles, components) has **no** revisions. Back it up with `list-transfer-items` → `export-transfer-package`, then restore with `inspect-transfer-package` (`zipHash`) → `import-transfer-package` (`expectedZipHash`, explicit item IDs, `allowOverwrite`). | Doc + Skill |
+| Revisions / history | R: `list-revisions`, `get-revision (revisionId, area)`; W: `restore-revision (revisionId, postId)` (destructive) | Post and template element writes create Bricks revisions where supported. The restore ability is not in the Academy docs; it was confirmed in the live schema and has not been executed. Global data (classes, variables, theme styles, components) has **no** revisions. Back it up with `list-transfer-items` → `export-transfer-package`, then restore with `inspect-transfer-package` (`zipHash`) → `import-transfer-package` (`expectedZipHash`, explicit item IDs, `allowOverwrite`). | Doc + Skill |
 
 ### Known issues reported for 2.4 (Bricks forum)
 
@@ -101,22 +134,29 @@ Corrected in this change, based on the documented shapes above:
 - Bricks 2.4 palette colors (`{ id, raw, light }`) are recognized for design-token import.
 - `tools/list` pagination is followed.
 
+Adjusted after the live capture:
+
+- The page read keeps Bricks' `documentDigest` in the baseline source. Settings are unwrapped from `{ settings }`. The title is resolved with `find-post (postId)`.
+- The search sends `query` with `bricksOnly` and `limit`. An empty search lists recent content; the UI previously searched for the literal word "page". The lock state is shown.
+- The design import reads colors and class settings from the paginated list abilities, not the summary. It ignores Bricks' built-in palette (`--bricks-color-*`), and name matching uses whole words; before, `light-blue` became the background color.
+- The automatic page list after connecting never ran, because of a stale React state closure.
+- Tests replay the sanitized live fixtures.
+
 Still open before release:
 
-1. **Capture real fixtures.** Record `get-ability-info` output for the used abilities, plus one real response each for `find-post`, `get-page-elements` and `get-design-context`, from a staging site. Replace the synthetic test fixtures with them. The response wrappers (`{ success, data }` versus a bare payload) and the element-list key are still inferred.
-2. **Settle `bricks/get-page-settings`.** Remove it or replace it once the real discovery list is known.
-3. **Decide how local and staging sites connect.** Bricks recommends testing on local or staging sites, but the current transport rejects:
+1. **Browser review of the UI flow** on the live or a staging site, including narrow screens. The design import result is not yet applied anywhere: `StagingWorkspace` does not pass `onImportDesign`.
+2. **Decide how local and staging sites connect.** Bricks recommends testing on local or staging sites, but the current transport rejects:
    - private and loopback addresses (LocalWP, DDEV, LAN staging);
    - custom ports;
    - the `?rest_route=` endpoint form.
 
    A local-only process connecting to a site the user typed carries little SSRF risk. An explicit opt-in (for example an environment flag) for private targets and custom ports would keep the default strict. Self-signed certificates can be trusted through Node's `NODE_EXTRA_CA_CERTS`; do not disable TLS verification.
-4. **Clean up sessions.** HTTP sessions are never terminated: the transport rejects non-POST requests, and closing the client does not send `DELETE`. Allowing `DELETE` to the same endpoint would clean up adapter sessions.
-5. **Record where the baseline came from.** Keep source and timestamp per baseline, which the contract already has. Add the ability version (`bricksAbilitiesVersion`) as well, because response shapes are tied to it.
+3. **Clean up sessions.** HTTP sessions are never terminated: the transport rejects non-POST requests, and closing the client does not send `DELETE`. Allowing `DELETE` to the same endpoint would clean up adapter sessions.
+4. **Record where the baseline came from.** Source, timestamp and `documentDigest` are kept. Add the ability version (`bricksAbilitiesVersion`) as well, because response shapes are tied to it.
 
 Alternative transports exist, but none is simpler for this use case:
 
-- **Abilities REST** (`/wp-abilities/v1/.../run`) works only for abilities that opt into REST. Whether Bricks abilities opt in is unverified.
+- **Abilities REST** (`/wp-abilities/v1/.../run`) works only for abilities that opt into REST. On the live site Bricks abilities do not, so this path is not available.
 - **WP-CLI** requires shell access to the site.
 
 ### v0.5 — review and apply changes
@@ -129,14 +169,15 @@ What Bricks does provide:
 - Value-level guards on `commit-exact-site-edits` (`expectedValue`).
 - Idempotency keys and explicit terminal states for imports and changesets.
 
-What is **not** documented is a version guard on whole-page writes (`set-page-elements`, `add-element`). A fresh `get-page-elements` read, compared with BricksSnap's baseline hash just before writing, narrows the race window but does not close it.
+The live schema adds a page-level guard: `set-page-elements` accepts `expectedDocumentDigest`, and `get-page-elements` returns that digest. `add-element` has no digest parameter.
 
-Recommended order of investigation on a staging site:
+Recommended order of investigation on a **staging** site (or with explicit approval on the test site):
 
-1. Use `add-element` for BricksSnap's additive insert (prepend, append, after a root). It changes only the new subtree instead of replacing the page. Confirm whether it accepts a position or index.
-2. Check whether the `resolve-agent-file` → `commit-agent-file` route returns and enforces a document baseline digest. If it does, it is the atomic conflict check v0.5 needs.
-3. Reserve `set-page-elements` for explicit whole-page replacement, which the compare mode can produce. Always send the complete tree, and require a fresh-read hash match.
-4. After each write, read the page back and diff it against the proposal with BricksSnap's existing `diffTemplates`. Record the revision the write created. Recovery for page content means Bricks revisions (restored in the builder UI). Global classes and variables that BricksSnap exports need ownership-guarded writes and a transfer-package backup, because they have no revisions.
+1. **Whole-page write.** Test `set-page-elements` with the baseline's `documentDigest`, sending the complete merged tree that staging already produces. Confirm that a stale digest is rejected. If it is, this is the atomic conflict check, and v0.5 can apply every staged merge this way.
+2. **Additive write.** Compare with `add-element (parentId, position)`. It changes only the new subtree but has no digest guard. Use it only when a fresh-read digest still matches, and accept the small race that remains.
+3. **Page workspaces.** Evaluate `checkout-page-workspace` → `preview-page-workspace` → `apply-page-workspace`. The preview token plus idempotency key may provide a reviewed, resumable apply.
+4. **Read back and recover.** After each write, read the page back and diff it against the proposal with BricksSnap's existing `diffTemplates`. Record the new revision from `list-revisions`. Test `restore-revision` as the recovery path.
+5. **Locks.** Respect `locked` from `find-post`: a page open in the builder can be overwritten by the editor's next save. Global classes and variables that BricksSnap exports need ownership-guarded writes and a transfer-package backup, because they have no revisions.
 5. Expect partial rejection. One unsupported value anywhere on a page can block every write. The HTML/CSS importer omits content the user may not create. Show these responses verbatim instead of retrying.
 
 ### v0.6 — distribution

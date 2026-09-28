@@ -57,7 +57,8 @@ describe("WordPress contract validation", () => {
     // Invalid action or missing required parameters
     expect(() => wpRequestSchema.parse({ action: "unknown", credentials: validCreds })).toThrow();
     expect(() => wpRequestSchema.parse({ action: "page", credentials: validCreds, postId: -1 })).toThrow();
-    expect(() => wpRequestSchema.parse({ action: "search", credentials: validCreds, search: " " })).toThrow();
+    expect(wpRequestSchema.parse({ action: "search", credentials: validCreds, search: " " })).toMatchObject({ search: "" });
+    expect(() => wpRequestSchema.parse({ action: "search", credentials: validCreds, search: "x".repeat(201) })).toThrow();
   });
 
   it("includes all required read abilities in constant", () => {
@@ -330,23 +331,16 @@ describe("WordPress client operations", () => {
     vi.spyOn(Client.prototype, "connect").mockResolvedValue(undefined);
     vi.spyOn(Client.prototype, "close").mockResolvedValue(undefined);
     vi.spyOn(Client.prototype, "listTools").mockResolvedValue({
-      tools: [{ name: "bricks/get-design-context", description: "Design", inputSchema: { type: "object" } }],
+      tools: ["bricks/get-design-context", "bricks/list-color-palettes", "bricks/list-global-classes"].map(name => ({ name, inputSchema: { type: "object" as const } })),
     });
-    vi.spyOn(Client.prototype, "callTool").mockResolvedValue({
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            colors: [
-              { name: "Primary Brand", hex: "#1d4ed8" },
-              { name: "Base Background", hex: "#f8fafc" },
-            ],
-            globalClasses: [
-              { id: "btn-primary", name: "btn-primary", settings: { color: { hex: "#ffffff" } } },
-            ],
-          }),
-        },
-      ],
+    // The design context only summarizes; values come from the list abilities.
+    vi.spyOn(Client.prototype, "callTool").mockImplementation(async params => {
+      const body = params.name === "bricks/list-color-palettes"
+        ? { items: [{ id: "p1", name: "Brand", colors: [{ name: "Primary Brand", hex: "#1d4ed8" }, { name: "Base Background", hex: "#f8fafc" }] }], hasMore: false }
+        : params.name === "bricks/list-global-classes"
+        ? { items: [{ id: "btn-primary", name: "btn-primary", settings: { color: { hex: "#ffffff" } } }], hasMore: false }
+        : { counts: { colorPalettes: 1, globalClasses: 1 } };
+      return { content: [{ type: "text", text: JSON.stringify(body) }] } as never;
     });
 
     const { handleWordPressRequest } = await import("../src/lib/wordpress-client");
@@ -482,20 +476,24 @@ describe("WordPress client with documented Bricks 2.4 response shapes", () => {
     expect(pickArguments(undefined, "bricks/find-post", [{ names: ["search", "query"], value: "home" }])).toEqual({ search: "home" });
   });
 
-  it("extracts Bricks 2.4 palette colors stored as { id, raw, light }", async () => {
-    await mockClient(["bricks-get-design-context"], () => text({
-      colorPalettes: [{ id: "pal1", name: "Brand", colors: [
-        { id: "c1", raw: "var(--primary)", light: "#1d4ed8" },
-        { id: "c2", raw: "var(--text-dark)", light: "#0f172a", dark: "#f8fafc" },
-      ] }],
-      globalClasses: [{ id: "abc123", name: "btn", settings: { _padding: { top: "1rem" } } }],
-    }));
+  it("extracts Bricks 2.4 palette colors stored as { id, raw, light } across list pages", async () => {
+    await mockClient(["bricks-get-design-context", "mcp-adapter-execute-ability"], (name, args) => {
+      const params = (args.parameters ?? {}) as { page?: number };
+      if (args.ability_name === "bricks/list-color-palettes") {
+        return text({ success: true, data: params.page === 1
+          ? { items: [{ id: "pal1", name: "Brand", colors: [{ id: "c1", raw: "var(--primary)", light: "#1d4ed8" }] }], hasMore: true }
+          : { items: [{ id: "pal2", name: "Text", colors: [{ id: "c2", raw: "var(--text-dark)", light: "#0f172a", dark: "#f8fafc" }] }], hasMore: false } });
+      }
+      if (args.ability_name === "bricks/list-global-classes") return text({ success: true, data: { items: [{ id: "abc123", name: "btn", settings: { _padding: { top: "1rem" } } }], hasMore: false } });
+      return text({ counts: {}, globalClasses: [{ id: "zzz999", name: "summary-only", hasSettings: true }] });
+    });
     const { handleWordPressRequest } = await import("../src/lib/wordpress-client");
     const result = await handleWordPressRequest({ action: "design", credentials: validCreds }, new AbortController().signal);
     expect(result).toMatchObject({
       designTokens: { primaryColor: "#1d4ed8", textColor: "#0f172a" },
-      globalClasses: [{ id: "abc123", name: "btn" }],
+      globalClasses: [{ id: "abc123", name: "btn", settings: { _padding: { top: "1rem" } } }],
     });
+    expect((result as { globalClasses: unknown[] }).globalClasses).toHaveLength(1);
   });
 
   it("parses ability status envelopes, arrays and legacy maps", async () => {
@@ -506,5 +504,78 @@ describe("WordPress client with documented Bricks 2.4 response shapes", () => {
     expect(readAbilityStatus({ total: 0 })).toBeUndefined();
     expect(readVersion({ bricksVersion: "2.4.1", wordpressVersion: "7.0" })).toEqual({ version: "2.4.1", wordpressVersion: "7.0" });
     expect(readVersion({ version: "2.4.0" })).toEqual({ version: "2.4.0", wordpressVersion: undefined });
+  });
+});
+
+// Replays sanitized responses captured read-only from a real Bricks 2.4.2 site (see the fixture's _comment).
+describe("WordPress client against captured Bricks 2.4.2 responses", () => {
+  const creds: WordPressCredentials = { endpoint: "https://example.com/wp-json/mcp/mcp-adapter-default-server", username: "u", password: "p" };
+  const text = (value: unknown) => ({ content: [{ type: "text", text: JSON.stringify(value) }] });
+
+  async function replay() {
+    const fixture = (await import("./fixtures/wordpress-bricks-2.4.2.json")).default as unknown as {
+      tools: Array<{ name: string; inputSchema: Record<string, unknown> }>;
+      abilityInfo: Record<string, unknown>;
+      responses: Record<string, unknown>;
+    };
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    vi.spyOn(Client.prototype, "connect").mockResolvedValue(undefined);
+    vi.spyOn(Client.prototype, "close").mockResolvedValue(undefined);
+    vi.spyOn(Client.prototype, "listTools").mockResolvedValue({ tools: fixture.tools as never });
+    const call = vi.spyOn(Client.prototype, "callTool").mockImplementation(async params => {
+      const args = (params.arguments ?? {}) as { ability_name?: string };
+      if (params.name === "mcp-adapter-get-ability-info") return text(fixture.abilityInfo[args.ability_name!] ?? { success: false, error: "not found" }) as never;
+      const ability = params.name === "mcp-adapter-execute-ability" ? args.ability_name! : params.name.replace(/^bricks-/, "bricks/");
+      const response = fixture.responses[ability];
+      return (response ? text(response) : { isError: true, content: [{ type: "text", text: `Unknown ability ${ability}` }] }) as never;
+    });
+    const { handleWordPressRequest } = await import("../src/lib/wordpress-client");
+    const executed = (ability: string) => call.mock.calls
+      .map(([p]) => p)
+      .filter(p => p.name === "mcp-adapter-execute-ability" && (p.arguments as { ability_name: string }).ability_name === ability)
+      .map(p => (p.arguments as { parameters: unknown }).parameters);
+    return { handleWordPressRequest, executed };
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("connects and reports versions and enabled read abilities", async () => {
+    const { handleWordPressRequest, executed } = await replay();
+    const result = await handleWordPressRequest({ action: "connect", credentials: creds }, new AbortController().signal);
+    expect(result).toMatchObject({ version: "2.4.2", wordpressVersion: "7.1.2", missingAbilities: [] });
+    expect((result as { abilities: Record<string, boolean> }).abilities["bricks/list-global-classes"]).toBe(true);
+    expect(executed("bricks/list-ability-status")[0]).toEqual({ abilityNames: expect.arrayContaining(["bricks/get-page-elements"]) });
+  });
+
+  it("lists Bricks content with an empty query and keeps lock state", async () => {
+    const { handleWordPressRequest, executed } = await replay();
+    const result = await handleWordPressRequest({ action: "search", credentials: creds, search: "" }, new AbortController().signal);
+    expect(executed("bricks/find-post")[0]).toEqual({ query: "", bricksOnly: true, limit: 50 });
+    expect((result as { pages: unknown[] }).pages[0]).toEqual({ id: 7, title: "Home", slug: "home", type: "page", modified: "2026-09-28 19:25:51", locked: true });
+  });
+
+  it("imports the page tree with Bricks' document digest, title and empty settings", async () => {
+    const { handleWordPressRequest, executed } = await replay();
+    const result = await handleWordPressRequest({ action: "page", credentials: creds, postId: 7 }, new AbortController().signal) as {
+      template: { content: unknown[] }; documentDigest: string; postTitle: string; settings: unknown; source: { documentDigest: string };
+    };
+    expect(executed("bricks/get-page-elements")[0]).toEqual({ postId: 7 });
+    expect(result.template.content).toHaveLength(22);
+    expect(result.documentDigest).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.source.documentDigest).toBe(result.documentDigest);
+    expect(result.postTitle).toBe("Home");
+    expect(result.settings).toEqual({});
+  });
+
+  it("reads palette colors and class settings from the list abilities, not the summary", async () => {
+    const { handleWordPressRequest, executed } = await replay();
+    const result = await handleWordPressRequest({ action: "design", credentials: creds }, new AbortController().signal) as {
+      globalClasses: Array<{ name: string; settings: Record<string, unknown> }>;
+    };
+    expect(executed("bricks/list-color-palettes")[0]).toEqual({ page: 1, perPage: 100 });
+    expect(result.globalClasses.map(c => c.name)).toEqual(["timeline-1", "timeline-1__item"]);
+    // Bricks' default palette (--bricks-color-*) must not become brand tokens.
+    expect((result as unknown as { designTokens: object }).designTokens).toEqual({});
+    expect(Object.keys(result.globalClasses[0].settings).length).toBeGreaterThan(0);
   });
 });

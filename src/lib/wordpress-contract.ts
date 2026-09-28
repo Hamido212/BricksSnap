@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 
 // This release cannot accept arbitrary tool names, endpoints per call or write operations.
-// bricks/get-page-settings is not in Bricks' published ability references and is read only if present.
 export const WP_READ_ABILITIES = [
   "bricks/get-mcp-version",
   "bricks/list-ability-status",
@@ -10,6 +9,8 @@ export const WP_READ_ABILITIES = [
   "bricks/get-page-elements",
   "bricks/get-page-settings",
   "bricks/get-design-context",
+  "bricks/list-color-palettes",
+  "bricks/list-global-classes",
 ] as const;
 
 export type ReadAbility = typeof WP_READ_ABILITIES[number];
@@ -31,7 +32,8 @@ export type WordPressCredentials = z.infer<typeof wpCredentialsSchema>;
 
 export const wpRequestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("connect"), credentials: wpCredentialsSchema }).strict(),
-  z.object({ action: z.literal("search"), credentials: wpCredentialsSchema, search: z.string().trim().min(1).max(200) }).strict(),
+  // An empty search lists recently modified Bricks content.
+  z.object({ action: z.literal("search"), credentials: wpCredentialsSchema, search: z.string().trim().max(200) }).strict(),
   z.object({ action: z.literal("page"), credentials: wpCredentialsSchema, postId: z.number().int().positive() }).strict(),
   z.object({ action: z.literal("design"), credentials: wpCredentialsSchema }).strict(),
 ]);
@@ -44,6 +46,8 @@ export type WordPressSource = {
   postTitle?: string;
   fetchedAt: string;
   pageHash: string;
+  /** Bricks' own digest of the stored document; the precondition for guarded page writes. */
+  documentDigest?: string;
 };
 
 export type WordPressPageSummary = {
@@ -52,6 +56,8 @@ export type WordPressPageSummary = {
   slug?: string;
   type?: string;
   modified?: string;
+  /** Open in the Bricks builder by another session. */
+  locked?: boolean;
 };
 
 export type WordPressConnectResult = {
@@ -69,6 +75,7 @@ export type WordPressPageResult = {
   postTitle: string;
   template: BricksTemplate;
   pageHash: string;
+  documentDigest?: string;
   fetchedAt: string;
   endpoint: string;
   source: WordPressSource;

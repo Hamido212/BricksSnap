@@ -11,7 +11,14 @@
 
 - Added `scripts/capture-wordpress-fixtures.mjs`. It records real responses from a WordPress MCP Adapter endpoint, executing only abilities that the site annotates as read-only. For write abilities it records only their schemas. Output goes to `artifacts/` with secrets redacted.
 
-Not yet verified against a live site. See the research document for open items.
+- Verified the read path against a live Bricks 2.4.2 site (read-only).
+  - The page import keeps Bricks' `documentDigest`, unwraps page settings and resolves the page title.
+  - The search lists recent Bricks content for an empty query and shows the builder lock state.
+  - The design import reads the paginated palette and class lists and ignores Bricks' default palette.
+  - The page list now loads after connecting.
+  - Tests replay sanitized captured responses.
+
+See the research document for open items.
 
 ## 0.3.0 — 2026-09-28
 

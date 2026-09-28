@@ -75,7 +75,7 @@ export default function WordPressConnection({
       }
 
       // Automatically search for initial pages
-      void handleSearch("");
+      void handleSearch("", true);
     } catch (err) {
       setConnected(false);
       setError(err instanceof Error ? err.message : "Connection failed.");
@@ -85,8 +85,9 @@ export default function WordPressConnection({
     }
   }
 
-  async function handleSearch(query = search) {
-    if (!connected) return;
+  // Right after connecting, the `connected` state in this closure is still false.
+  async function handleSearch(query = search, justConnected = false) {
+    if (!connected && !justConnected) return;
     setBusy(true);
     setError("");
     try {
@@ -97,7 +98,7 @@ export default function WordPressConnection({
           "Content-Type": "application/json",
           "X-BricksSnap-Local": "1",
         },
-        body: JSON.stringify({ action: "search", credentials, search: query.trim() || "page" }),
+        body: JSON.stringify({ action: "search", credentials, search: query.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Search failed.");
@@ -306,7 +307,7 @@ export default function WordPressConnection({
                   >
                     {pages.map(p => (
                       <option key={p.id} value={p.id}>
-                        #{p.id} · {p.title} {p.type ? `(${p.type})` : ""}
+                        #{p.id} · {p.title} {p.type ? `(${p.type})` : ""}{p.locked ? " · open in builder" : ""}
                       </option>
                     ))}
                   </select>

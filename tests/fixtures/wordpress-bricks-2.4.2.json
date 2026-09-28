@@ -1,0 +1,1813 @@
+{
+ "_comment": "Sanitized responses captured read-only from a Bricks 2.4.2 / WordPress 7.1.2 / MCP Adapter 0.6.1 site on 2026-09-28 with scripts/capture-wordpress-fixtures.mjs. Host replaced, author names and ownership digests removed, lists trimmed.",
+ "protocolVersion": "2025-11-25",
+ "tools": [
+  {
+   "name": "mcp-adapter-discover-abilities",
+   "inputSchema": {
+    "type": "object",
+    "properties": {}
+   }
+  },
+  {
+   "name": "mcp-adapter-get-ability-info",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "ability_name": {
+      "type": "string",
+      "description": "The full name of the ability to get information about"
+     }
+    },
+    "required": [
+     "ability_name"
+    ]
+   }
+  },
+  {
+   "name": "mcp-adapter-execute-ability",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "ability_name": {
+      "type": "string",
+      "description": "The full name of the ability to execute"
+     },
+     "parameters": {
+      "type": "object",
+      "description": "Parameters to pass to the ability"
+     }
+    },
+    "required": [
+     "ability_name",
+     "parameters"
+    ]
+   }
+  },
+  {
+   "name": "bricks-get-design-context",
+   "inputSchema": {
+    "type": "object",
+    "properties": {
+     "includeUsage": {
+      "type": "boolean",
+      "description": "`usedOnPosts` für jede Komponente einbeziehen, beschränkt auf Beiträge, die der Aufrufer im Builder bearbeiten kann. Standardmäßig deaktiviert: Die erste Berechnung durchsucht alle Bricks-Beiträge und kann auf großen Websites einige Sekunden dauern. Die Nutzungsdaten werden eine Stunde lang zwischengespeichert und bei jedem Abruf für den aktuellen Aufrufer gefiltert."
+     },
+     "responseFormat": {
+      "type": "string",
+      "enum": [
+       "detailed",
+       "summary"
+      ],
+      "description": "Verwende `summary` zur Orientierung in der Sitzung: Enthält Anzahlen, Breakpoints und begrenzte Ressourcenlisten. Der Standardwert `detailed` behält die vollständige aktuelle Antwort bei."
+     },
+     "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500,
+      "description": "Maximale Anzahl von Einträgen pro großer Liste, wenn `responseFormat` auf `summary` gesetzt ist. Standard: 100."
+     }
+    },
+    "additionalProperties": false,
+    "default": []
+   }
+  }
+ ],
+ "abilityInfo": {
+  "bricks/get-mcp-version": {
+   "name": "bricks/get-mcp-version",
+   "label": "Bricks-MCP-Version abrufen",
+   "description": "Meldet die Bricks-Plugin-Version, die Vertragsversion der Bricks-Fähigkeiten, die Version des WordPress MCP Adapter und die WordPress-Core-Version. Einmal zu Sitzungsbeginn aufrufen, um Versionsabweichungen während der Unterhaltung zu erkennen. `disabledAbilityCount` umfasst sowohl vom Administrator deaktivierte als auch standardmäßig ausgeschaltete Fähigkeiten; `adminDisabledAbilityCount` und `defaultDisabledAbilityCount` unterscheiden diese Zustände.",
+   "input_schema": {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": false,
+    "default": {}
+   },
+   "output_schema": {
+    "type": "object",
+    "properties": {
+     "bricksVersion": {
+      "type": "string",
+      "description": "Version des aktiven Bricks-Plugins."
+     },
+     "bricksAbilitiesVersion": {
+      "type": "string",
+      "description": "Version des Bricks-Ability-Vertrags. Wird bei inkompatiblen Änderungen an Ability-Signaturen, Fehlercodes oder Antwortstrukturen erhöht."
+     },
+     "adapterVersion": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "Version des WordPress-Plugins mcp-adapter oder null, wenn es nicht erkannt wurde."
+     },
+     "wordpressVersion": {
+      "type": "string",
+      "description": "WordPress-Core-Version."
+     },
+     "abilitiesApiActive": {
+      "type": "boolean",
+      "description": "Gibt an, ob wp_register_ability verfügbar ist."
+     },
+     "disabledAbilityCount": {
+      "type": "integer",
+      "description": "Gesamtzahl der derzeit deaktivierten Abilities, einschließlich vom Administrator deaktivierter Abilities und standardmäßig deaktivierter Kategorien. Rufen Sie `bricks-list-ability-status` auf, um die betroffenen Abilities anzuzeigen."
+     },
+     "adminDisabledAbilityCount": {
+      "type": "integer",
+      "description": "Anzahl der Abilities, die der Administrator unter Bricks > Einstellungen > AI ausdrücklich deaktiviert hat."
+     },
+     "defaultDisabledAbilityCount": {
+      "type": "integer",
+      "description": "Anzahl der deaktivierten Abilities, deren Kategorie standardmäßig deaktiviert und nicht ausdrücklich aktiviert wurde."
+     }
+    }
+   },
+   "meta": {
+    "annotations": {
+     "readonly": true,
+     "destructive": false,
+     "idempotent": null
+    },
+    "mcp": {
+     "public": true,
+     "annotations": {
+      "readonly": true,
+      "destructive": false
+     }
+    },
+    "show_in_rest": true,
+    "public": false
+   }
+  },
+  "bricks/list-ability-status": {
+   "name": "bricks/list-ability-status",
+   "label": "Status der Bricks-Fähigkeiten auflisten",
+   "description": "Prüft, ob die erwarteten Bricks-Fähigkeiten aktiviert sind. Übergib für gezielte Diagnosen exakte `abilityNames`. Die Standardübersicht listet nur aktivierte Fähigkeiten auf; übergib `includeDisabled: true` für das vollständige kompakte Register oder verwende `detailed` für vollständige Metadaten. Abfragen nach exaktem Namen geben auch passende deaktivierte Fähigkeiten zurück.",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "abilityNames": {
+      "type": "array",
+      "description": "Optionale exakte Ability-Namen zur Prüfung, beispielsweise `bricks/update-element`. Diagnosen anhand exakter Namen geben passende deaktivierte Abilities zurück, ohne includeDisabled zu erfordern.",
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 50
+     },
+     "includeDisabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Bezieht deaktivierte Zeilen in eine ungefilterte Zusammenfassung ein. Lassen Sie die Option weg, um eine kompakte Übersicht der aktivierten Abilities zu erhalten. Detaillierte Antworten enthalten weiterhin die vollständige Registry."
+     },
+     "responseFormat": {
+      "type": "string",
+      "enum": [
+       "summary",
+       "detailed"
+      ],
+      "default": "summary",
+      "description": "Die Zusammenfassung gibt kompakte Statuszeilen und standardmäßig nur aktivierte Abilities zurück. Die detaillierte Ansicht enthält Bezeichnungen, Beschreibungen, Annotationen und die vollständige Registry."
+     }
+    },
+    "additionalProperties": false,
+    "default": {}
+   },
+   "output_schema": {
+    "type": "object",
+    "properties": {
+     "abilities": {
+      "type": "array",
+      "description": "Angeforderte Statuszeilen für Bricks-Abilities. Eine ungefilterte Zusammenfassung gibt standardmäßig aktivierte Abilities zurück; übergeben Sie includeDisabled, um die vollständige Registry einzubeziehen."
+     },
+     "responseFormat": {
+      "type": "string"
+     },
+     "returned": {
+      "type": "integer"
+     },
+     "total": {
+      "type": "integer"
+     },
+     "enabled": {
+      "type": "integer"
+     },
+     "disabled": {
+      "type": "integer"
+     }
+    }
+   },
+   "meta": {
+    "annotations": {
+     "readonly": true,
+     "destructive": false,
+     "idempotent": null
+    },
+    "mcp": {
+     "public": true,
+     "annotations": {
+      "readonly": true,
+      "destructive": false
+     }
+    },
+    "show_in_rest": true,
+    "public": false
+   }
+  },
+  "bricks/find-post": {
+   "name": "bricks/find-post",
+   "label": "Beitrag suchen",
+   "description": "Beiträge, Seiten und Templates nach Slug, Titel oder Freitextfragment durchsuchen. Gibt nur Datensätze zurück, die der aktuelle Benutzer bearbeiten kann, ergänzt um Bricks-Metadaten (`bricksEnabled`, `hasBricksData`, `locked`, `builderUrl`).",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "query": {
+      "type": "string",
+      "description": "Slug-/Titelfragment für die Textsuche. Weglassen, um die zuletzt geänderten Beiträge aufzulisten. Schließt sich gegenseitig mit postId/slug/path aus."
+     },
+     "postId": {
+      "type": "integer",
+      "description": "Direkte Suche anhand der Beitrags-ID. Gibt eine Liste mit einem einzelnen Ergebnis zurück. Schließt sich gegenseitig mit query/slug/path aus."
+     },
+     "slug": {
+      "type": "string",
+      "description": "Direkte Suche anhand des exakten post_name. Gibt Beiträge zurück, deren Slug in den zulässigen Beitragstypen übereinstimmt. Schließt sich gegenseitig mit query/postId/path aus."
+     },
+     "path": {
+      "type": "string",
+      "description": "Direkte Suche anhand des hierarchischen Pfads (z. B. \"parent/child\"). Schließt sich gegenseitig mit query/postId/slug aus."
+     },
+     "postType": {
+      "type": "string",
+      "description": "Auf einen einzelnen Beitragstyp beschränken. Weglassen, um alle bearbeitbaren Typen zu durchsuchen."
+     },
+     "status": {
+      "type": "string",
+      "description": "draft | publish | pending | private | future | any. Standard: any."
+     },
+     "bricksOnly": {
+      "type": "boolean",
+      "description": "Auf für Bricks aktivierte Beitragstypen und das Template-CPT beschränken. Standard: false (damit Nicht-Bricks-Beiträge mit bricksEnabled: false ausgegeben werden)."
+     },
+     "limit": {
+      "type": "integer",
+      "description": "Maximale Anzahl Ergebnisse: 1..50. Standard: 10."
+     },
+     "orderBy": {
+      "type": "string",
+      "description": "modified | title | relevance. Standard: modified."
+     }
+    },
+    "additionalProperties": false,
+    "default": {}
+   },
+   "output_schema": {
+    "type": "object",
+    "properties": {
+     "results": {
+      "type": "array",
+      "description": "Übereinstimmende Beiträge mit Bearbeitungs-/Builder-URLs und Bricks-Metadaten."
+     },
+     "total": {
+      "type": "integer"
+     }
+    }
+   },
+   "meta": {
+    "annotations": {
+     "readonly": true,
+     "destructive": false,
+     "idempotent": null
+    },
+    "mcp": {
+     "public": true,
+     "annotations": {
+      "readonly": true,
+      "destructive": false
+     }
+    },
+    "show_in_rest": true,
+    "public": false
+   }
+  },
+  "bricks/get-page-elements": {
+   "name": "bricks/get-page-elements",
+   "label": "Seitenelemente abrufen",
+   "description": "Vollständige Elementdaten einer Seite/eines Templates mit allen Einstellungen. Optional nach einem bestimmten Element und seinen Kindelementen filtern.",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "postId": {
+      "type": "integer",
+      "description": "Beitrags-, Seiten- oder Template-ID. Die primäre Kennung; verwende sie bevorzugt, wenn sie bekannt ist."
+     },
+     "slug": {
+      "type": "string",
+      "description": "Beitrags-Slug. Alternative zu postId."
+     },
+     "path": {
+      "type": "string",
+      "description": "Hierarchischer Pfad wie \"parent/child\". Alternative zu postId für verschachtelte Seiten."
+     },
+     "title": {
+      "type": "string",
+      "description": "Exakter Beitragstitel. Alternative zu `postId`; mehrdeutig, wenn mehrere Beiträge denselben Titel haben."
+     },
+     "elementId": {
+      "type": "string",
+      "description": "Optional: Nur dieses Element und seine untergeordneten Elemente zurückgeben."
+     },
+     "maxDepth": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Optionale Tiefe der einzubeziehenden Nachfahren. 0 gibt nur das Wurzelelement bzw. die Wurzelelemente zurück, 1 schließt direkte Kindelemente ein usw."
+     },
+     "includeSettings": {
+      "type": "boolean",
+      "description": "Gibt an, ob die vollständigen Einstellungen der zurückgegebenen Elemente enthalten sein sollen. Standardmäßig true."
+     },
+     "responseFormat": {
+      "type": "string",
+      "enum": [
+       "detailed",
+       "summary"
+      ],
+      "description": "Verwende `summary` nach umfangreichen Schreibvorgängen, um Elementanzahl, Hierarchie, Überschriften, Verweise auf globale Klassen und die Vorgaben für Fallback-Größen von SVG-Bildern zu prüfen, ohne die vollständigen Einstellungsdaten zurückzugeben. Der Standardwert `detailed` behält die vollständige Elementantwort bei."
+     },
+     "returnFields": {
+      "type": "array",
+      "description": "Optionale Liste der zurückzugebenden Elementfelder. `id` ist immer enthalten. Standardmäßig werden alle Felder zurückgegeben.",
+      "items": {
+       "type": "string",
+       "enum": [
+        "id",
+        "name",
+        "parent",
+        "label",
+        "settings",
+        "children",
+        "cid",
+        "properties",
+        "variant",
+        "slotChildren",
+        "selectors"
+       ]
+      }
+     }
+    },
+    "additionalProperties": false,
+    "default": {}
+   },
+   "output_schema": {
+    "type": "object",
+    "properties": {
+     "elements": {
+      "type": "array"
+     },
+     "summary": {
+      "type": "object",
+      "description": "Kompakte Prüfung von Struktur und Verweisintegrität, wenn responseFormat den Wert summary hat."
+     },
+     "postId": {
+      "type": "integer"
+     },
+     "documentDigest": {
+      "type": "string",
+      "description": "SHA-256-Digest des vollständigen aktuellen Bricks-Elementbaums. Verwende ihn als expectedDocumentDigest für Schreibvorgänge mit optimistischer Nebenläufigkeitskontrolle und für Importvorschauen."
+     }
+    }
+   },
+   "meta": {
+    "annotations": {
+     "readonly": true,
+     "destructive": false,
+     "idempotent": null
+    },
+    "mcp": {
+     "public": true,
+     "annotations": {
+      "readonly": true,
+      "destructive": false
+     }
+    },
+    "show_in_rest": true,
+    "public": false
+   }
+  },
+  "bricks/get-page-settings": {
+   "name": "bricks/get-page-settings",
+   "label": "Seiteneinstellungen abrufen",
+   "description": "Seiteneinstellungen für einen Beitrag (SEO, Body-Klassen, Deaktivierung von Header/Footer, benutzerdefiniertes CSS usw.).",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "postId": {
+      "type": "integer",
+      "description": "Beitrags-, Seiten- oder Template-ID. Die primäre Kennung; verwende sie bevorzugt, wenn sie bekannt ist."
+     },
+     "slug": {
+      "type": "string",
+      "description": "Beitrags-Slug. Alternative zu postId."
+     },
+     "path": {
+      "type": "string",
+      "description": "Hierarchischer Pfad wie \"parent/child\". Alternative zu postId für verschachtelte Seiten."
+     },
+     "title": {
+      "type": "string",
+      "description": "Exakter Beitragstitel. Alternative zu `postId`; mehrdeutig, wenn mehrere Beiträge denselben Titel haben."
+     }
+    },
+    "additionalProperties": false,
+    "default": {}
+   },
+   "output_schema": {
+    "type": "object",
+    "properties": {
+     "settings": {
+      "type": "object"
+     },
+     "postId": {
+      "type": "integer"
+     }
+    }
+   },
+   "meta": {
+    "annotations": {
+     "readonly": true,
+     "destructive": false,
+     "idempotent": null
+    },
+    "mcp": {
+     "public": true,
+     "annotations": {
+      "readonly": true,
+      "destructive": false
+     }
+    },
+    "show_in_rest": true,
+    "public": false
+   }
+  },
+  "bricks/get-design-context": {
+   "name": "bricks/get-design-context",
+   "label": "Designkontext abrufen",
+   "description": "Zusammenfassung des Designkontexts der Website in einem Aufruf: Farbpaletten, globale Klassen, Theme-Stile, Komponenten, globale Variablen und responsive Breakpoints. Für eine begrenzte Orientierungsübersicht `responseFormat: \"summary\"` oder `includeUsage: true` übergeben, um jeder Komponente `usedOnPosts` hinzuzufügen.",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "includeUsage": {
+      "type": "boolean",
+      "description": "`usedOnPosts` für jede Komponente einbeziehen, beschränkt auf Beiträge, die der Aufrufer im Builder bearbeiten kann. Standardmäßig deaktiviert: Die erste Berechnung durchsucht alle Bricks-Beiträge und kann auf großen Websites einige Sekunden dauern. Die Nutzungsdaten werden eine Stunde lang zwischengespeichert und bei jedem Abruf für den aktuellen Aufrufer gefiltert."
+     },
+     "responseFormat": {
+      "type": "string",
+      "enum": [
+       "detailed",
+       "summary"
+      ],
+      "description": "Verwende `summary` zur Orientierung in der Sitzung: Enthält Anzahlen, Breakpoints und begrenzte Ressourcenlisten. Der Standardwert `detailed` behält die vollständige aktuelle Antwort bei."
+     },
+     "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 500,
+      "description": "Maximale Anzahl von Einträgen pro großer Liste, wenn `responseFormat` auf `summary` gesetzt ist. Standard: 100."
+     }
+    },
+    "additionalProperties": false,
+    "default": {}
+   },
+   "output_schema": {
+    "type": "object",
+    "properties": {
+     "counts": {
+      "type": "object"
+     },
+     "colorPalettes": {
+      "type": "array"
+     },
+     "globalClasses": {
+      "type": "array"
+     },
+     "themeStyles": {
+      "type": "array"
+     },
+     "components": {
+      "type": "array"
+     },
+     "globalVariables": {
+      "type": "array"
+     },
+     "variableCategories": {
+      "type": "array",
+      "description": "Kategorien globaler Variablen einschließlich der von generate-scale-variables verwendeten Skalierungskonfigurationen."
+     },
+     "breakpoints": {
+      "type": "object",
+      "description": "Aktuelle Schnittstellendefinition für responsive Breakpoints: customEnabled, isMobileFirst, baseKey, baseWidth und aktive Breakpoint-Einträge."
+     },
+     "truncated": {
+      "type": "object",
+      "description": "In Zusammenfassungsantworten vorhanden, wenn große Listen begrenzt wurden."
+     },
+     "version": {
+      "type": "integer",
+      "description": "Veralteter Designzähler der aktuellen Website. Verwende in Multisite-Konfigurationen mit gemischten Zuständigkeiten stattdessen designSystemSnapshot und die ressourcenspezifischen Versionen."
+     },
+     "designSystemSnapshot": {
+      "type": "object",
+      "description": "Design-Snapshot mit korrekter Zuständigkeit. Verwende seine Ressourcenversion für gezielte Schreibvorgänge und sein Token, um Abweichungen im Arbeitsbereich zu prüfen.",
+      "properties": {
+       "token": {
+        "type": "string"
+       },
+       "authorities": {
+        "type": "array"
+       },
+       "resources": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "token",
+       "authorities",
+       "resources"
+      ],
+      "additionalProperties": false
+     },
+     "usageCached": {
+      "type": "boolean",
+      "description": "True, wenn die Komponentennutzung aus dem Transient bereitgestellt wurde. Nicht vorhanden, wenn `includeUsage` nicht angefordert wurde."
+     }
+    }
+   },
+   "meta": {
+    "annotations": {
+     "readonly": true,
+     "destructive": false,
+     "idempotent": null
+    },
+    "mcp": {
+     "public": true,
+     "annotations": {
+      "readonly": true,
+      "destructive": false
+     }
+    },
+    "show_in_rest": true,
+    "public": false
+   }
+  },
+  "bricks/list-color-palettes": {
+   "name": "bricks/list-color-palettes",
+   "label": "Farbpaletten auflisten",
+   "description": "Alle Paletten mit vollständigen Farbdatensätzen, paletteDigest/colorDigest-Werten und kompakter Ressourceneigentümerschaft. Die zurückgegebene Eigentümerschaft bei Erstellungen übergeben oder bei Aktualisierungen und Löschungen den Digest des Ziels als itemDigest hinzufügen.",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "paletteId": {
+      "type": "string",
+      "description": "Eine einzelne Palette anhand ihrer ID zurückgeben. Weglassen, um alle Paletten aufzulisten."
+     },
+     "page": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Seitennummer (beginnend bei 1). Standardwert: 1."
+     },
+     "perPage": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "description": "Items per page. Defaults to 25, max 200."
+     }
+    },
+    "additionalProperties": false,
+    "default": {}
+   },
+   "output_schema": {
+    "type": "object",
+    "properties": {
+     "items": {
+      "type": "array",
+      "description": "Array vollständiger Farbpaletten. Jede Palette und Farbe enthält einen Digest sowie einsatzbereite itemOwnership-Daten, die vor der Aufbereitung der Antwort aus dem vollständigen maßgeblichen Datensatz berechnet wurden."
+     },
+     "total": {
+      "type": "integer"
+     },
+     "page": {
+      "type": "integer"
+     },
+     "perPage": {
+      "type": "integer"
+     },
+     "hasMore": {
+      "type": "boolean"
+     },
+     "ownership": {
+      "resource": "trimmed"
+     }
+    }
+   },
+   "meta": {
+    "annotations": {
+     "readonly": true,
+     "destructive": false,
+     "idempotent": null
+    },
+    "mcp": {
+     "public": true,
+     "annotations": {
+      "readonly": true,
+      "destructive": false
+     }
+    },
+    "show_in_rest": true,
+    "public": false
+   }
+  },
+  "bricks/list-global-classes": {
+   "name": "bricks/list-global-classes",
+   "label": "Globale Klassen auflisten",
+   "description": "Alle globalen Klassen mit vollständigen Einstellungen, itemDigest je Klasse sowie Ressourcen-, Sperr- und Kategorieeigentümerschaft. Die relevanten zurückgegebenen Eigentümerschaftshüllen beim Ändern einer Klasse unverändert übergeben.",
+   "input_schema": {
+    "type": "object",
+    "properties": {
+     "category": {
+      "type": "string",
+      "description": "Nach Kategorie-ID filtern. Weglassen, um alle Klassen aufzulisten."
+     },
+     "page": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Seitennummer (beginnend bei 1). Standardwert: 1."
+     },
+     "perPage": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200,
+      "description": "Items per page. Defaults to 25, max 200."
+     }
+    },
+    "additionalProperties": false,
+    "default": {}
+   },
+   "output_schema": {
+    "type": "object",
+    "properties": {
+     "items": {
+      "type": "array",
+      "description": "Array globaler Klassen mit id, name, settings, selectors und category."
+     },
+     "total": {
+      "type": "integer"
+     },
+     "page": {
+      "type": "integer"
+     },
+     "perPage": {
+      "type": "integer"
+     },
+     "hasMore": {
+      "type": "boolean"
+     },
+     "categories": {
+      "type": "array",
+      "description": "Array von Klassenkategorien mit id und name."
+     },
+     "locked": {
+      "type": "array",
+      "description": "Array der IDs gesperrter Klassen."
+     },
+     "ownership": {
+      "resource": "trimmed"
+     },
+     "lockOwnership": {
+      "resource": "trimmed"
+     },
+     "categoryOwnership": {
+      "resource": "trimmed"
+     }
+    }
+   },
+   "meta": {
+    "annotations": {
+     "readonly": true,
+     "destructive": false,
+     "idempotent": null
+    },
+    "mcp": {
+     "public": true,
+     "annotations": {
+      "readonly": true,
+      "destructive": false
+     }
+    },
+    "show_in_rest": true,
+    "public": false
+   }
+  }
+ },
+ "responses": {
+  "bricks/list-ability-status": {
+   "success": true,
+   "data": {
+    "abilities": [
+     {
+      "name": "bricks/get-page-elements",
+      "category": "bricks-elements",
+      "enabled": true,
+      "defaultEnabled": true
+     },
+     {
+      "name": "bricks/set-page-elements",
+      "category": "bricks-elements",
+      "enabled": false,
+      "defaultEnabled": true
+     },
+     {
+      "name": "bricks/remove-element",
+      "category": "bricks-elements",
+      "enabled": false,
+      "defaultEnabled": true
+     },
+     {
+      "name": "bricks/get-page-settings",
+      "category": "bricks-elements",
+      "enabled": true,
+      "defaultEnabled": true
+     },
+     {
+      "name": "bricks/find-post",
+      "category": "bricks-elements",
+      "enabled": true,
+      "defaultEnabled": true
+     },
+     {
+      "name": "bricks/get-design-context",
+      "category": "bricks-design",
+      "enabled": true,
+      "defaultEnabled": true
+     },
+     {
+      "name": "bricks/list-color-palettes",
+      "category": "bricks-design",
+      "enabled": true,
+      "defaultEnabled": true
+     },
+     {
+      "name": "bricks/list-global-classes",
+      "category": "bricks-design",
+      "enabled": true,
+      "defaultEnabled": true
+     },
+     {
+      "name": "bricks/get-mcp-version",
+      "category": "bricks-meta",
+      "enabled": true,
+      "defaultEnabled": true
+     },
+     {
+      "name": "bricks/list-ability-status",
+      "category": "bricks-meta",
+      "enabled": true,
+      "defaultEnabled": true
+     }
+    ],
+    "responseFormat": "summary",
+    "returned": 170,
+    "total": 170,
+    "enabled": 152,
+    "disabled": 18
+   }
+  },
+  "bricks/get-mcp-version": {
+   "success": true,
+   "data": {
+    "bricksVersion": "2.4.2",
+    "bricksAbilitiesVersion": "2.0.0",
+    "adapterVersion": "0.6.1",
+    "wordpressVersion": "7.1.2",
+    "abilitiesApiActive": true,
+    "disabledAbilityCount": 18,
+    "adminDisabledAbilityCount": 13,
+    "defaultDisabledAbilityCount": 5
+   }
+  },
+  "bricks/find-post": {
+   "success": true,
+   "data": {
+    "results": [
+     {
+      "id": 7,
+      "title": "Home",
+      "slug": "home",
+      "path": "home",
+      "postType": "page",
+      "status": "publish",
+      "bricksEnabled": true,
+      "hasBricksData": true,
+      "locked": true,
+      "lockedBy": 1,
+      "editUrl": "https://example.com/wp-admin/post.php?post=7&action=edit",
+      "builderUrl": "https://example.com/?bricks=run",
+      "modifiedGmt": "2026-09-28 19:25:51"
+     },
+     {
+      "id": 81,
+      "title": "HB Zulassungsdienst · Coming soon",
+      "slug": "hb-zulassungsdienst-%c2%b7-coming-soon",
+      "path": "hb-zulassungsdienst-%c2%b7-coming-soon",
+      "postType": "bricks_template",
+      "status": "publish",
+      "bricksEnabled": true,
+      "hasBricksData": true,
+      "locked": false,
+      "lockedBy": null,
+      "editUrl": "https://example.com/wp-admin/post.php?post=81&action=edit",
+      "builderUrl": "https://example.com/template/hb-zulassungsdienst-%c2%b7-coming-soon/?bricks=run",
+      "modifiedGmt": "2026-09-26 00:35:28"
+     },
+     {
+      "id": 16,
+      "title": "BricksForge Template",
+      "slug": "bricksforge-template-3",
+      "path": "bricksforge-template-3",
+      "postType": "bricks_template",
+      "status": "publish",
+      "bricksEnabled": true,
+      "hasBricksData": true,
+      "locked": false,
+      "lockedBy": null,
+      "editUrl": "https://example.com/wp-admin/post.php?post=16&action=edit",
+      "builderUrl": "https://example.com/template/bricksforge-template-3/?bricks=run",
+      "modifiedGmt": "2026-02-08 03:51:05"
+     }
+    ],
+    "total": 3
+   }
+  },
+  "bricks/get-page-elements": {
+   "success": true,
+   "data": {
+    "elements": [
+     {
+      "id": "347ba2",
+      "name": "container",
+      "parent": "813bee",
+      "children": [
+       "affc77",
+       "8b2aea",
+       "cf4969"
+      ],
+      "settings": {
+       "_width": "100%",
+       "_widthMax": "1240px",
+       "_heightMin": "100svh",
+       "_display": "flex",
+       "_direction": "column",
+       "_justifyContent": "space-between",
+       "_margin": {
+        "left": "auto",
+        "right": "auto"
+       }
+      }
+     },
+     {
+      "id": "affc77",
+      "name": "div",
+      "parent": "347ba2",
+      "children": [
+       "b32b3a",
+       "f7e633"
+      ],
+      "settings": {
+       "_display": "flex",
+       "_direction": "row",
+       "_justifyContent": "space-between",
+       "_alignItems": "center",
+       "_padding": {
+        "top": "30px",
+        "right": "0",
+        "bottom": "30px",
+        "left": "0"
+       },
+       "_width": "100%",
+       "_direction:mobile_portrait": "column",
+       "_alignItems:mobile_portrait": "flex-start",
+       "_rowGap": "20px",
+       "_columnGap": "20px"
+      },
+      "label": "Marke & Status"
+     },
+     {
+      "id": "b32b3a",
+      "name": "text-basic",
+      "parent": "affc77",
+      "children": [],
+      "settings": {
+       "text": "HB / ZULASSUNGSDIENST",
+       "tag": "div",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "15px",
+        "font-weight": "700",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#14291f"
+        },
+        "letter-spacing": "0.035em"
+       },
+       "_cssCustom": "\n#brxe-b32b3a { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "f7e633",
+      "name": "text-basic",
+      "parent": "affc77",
+      "children": [],
+      "settings": {
+       "text": "●  NEUER AUFTRITT IN ARBEIT",
+       "tag": "div",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "11px",
+        "font-weight": "600",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#486153"
+        },
+        "letter-spacing": "0.09em"
+       },
+       "_cssCustom": "\n#brxe-f7e633 { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "8b2aea",
+      "name": "div",
+      "parent": "347ba2",
+      "children": [
+       "054c50",
+       "6442e6"
+      ],
+      "settings": {
+       "_display": "grid",
+       "_gridTemplateColumns": "1.05fr 0.95fr",
+       "_alignItems": "center",
+       "_width": "100%",
+       "_padding": {
+        "top": "70px",
+        "right": "0",
+        "bottom": "70px",
+        "left": "0"
+       },
+       "_gridTemplateColumns:mobile_landscape": "1fr",
+       "_padding:mobile_landscape": {
+        "top": "40px",
+        "right": "0",
+        "bottom": "40px",
+        "left": "0"
+       },
+       "_rowGap": "64px",
+       "_columnGap": "64px",
+       "_rowGap:mobile_landscape": "48px",
+       "_columnGap:mobile_landscape": "48px"
+      },
+      "label": "Coming-soon Inhalt"
+     },
+     {
+      "id": "054c50",
+      "name": "div",
+      "parent": "8b2aea",
+      "children": [
+       "5395f7",
+       "1e8cbc",
+       "f2e6d2",
+       "4434fa"
+      ],
+      "settings": {
+       "_display": "flex",
+       "_direction": "column",
+       "_widthMin": "0",
+       "_rowGap": "26px",
+       "_columnGap": "26px"
+      }
+     },
+     {
+      "id": "5395f7",
+      "name": "text-basic",
+      "parent": "054c50",
+      "children": [],
+      "settings": {
+       "text": "BALD WIEDER ONLINE",
+       "tag": "div",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "11px",
+        "font-weight": "700",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#526d58"
+        },
+        "letter-spacing": "0.15em"
+       },
+       "_cssCustom": "\n#brxe-5395f7 { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "1e8cbc",
+      "name": "heading",
+      "parent": "054c50",
+      "children": [],
+      "settings": {
+       "text": "Wir machen uns startklar.",
+       "tag": "h1",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "clamp(48px,5.6vw,82px)",
+        "font-weight": "700",
+        "line-height": "1.02",
+        "color": {
+         "hex": "#14291f"
+        },
+        "letter-spacing": "-0.055em"
+       },
+       "_margin": {
+        "top": "0",
+        "right": "0",
+        "bottom": "0",
+        "left": "0"
+       },
+       "_cssCustom": "\n#brxe-1e8cbc { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "f2e6d2",
+      "name": "text-basic",
+      "parent": "054c50",
+      "children": [],
+      "settings": {
+       "text": "Hier entsteht der neue Online-Auftritt von HB Zulassungsdienst. Bald finden Sie hier alle Informationen rund um Ihre Fahrzeugzulassung.",
+       "tag": "p",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "18px",
+        "font-weight": "400",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#56645b"
+        }
+       },
+       "_widthMax": "460px",
+       "_cssCustom": "\n#brxe-f2e6d2 { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "4434fa",
+      "name": "div",
+      "parent": "054c50",
+      "children": [
+       "8fd38d",
+       "faa187",
+       "d86472"
+      ],
+      "settings": {
+       "_display": "flex",
+       "_direction": "row",
+       "_flexWrap": "wrap",
+       "_margin": {
+        "top": "10px"
+       },
+       "_rowGap": "10px",
+       "_columnGap": "10px"
+      }
+     },
+     {
+      "id": "8fd38d",
+      "name": "text-basic",
+      "parent": "4434fa",
+      "children": [],
+      "settings": {
+       "text": "Anmelden",
+       "tag": "span",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "13px",
+        "font-weight": "500",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#14291f"
+        }
+       },
+       "_padding": {
+        "top": "8px",
+        "right": "15px",
+        "bottom": "8px",
+        "left": "15px"
+       },
+       "_border": {
+        "width": {
+         "top": "1",
+         "right": "1",
+         "bottom": "1",
+         "left": "1"
+        },
+        "style": "solid",
+        "color": {
+         "hex": "#d6dfd5"
+        },
+        "radius": {
+         "top": "100px",
+         "right": "100px",
+         "bottom": "100px",
+         "left": "100px"
+        }
+       },
+       "_cssCustom": "\n#brxe-8fd38d { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "faa187",
+      "name": "text-basic",
+      "parent": "4434fa",
+      "children": [],
+      "settings": {
+       "text": "Ummelden",
+       "tag": "span",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "13px",
+        "font-weight": "500",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#14291f"
+        }
+       },
+       "_padding": {
+        "top": "8px",
+        "right": "15px",
+        "bottom": "8px",
+        "left": "15px"
+       },
+       "_border": {
+        "width": {
+         "top": "1",
+         "right": "1",
+         "bottom": "1",
+         "left": "1"
+        },
+        "style": "solid",
+        "color": {
+         "hex": "#d6dfd5"
+        },
+        "radius": {
+         "top": "100px",
+         "right": "100px",
+         "bottom": "100px",
+         "left": "100px"
+        }
+       },
+       "_cssCustom": "\n#brxe-faa187 { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "d86472",
+      "name": "text-basic",
+      "parent": "4434fa",
+      "children": [],
+      "settings": {
+       "text": "Abmelden",
+       "tag": "span",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "13px",
+        "font-weight": "500",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#14291f"
+        }
+       },
+       "_padding": {
+        "top": "8px",
+        "right": "15px",
+        "bottom": "8px",
+        "left": "15px"
+       },
+       "_border": {
+        "width": {
+         "top": "1",
+         "right": "1",
+         "bottom": "1",
+         "left": "1"
+        },
+        "style": "solid",
+        "color": {
+         "hex": "#d6dfd5"
+        },
+        "radius": {
+         "top": "100px",
+         "right": "100px",
+         "bottom": "100px",
+         "left": "100px"
+        }
+       },
+       "_cssCustom": "\n#brxe-d86472 { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "6442e6",
+      "name": "div",
+      "parent": "8b2aea",
+      "children": [
+       "79daa0",
+       "51065f"
+      ],
+      "settings": {
+       "_background": {
+        "color": {
+         "hex": "#d9edc8"
+        }
+       },
+       "_border": {
+        "radius": {
+         "top": "28px",
+         "right": "28px",
+         "bottom": "28px",
+         "left": "28px"
+        }
+       },
+       "_padding": {
+        "top": "65px",
+        "right": "34px",
+        "bottom": "65px",
+        "left": "34px"
+       },
+       "_heightMin": "390px",
+       "_display": "flex",
+       "_direction": "column",
+       "_justifyContent": "center",
+       "_alignItems": "center",
+       "_widthMin": "0",
+       "_heightMin:mobile_landscape": "300px",
+       "_padding:mobile_portrait": {
+        "top": "48px",
+        "right": "20px",
+        "bottom": "48px",
+        "left": "20px"
+       },
+       "_rowGap": "38px",
+       "_columnGap": "38px"
+      },
+      "label": "Kennzeichen-Motiv"
+     },
+     {
+      "id": "79daa0",
+      "name": "div",
+      "parent": "6442e6",
+      "children": [
+       "7a225f",
+       "a2cef7"
+      ],
+      "settings": {
+       "_cssClasses": "hb-plate",
+       "_display": "flex",
+       "_direction": "row",
+       "_alignItems": "stretch",
+       "_background": {
+        "color": {
+         "hex": "#ffffff"
+        }
+       },
+       "_border": {
+        "width": {
+         "top": "2",
+         "right": "2",
+         "bottom": "2",
+         "left": "2"
+        },
+        "style": "solid",
+        "color": {
+         "hex": "#172d22"
+        },
+        "radius": {
+         "top": "12px",
+         "right": "12px",
+         "bottom": "12px",
+         "left": "12px"
+        }
+       },
+       "_boxShadow": {
+        "values": {
+         "offsetX": "0",
+         "offsetY": "18",
+         "blur": "24",
+         "spread": "-10"
+        },
+        "color": {
+         "raw": "#14291f30"
+        }
+       },
+       "_width": "100%",
+       "_widthMax": "410px",
+       "_height": "95px",
+       "_overflow": "hidden",
+       "_height:mobile_portrait": "76px",
+       "_attributes": [
+        {
+         "name": "aria-label",
+         "value": "Symbolisches Kennzeichen: HB NEU"
+        }
+       ]
+      }
+     },
+     {
+      "id": "7a225f",
+      "name": "text-basic",
+      "parent": "79daa0",
+      "children": [],
+      "settings": {
+       "text": "D",
+       "tag": "span",
+       "_background": {
+        "color": {
+         "hex": "#244d85"
+        }
+       },
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "22px",
+        "font-weight": "600",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#ffffff"
+        }
+       },
+       "_width": "42px",
+       "_display": "flex",
+       "_justifyContent": "center",
+       "_alignItems": "center",
+       "_flexShrink": "0",
+       "_cssCustom": "\n#brxe-7a225f { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "a2cef7",
+      "name": "text-basic",
+      "parent": "79daa0",
+      "children": [],
+      "settings": {
+       "text": "HB · NEU",
+       "tag": "span",
+       "_typography": {
+        "font-family": "Arial",
+        "font-size": "clamp(30px,3.7vw,52px)",
+        "font-weight": "700",
+        "line-height": "1",
+        "color": {
+         "hex": "#14291f"
+        },
+        "letter-spacing": "0.055em"
+       },
+       "_display": "flex",
+       "_justifyContent": "center",
+       "_alignItems": "center",
+       "_width": "100%",
+       "_padding": {
+        "top": "0",
+        "right": "12px",
+        "bottom": "0",
+        "left": "12px"
+       },
+       "_cssCustom": "\n#brxe-a2cef7 { font-family: Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "51065f",
+      "name": "text-basic",
+      "parent": "6442e6",
+      "children": [],
+      "settings": {
+       "text": "Ein frischer Auftritt.\nBald an dieser Stelle.",
+       "tag": "p",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "15px",
+        "font-weight": "500",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#35523c"
+        },
+        "text-align": "center"
+       },
+       "_cssCustom": "#brxe-51065f { white-space: pre-line; }\n#brxe-51065f { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "cf4969",
+      "name": "div",
+      "parent": "347ba2",
+      "children": [
+       "a6cd20",
+       "e6176c"
+      ],
+      "settings": {
+       "_display": "flex",
+       "_direction": "row",
+       "_justifyContent": "space-between",
+       "_width": "100%",
+       "_padding": {
+        "top": "24px",
+        "right": "0",
+        "bottom": "24px",
+        "left": "0"
+       },
+       "_border": {
+        "width": {
+         "top": "1"
+        },
+        "style": "solid",
+        "color": {
+         "hex": "#dce3d9"
+        }
+       },
+       "_direction:mobile_portrait": "column",
+       "_rowGap": "16px",
+       "_columnGap": "16px"
+      },
+      "label": "Fußzeile"
+     },
+     {
+      "id": "a6cd20",
+      "name": "text-basic",
+      "parent": "cf4969",
+      "children": [],
+      "settings": {
+       "text": "example.com",
+       "tag": "span",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "12px",
+        "font-weight": "600",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#56645b"
+        }
+       },
+       "_cssCustom": "\n#brxe-a6cd20 { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "e6176c",
+      "name": "text-basic",
+      "parent": "cf4969",
+      "children": [],
+      "settings": {
+       "text": "Danke für Ihre Geduld.",
+       "tag": "span",
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "12px",
+        "font-weight": "400",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#56645b"
+        }
+       },
+       "_cssCustom": "\n#brxe-e6176c { font-family: Segoe UI, Arial, sans-serif; }"
+      }
+     },
+     {
+      "id": "813bee",
+      "name": "section",
+      "parent": 0,
+      "children": [
+       "347ba2"
+      ],
+      "settings": {
+       "_background": {
+        "color": {
+         "hex": "#f5f7f3"
+        }
+       },
+       "_heightMin": "100svh",
+       "_padding": {
+        "top": "0",
+        "right": "clamp(22px,5vw,80px)",
+        "bottom": "0",
+        "left": "clamp(22px,5vw,80px)"
+       },
+       "_typography": {
+        "font-family": "Segoe UI",
+        "font-size": "16px",
+        "font-weight": "400",
+        "line-height": "1.45",
+        "color": {
+         "hex": "#14291f"
+        }
+       },
+       "_cssCustom": "#brxe-813bee { overflow: hidden; }\n#brxe-813bee * { box-sizing: border-box; }\n#brxe-813bee p { margin: 0; }\n#brxe-813bee .hb-plate { transform: rotate(-7deg); }\n@media(max-width:767px) { #brxe-813bee .hb-plate { transform: rotate(-4deg); } }\n#brxe-813bee { font-family: Segoe UI, Arial, sans-serif; }"
+      },
+      "label": "HB · Coming soon"
+     }
+    ],
+    "postId": 7,
+    "documentDigest": "97b22fed996424fa16c1b0819e8dc643495bef5e6107bd5b32fe5353b29151b6"
+   }
+  },
+  "bricks/get-page-settings": {
+   "success": true,
+   "data": {
+    "settings": [],
+    "postId": 7
+   }
+  },
+  "bricks/get-design-context": {
+   "counts": {
+    "colorPalettes": 1,
+    "colors": 18,
+    "globalClasses": 7,
+    "themeStyles": 0,
+    "components": 0,
+    "globalVariables": 0,
+    "variableCategories": 0
+   },
+   "colorPalettes": [
+    {
+     "id": "af36e3",
+     "name": "Default",
+     "colorCount": 18
+    }
+   ],
+   "globalClasses": [
+    {
+     "id": "yyktus",
+     "name": "timeline-1",
+     "category": "",
+     "hasSettings": true,
+     "hasSelectors": false
+    },
+    {
+     "id": "fixjmh",
+     "name": "timeline-1__item",
+     "category": "",
+     "hasSettings": true,
+     "hasSelectors": false
+    },
+    {
+     "id": "rbdpfr",
+     "name": "timeline-1__label",
+     "category": "",
+     "hasSettings": true,
+     "hasSelectors": false
+    },
+    {
+     "id": "gyxydk",
+     "name": "timeline-1__heading",
+     "category": "",
+     "hasSettings": true,
+     "hasSelectors": false
+    },
+    {
+     "id": "aeklcf",
+     "name": "timeline-1__time",
+     "category": "",
+     "hasSettings": true,
+     "hasSelectors": false
+    },
+    {
+     "id": "hbqwsw",
+     "name": "timeline-1__date",
+     "category": "",
+     "hasSettings": true,
+     "hasSelectors": false
+    },
+    {
+     "id": "ueevks",
+     "name": "timeline-1__text-basic",
+     "category": "",
+     "hasSettings": false,
+     "hasSelectors": false
+    }
+   ],
+   "themeStyles": [],
+   "components": [],
+   "globalVariables": [],
+   "variableCategories": [],
+   "breakpoints": {
+    "customEnabled": false,
+    "isMobileFirst": false,
+    "baseKey": "desktop",
+    "baseWidth": 1279,
+    "items": [
+     {
+      "base": true,
+      "key": "desktop",
+      "label": "Desktop",
+      "width": 1279,
+      "icon": "laptop"
+     },
+     {
+      "key": "tablet_portrait",
+      "label": "Tablet Hochformat",
+      "width": 991,
+      "icon": "tablet-portrait"
+     },
+     {
+      "key": "mobile_landscape",
+      "label": "Mobil Querformat",
+      "width": 767,
+      "icon": "phone-landscape"
+     },
+     {
+      "key": "mobile_portrait",
+      "label": "Mobil Hochformat",
+      "width": 478,
+      "icon": "phone-portrait"
+     }
+    ]
+   },
+   "version": 0,
+   "designSystemSnapshot": {
+    "token": "[redacted]",
+    "authorities": [
+     {
+      "siteId": 1,
+      "version": 0
+     }
+    ],
+    "resources": {
+     "currentSite": {
+      "siteId": 1,
+      "version": 0
+     },
+     "themeStyles": {
+      "siteId": 1,
+      "version": 0
+     },
+     "breakpoints": {
+      "siteId": 1,
+      "version": 0
+     },
+     "pseudoClasses": {
+      "siteId": 1,
+      "version": 0
+     },
+     "globalClasses": {
+      "siteId": 1,
+      "version": 0
+     },
+     "globalClassCategories": {
+      "siteId": 1,
+      "version": 0
+     },
+     "components": {
+      "siteId": 1,
+      "version": 0
+     },
+     "globalVariables": {
+      "siteId": 1,
+      "version": 0
+     },
+     "globalVariableCategories": {
+      "siteId": 1,
+      "version": 0
+     },
+     "colorPalettes": {
+      "siteId": 1,
+      "version": 0
+     }
+    }
+   }
+  },
+  "bricks/list-color-palettes": {
+   "success": true,
+   "data": {
+    "items": [
+     {
+      "id": "b4c022",
+      "name": "Default",
+      "colors": [
+       {
+        "light": "#f5f5f5",
+        "raw": "var(--bricks-color-grey-100)",
+        "id": "6316f7",
+        "colorDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "itemOwnership": {
+         "resource": "trimmed"
+        }
+       },
+       {
+        "light": "#e0e0e0",
+        "raw": "var(--bricks-color-grey-300)",
+        "id": "4f74d6",
+        "colorDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "itemOwnership": {
+         "resource": "trimmed"
+        }
+       },
+       {
+        "light": "#9e9e9e",
+        "raw": "var(--bricks-color-grey-500)",
+        "id": "62ff41",
+        "colorDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "itemOwnership": {
+         "resource": "trimmed"
+        }
+       },
+       {
+        "light": "#616161",
+        "raw": "var(--bricks-color-grey-700)",
+        "id": "b10111",
+        "colorDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "itemOwnership": {
+         "resource": "trimmed"
+        }
+       },
+       {
+        "light": "#03a9f4",
+        "raw": "var(--bricks-color-light-blue)",
+        "id": "f5e995"
+       }
+      ],
+      "paletteDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "itemOwnership": {
+       "resource": "trimmed"
+      }
+     }
+    ],
+    "total": 1,
+    "page": 1,
+    "perPage": 25,
+    "hasMore": false,
+    "ownership": {
+     "resource": "trimmed"
+    }
+   }
+  },
+  "bricks/list-global-classes": {
+   "success": true,
+   "data": {
+    "items": [
+     {
+      "id": "yyktus",
+      "name": "timeline-1",
+      "settings": {
+       "_padding": {
+        "left": "unset"
+       },
+       "_width": "100%",
+       "_position": "relative",
+       "_cssCustom": "@media (min-width:768px) {\n  .timeline-1 li:nth-child(odd) {\n    margin-left: auto\n  }\n\n  .timeline-1 li:nth-child(even) {\n    text-align: right\n  }\n\n  .timeline-1 li:nth-child(even) {\n    align-items: flex-end;\n\n  }\n\n  .timeline-1 li:nth-child(even) .timeline-1__label::before {\n    left: unset;\n    right: calc(var(--space-m) * -1 - 9px)\n  }\n\n  .timeline-1 li:nth-child(even) .timeline-1__time {\n    order: -1\n  }\n\n  .timeline-1__item:nth-child(even)::before {\n    left: unset;\n    right: -2px\n  }\n}\n\n.timeline-1__item::before {\n  content: \"\";\n  background: var(--dark);\n  width: 2px;\n  height: 100%;\n  position: absolute;\n  left: 0;\n  top: calc(var(--space-m) * 2)\n}\n\n.timeline-1__item:last-child::before {\n  display: none\n}",
+       "_padding:mobile_landscape": {
+        "left": "var(--space-m)"
+       }
+      },
+      "_exists": false,
+      "itemDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "itemOwnership": {
+       "resource": "trimmed"
+      }
+     },
+     {
+      "id": "fixjmh",
+      "name": "timeline-1__item",
+      "settings": {
+       "_width": "50%",
+       "_padding": {
+        "top": "var(--space-m)",
+        "right": "var(--space-m)",
+        "bottom": "var(--space-m)",
+        "left": "var(--space-m)"
+       },
+       "_position": "relative",
+       "_display": "flex",
+       "_direction": "column",
+       "_width:mobile_landscape": "100%"
+      },
+      "_exists": false,
+      "itemDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "itemOwnership": {
+       "resource": "trimmed"
+      }
+     }
+    ],
+    "total": 2,
+    "page": 1,
+    "perPage": 25,
+    "hasMore": false,
+    "categories": [],
+    "locked": [],
+    "ownership": {
+     "resource": "trimmed"
+    },
+    "lockOwnership": {
+     "resource": "trimmed"
+    },
+    "categoryOwnership": {
+     "resource": "trimmed"
+    }
+   }
+  }
+ }
+}

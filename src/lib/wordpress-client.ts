@@ -223,7 +223,11 @@ export async function searchWordPressPages(
   signal: AbortSignal
 ): Promise<{ pages: WordPressPageSummary[] }> {
   return withSession(credentials, signal, async session => {
-    const result = await callAbility(session, "bricks/find-post", [{ names: ["search", "query", "s"], value: search.trim(), required: true }]);
+    const result = await callAbility(session, "bricks/find-post", [
+      { names: ["query", "search", "s"], value: search.trim(), required: true },
+      { names: ["bricksOnly"], value: true },
+      { names: ["limit"], value: 50 },
+    ]);
 
     const items = Array.isArray(result)
       ? result
@@ -241,7 +245,8 @@ export async function searchWordPressPages(
         title: String(item.title ?? item.post_title ?? item.name ?? `Page #${id}`),
         slug: typeof item.slug === "string" ? item.slug : typeof item.post_name === "string" ? item.post_name : undefined,
         type: typeof item.type === "string" ? item.type : typeof item.postType === "string" ? item.postType : typeof item.post_type === "string" ? item.post_type : undefined,
-        modified: typeof item.modified === "string" ? item.modified : typeof item.post_modified === "string" ? item.post_modified : undefined,
+        modified: typeof item.modifiedGmt === "string" ? item.modifiedGmt : typeof item.modified === "string" ? item.modified : typeof item.post_modified === "string" ? item.post_modified : undefined,
+        ...(typeof item.locked === "boolean" ? { locked: item.locked } : {}),
       });
     }
     return { pages };
@@ -257,32 +262,48 @@ export async function getWordPressPage(
     const postArg: Argument = { names: ["postId", "post_id", "id"], value: postId, required: true };
     const elementsResult = await callAbility(session, "bricks/get-page-elements", [postArg]);
 
-    // Not listed in Bricks' published ability references; read only when the site provides it.
+    const fetchedAt = new Date().toISOString();
+
+    // Returns { settings, postId }; PHP encodes empty settings as [].
     let settings: JsonRecord | undefined;
     try {
       const s = await callAbility(session, "bricks/get-page-settings", [postArg]);
-      if (isRecord(s)) settings = s;
+      const value = isRecord(s) && "settings" in s ? s.settings : s;
+      settings = isRecord(value) ? value : {};
     } catch {
       // Optional settings read
     }
 
     let rawElements: unknown[] = [];
     let title: string | undefined;
+    let documentDigest: string | undefined;
     if (Array.isArray(elementsResult)) rawElements = elementsResult;
     else if (isRecord(elementsResult)) {
       if (Array.isArray(elementsResult.elements)) rawElements = elementsResult.elements;
       else if (Array.isArray(elementsResult.content)) rawElements = elementsResult.content;
       const t = elementsResult.title ?? elementsResult.postTitle;
       if (typeof t === "string" && t.trim()) title = t.trim();
+      if (typeof elementsResult.documentDigest === "string") documentDigest = elementsResult.documentDigest;
+    }
+
+    // get-page-elements carries no title; find-post by ID does.
+    if (!title) {
+      try {
+        const found = await callAbility(session, "bricks/find-post", [postArg]);
+        const rows = isRecord(found) && Array.isArray(found.results) ? found.results : Array.isArray(found) ? found : [];
+        const row = rows.find(r => isRecord(r) && Number(r.id) === postId);
+        if (isRecord(row) && typeof row.title === "string" && row.title.trim()) title = row.title.trim();
+      } catch {
+        // Title is cosmetic
+      }
     }
 
     const template = readStagingTemplate({ content: rawElements }, true);
     const pageHash = createHash("sha256").update(stableJson(template.content)).digest("hex").slice(0, 16);
-    const fetchedAt = new Date().toISOString();
     const postTitle = title ?? `Page #${postId}`;
-    const source: WordPressSource = { endpoint: credentials.endpoint, postId, postTitle, fetchedAt, pageHash };
+    const source: WordPressSource = { endpoint: credentials.endpoint, postId, postTitle, fetchedAt, pageHash, ...(documentDigest ? { documentDigest } : {}) };
 
-    return { postId, postTitle, template, pageHash, fetchedAt, endpoint: credentials.endpoint, source, settings };
+    return { postId, postTitle, template, pageHash, ...(documentDigest ? { documentDigest } : {}), fetchedAt, endpoint: credentials.endpoint, source, settings };
   });
 }
 
@@ -306,29 +327,43 @@ function readColors(context: JsonRecord): Array<{ name: string; value: string }>
   return colors;
 }
 
+/** Read every page of a paginated Bricks list ability ({ items, hasMore }). */
+async function listAll(session: Session, abilityName: string): Promise<unknown[]> {
+  const items: unknown[] = [];
+  for (let page = 1; page <= 20; page++) {
+    const result = await callAbility(session, abilityName, [{ names: ["page"], value: page }, { names: ["perPage"], value: 100 }]);
+    const rows = isRecord(result) && Array.isArray(result.items) ? result.items : Array.isArray(result) ? result : [];
+    items.push(...rows);
+    if (!isRecord(result) || result.hasMore !== true || !rows.length) break;
+  }
+  return items;
+}
+
 export async function getWordPressDesignContext(credentials: WordPressCredentials, signal: AbortSignal): Promise<WordPressDesignResult> {
   return withSession(credentials, signal, async session => {
+    // The design context only summarizes palettes and classes (counts, hasSettings); values come from the list abilities.
     const result = await callAbility(session, "bricks/get-design-context");
     const fetchedAt = new Date().toISOString();
+    const palettes = await listAll(session, "bricks/list-color-palettes").catch(() => []);
+    const classes = await listAll(session, "bricks/list-global-classes").catch(() => []);
 
     const designTokens: Partial<DesignTokens> = {};
+    for (const { name, value } of readColors({ colorPalettes: palettes })) {
+      // Bricks' built-in palette (--bricks-color-light-blue, …) is not a brand system.
+      if (name.startsWith("bricks-color-")) continue;
+      const words = new Set(name.split(/[^a-z0-9]+/));
+      const has = (...candidates: string[]) => candidates.some(word => words.has(word));
+      if (has("primary") && !designTokens.primaryColor) designTokens.primaryColor = value;
+      else if (has("secondary") && !designTokens.secondaryColor) designTokens.secondaryColor = value;
+      else if (has("background", "bg", "base", "light") && !designTokens.backgroundColor) designTokens.backgroundColor = value;
+      else if (has("surface", "card", "muted") && !designTokens.surfaceColor) designTokens.surfaceColor = value;
+      else if (has("text", "body", "dark") && !designTokens.textColor) designTokens.textColor = value;
+    }
+
     const globalClasses: BricksGlobalClass[] = [];
-
-    if (isRecord(result)) {
-      for (const { name, value } of readColors(result)) {
-        if (name.includes("primary") && !designTokens.primaryColor) designTokens.primaryColor = value;
-        else if (name.includes("secondary") && !designTokens.secondaryColor) designTokens.secondaryColor = value;
-        else if ((name.includes("background") || name.includes("base") || name.includes("light")) && !designTokens.backgroundColor) designTokens.backgroundColor = value;
-        else if (name.includes("surface") || name.includes("card") || name.includes("muted")) designTokens.surfaceColor = value;
-        else if (name.includes("text") || name.includes("body") || name.includes("dark")) designTokens.textColor = value;
-      }
-
-      if (Array.isArray(result.globalClasses)) {
-        for (const cls of result.globalClasses) {
-          if (isRecord(cls) && typeof cls.id === "string" && typeof cls.name === "string") {
-            globalClasses.push({ id: cls.id, name: cls.name, settings: isRecord(cls.settings) ? cls.settings : {} });
-          }
-        }
+    for (const cls of classes) {
+      if (isRecord(cls) && typeof cls.id === "string" && typeof cls.name === "string") {
+        globalClasses.push({ id: cls.id, name: cls.name, settings: isRecord(cls.settings) ? cls.settings : {} });
       }
     }
 

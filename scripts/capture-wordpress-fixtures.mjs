@@ -30,6 +30,9 @@ const EXECUTE = [
   "bricks/list-templates",
   "bricks/list-breakpoints",
   "bricks/list-revisions",
+  "bricks/list-color-palettes",
+  "bricks/list-global-classes",
+  "bricks/get-reading-settings",
 ];
 // Schemas needed to plan v0.5; never executed by this script.
 const INFO_ONLY = [
@@ -37,6 +40,12 @@ const INFO_ONLY = [
   "bricks/update-element",
   "bricks/remove-element",
   "bricks/set-page-elements",
+  "bricks/set-page-settings",
+  "bricks/get-revision",
+  "bricks/restore-revision",
+  "bricks/checkout-page-workspace",
+  "bricks/preview-page-workspace",
+  "bricks/apply-page-workspace",
   "bricks/render-elements",
   "bricks/resolve-agent-file",
   "bricks/commit-agent-file",
@@ -129,8 +138,10 @@ try {
   const searchKey = pick(findProps, ["search", "query", "s", "title"]);
   const found = await execute("bricks/find-post", searchKey ? { [searchKey]: CAPTURE_SEARCH ?? "" } : {});
 
-  const firstId = value => {
-    const rows = Array.isArray(value) ? value : value?.data ?? value?.posts ?? value?.results ?? value?.items;
+  const unwrap = value => (value && typeof value === "object" && typeof value.success === "boolean" && "data" in value ? value.data : value);
+  const firstId = found => {
+    const value = unwrap(found);
+    const rows = Array.isArray(value) ? value : value?.results ?? value?.posts ?? value?.items;
     const row = Array.isArray(rows) ? rows.find(r => r && typeof r === "object") : undefined;
     return Number(row?.id ?? row?.ID ?? row?.postId ?? row?.post_id) || undefined;
   };
@@ -144,9 +155,12 @@ try {
 
   const designProps = await properties("bricks/get-design-context");
   await execute("bricks/get-design-context", "responseFormat" in designProps ? { responseFormat: "summary" } : {});
-  await execute("bricks/get-design-context");
+  if ("responseFormat" in designProps) await execute("bricks/get-design-context", { responseFormat: "detailed" });
+  await execute("bricks/list-color-palettes");
+  await execute("bricks/list-global-classes");
   await execute("bricks/list-templates");
   await execute("bricks/list-breakpoints");
+  await execute("bricks/get-reading-settings");
 } catch (error) {
   record.fatal = error instanceof Error ? error.message : String(error);
   console.error(`Capture stopped: ${record.fatal}`);
