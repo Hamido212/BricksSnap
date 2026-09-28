@@ -7,7 +7,13 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Use buil
 
 **Start here: [setup, both AI connections and import guide](docs/SETUP.md).**
 
-**v0.4: [read a connected WordPress site](docs/WORDPRESS.md)** ([release notes](docs/RELEASE-0.4.0.md)) — load a live Bricks page and its global classes as the staging baseline through the official WordPress MCP Adapter (local, read-only). Builds on v0.3's [template staging and local MCP](docs/STAGING-MCP.md). See the [staged release plan](docs/ROADMAP.md) for the planned WordPress integration and the [Bricks AI/MCP research](docs/RESEARCH-2026-09-28-BRICKS-MCP.md) behind it.
+**v0.5: [review, render and apply changes to a live Bricks page](docs/WORDPRESS.md)** ([release notes](docs/RELEASE-0.5.0.md)).
+
+- Load a page from a connected site, add sections and compare the before/after as Bricks itself renders it.
+- Save with Bricks' atomic document-digest guard, verify the read-back and restore the previous revision.
+- Runs locally through the official WordPress MCP Adapter.
+
+Builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [template staging and local MCP](docs/STAGING-MCP.md). See the [release plan](docs/ROADMAP.md) and the [Bricks AI/MCP research](docs/RESEARCH-2026-09-28-BRICKS-MCP.md).
 
 ## Features
 
@@ -21,7 +27,8 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Use buil
 - Export types and preservation of global classes/component metadata
 - Staging workspace: prepend/append sections or insert after a root, with ID collision handling and structural comparison
 - Eight MCP tools over optional HTTP or local stdio; section generation, page assembly, merge and comparison
-- Local read-only WordPress connection: page search, live page import with Bricks' document digest, site class and palette import, class conflict warnings
+- Local WordPress connection: page search, live page import with Bricks' document digest, site class and palette import, class conflict warnings
+- Bricks-rendered before/after preview (1280/390 px), guarded apply with read-back verification and revision restore
 
 ## Prerequisites
 

@@ -9,7 +9,7 @@ BricksSnap can read a live Bricks page and the site's global classes through the
 - An application password for a dedicated WordPress user. Give that user only the Bricks builder access it needs rather than using an administrator. Revoke the password when you are done.
 - These abilities enabled under **Bricks → AI → Abilities**:
   - required: `get-page-elements` and `get-design-context`;
-  - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version` and `list-ability-status`.
+  - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version`, `list-ability-status` and `render-elements` (for the rendered preview).
 
   Saving additionally needs `set-page-elements`, and restoring needs `restore-revision`. Keep both disabled if you only want to read.
 
@@ -24,6 +24,14 @@ BricksSnap can read a live Bricks page and the site's global classes through the
 7. Add a section or version on the right and **Review changes** as usual. Download the reviewed template and import it in Bricks.
 
 The password is kept only in the open browser tab and sent to the local BricksSnap server for each request. It is not stored.
+
+## Preview as Bricks renders it (v0.5)
+
+After **Review changes**, select **Render with Bricks**. The connected site renders the saved page and the reviewed version with `render-elements`, and nothing is saved.
+
+- **Layout.** Both versions appear side by side at 1280 px or 390 px, with added and changed elements outlined. Scroll inside each preview.
+- **Scope.** The previews use Bricks' element markup and CSS plus Bricks' frontend stylesheet, not the site's theme styles or global class CSS.
+- **Safety.** They run in sandboxed frames without scripts, so interactions and sliders appear static.
 
 ## Apply a reviewed change (v0.5)
 

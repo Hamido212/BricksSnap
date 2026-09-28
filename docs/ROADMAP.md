@@ -32,6 +32,8 @@ Before release: inspect the installed abilities' actual schemas and permissions;
 
 ## v0.5 — Review and apply changes to WordPress
 
+Delivered in 0.5.0 (see [release notes](RELEASE-0.5.0.md)). Writes use Bricks' atomic `expectedDocumentDigest` guard, verified live, and recovery through `restore-revision` was verified live. The before/after render comes from Bricks' own `render-elements` at 1280 and 390 px. The original scope follows.
+
 Deliver a visible target page and reviewed proposal, conflict detection against a fresh baseline, controlled apply, read-back verification and a tested recovery path. Reuse v0.3's additive assembly and diff.
 
 Before release: verify actual write/revision behavior on staging. Do not invent an `expected_hash` parameter or call client-side hashes atomic locking. The live schema shows `set-page-elements` accepting `expectedDocumentDigest`, which `get-page-elements` returns. Test on staging that a stale digest is rejected before relying on it; `add-element` has no such guard. `restore-revision` exists for page recovery; global classes/variables need a transfer-package backup instead. If the native interface cannot provide atomic conflict detection, document that limit and disable unsafe unattended writes. A saved JSON backup is not evidence that revision rollback works. Render before/after on the actual Bricks installation at desktop/mobile widths; a local iframe sketch is insufficient.
