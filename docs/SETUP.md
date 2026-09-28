@@ -33,7 +33,7 @@ Local mode starts a loopback-bound server, requires a local-client header and re
 
 ChatGPT supplies the reasoning; MCP tools do not call a paid AI API or require an API key. This is a ChatGPT-side connection, not a subscription-to-API-credit workaround. Manual JSON paste/import also works without MCP.
 
-The opt-in stateless endpoint provides `bricks_get_schema` (optional element control lookup), `bricks_list_templates`, `bricks_get_template`, and `bricks_validate_template`. It cannot access API keys, WordPress or private files, or publish pages. It currently has no authentication because it only provides public computations; apply hosting rate limits. Leave disabled when unused.
+The opt-in stateless endpoint provides eight tools: `bricks_get_schema`, `bricks_list_templates`, `bricks_get_template`, `bricks_validate_template`, `bricks_generate_section`, `bricks_assemble_page`, `bricks_merge_templates` and `bricks_compare_templates`. It cannot access API keys, WordPress or private files, or publish pages. It currently has no authentication because it only provides public computations; apply hosting rate limits. Leave disabled when unused. For local stdio clients and the staging workflow, see [Staging and MCP](STAGING-MCP.md).
 
 ## Export and compatibility
 

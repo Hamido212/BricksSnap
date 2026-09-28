@@ -11,7 +11,7 @@ const object = (value: unknown): value is Record<string, unknown> => !!value && 
 export function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (object(value)) return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
-  return JSON.stringify(value) ?? "null";
+  return JSON.stringify(value) ?? "undefined";
 }
 
 /** Staging is strict: silently repairing an existing page would alter the baseline. */
@@ -31,6 +31,8 @@ export function readStagingTemplate(input: unknown, allowEmpty = false): BricksT
   for (const el of template.content) {
     if (!object(el) || typeof el.id !== "string" || !/^[a-z0-9]{6}$/.test(el.id) || byId.has(el.id)) throw new Error("Element IDs must be unique six-character lowercase letters/digits. Validate and repair the file before staging.");
     if (typeof el.name !== "string" || (!BRICKS_ELEMENT_NAMES.has(el.name) && typeof el.cid !== "string")) throw new Error(`Unsupported element ${el.id}.`);
+    if (el.label !== undefined && typeof el.label !== "string") throw new Error(`Invalid label on ${el.id}.`);
+    if (el.cid !== undefined && (typeof el.cid !== "string" || !el.cid)) throw new Error(`Invalid component reference on ${el.id}.`);
     if (!object(el.settings) || !Array.isArray(el.children) || el.children.some(id => typeof id !== "string") || new Set(el.children).size !== el.children.length) throw new Error(`Invalid settings or children on ${el.id}.`);
     if (el.parent !== 0 && typeof el.parent !== "string") throw new Error(`Invalid parent on ${el.id}.`);
     byId.set(el.id, el);
@@ -121,6 +123,7 @@ export function mergeTemplates(baseline: unknown, addition: unknown, position: I
   const fileKeys = new Set(["content", "source", "sourceUrl", "version", "title", "name", "type", "templateType", "date", "author"]);
   for (const [key, value] of Object.entries(incoming)) {
     if (fileKeys.has(key)) continue;
+    if (["__proto__", "prototype", "constructor"].includes(key)) throw new Error(`Unsupported template metadata: ${key}.`);
     if (referencesId(value, remapped)) throw new Error(`Metadata ${key} contains references to colliding element IDs.`);
     if (["globalClasses", "globalElements", "components"].includes(key)) metadata[key] = combineDependencies((before[key] as unknown[]) ?? [], value as unknown[], key);
     else if (before[key] === undefined) metadata[key] = structuredClone(value);

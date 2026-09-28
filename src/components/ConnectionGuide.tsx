@@ -23,9 +23,13 @@ export default function ConnectionGuide({ onImport, disabled }: { onImport: (tem
       </div>
       <div><h3 className="font-semibold text-foreground">Connect from ChatGPT using MCP</h3>
         <p>ChatGPT can design your template and use BricksSnap to validate it, without a separate OpenAI API call. Enable <code>BRICKSSNAP_MCP_ENABLED=true</code> on your BricksSnap server, restart it, and connect its <code>/api/mcp</code> endpoint in ChatGPT developer mode through a secure MCP tunnel or public HTTPS URL. Availability depends on your account and workspace.</p>
-        <p>The endpoint only provides the template catalog, schema guidance and JSON validation. It does not access your API keys or WordPress site.</p>
+        <p>The endpoint provides the template catalog, schema guidance, validation, built-in section/page generation and template merging/comparison. It does not access your API keys or WordPress site.</p>
         <a href="https://developers.openai.com/plugins/deploy/connect-chatgpt" target="_blank" rel="noreferrer" className="text-primary underline">Official ChatGPT connection instructions</a>
         <p className="mt-2">Example: “Use BricksSnap to design a responsive restaurant landing page. Get the schema, create native elements, validate them and give me the template as a JSON file.”</p>
+      </div>
+      <div><h3 className="font-semibold text-foreground">Stage changes or connect a local MCP client</h3>
+        <p>Open Staging to load an existing export and add a section, compare versions and download the reviewed result. Try Load demo to see the workflow. The comparison shows structure, not a live Bricks rendering.</p>
+        <p>For a local MCP client, run <code>npm run build:mcp</code> once, then configure it to launch <code>node</code> with the absolute path to <code>dist/mcp-server.mjs</code>. All eight tools run locally without WordPress credentials or an API key.</p>
       </div>
       <div><h3 className="font-semibold text-foreground">Import from ChatGPT or Bricks</h3>
         <p>Paste an element array or a template object. Global classes and component metadata are retained; missing dependencies are reported.</p>

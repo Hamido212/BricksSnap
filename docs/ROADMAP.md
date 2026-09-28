@@ -1,0 +1,42 @@
+# Staged releases toward BricksSnap 2.0
+
+Reviewed September 28, 2026. Versions below are delivery boundaries, not scheduled dates.
+
+## Assessment of the proposed roadmap
+
+The opportunity is credible: combine native template generation with a reviewable change workflow. However, implementation should build on verified interfaces rather than treating the proposal as an API contract.
+
+- BricksSnap already had four HTTP MCP tools before v0.3. This release extends that server and adds local stdio transport.
+- Our preview is a structure sketch. It is not equivalent to a live WordPress/Bricks render. Passing validation does not prove the intended layout works.
+- Bricks' native AI integration is experimental and includes its own checks and some preview workflows. “Always blind” and “no safeguards” are inaccurate generalizations. See [Bricks AI Abilities and Skills](https://academy.bricksbuilder.io/builder/features/ai-abilities-and-skills/).
+- The [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) is the WordPress-side bridge. `@automattic/mcp-wordpress-remote` is a client-side proxy; it is not the WordPress plugin.
+- [Remote templates](https://academy.bricksbuilder.io/builder/features/remote-templates/) are supported by Bricks, but the proposed custom endpoint and response shape require an actual import test. A JSON catalog alone does not establish compatibility.
+- Source-file size is not a reliability measure. Existing obfuscated browser key storage is not an encrypted credential vault for a multi-user WordPress integration.
+
+## v0.3 — Assemble and review templates
+
+Delivered: additive staging, ID/dependency conflict handling, structural diff, import/export workflow, built-in MCP generation and assembly, local stdio server. The eight tools share the same engine as HTTP. No WordPress write path or new credentials are introduced.
+
+Acceptance: catalog-wide merge tests, real stdio protocol integration, HTTP checks, production build, browser review including narrow screens. See [the usage guide](STAGING-MCP.md).
+
+## v0.4 — Read a connected WordPress site
+
+Deliver one complete read-only path: connection setup, capability/version discovery, page selection, read page structure and import available design context. Show which source and timestamp each baseline came from. Preserve unknown data without claiming full support for third-party CSS frameworks.
+
+Before release: inspect the installed abilities' actual schemas and permissions; test missing capabilities, revoked credentials, timeouts and inconsistent responses. Choose an explicit local-only or authenticated server-side credential model. For hosted connections, implement tenant isolation and outbound request protections before accepting arbitrary site URLs. Do not store WordPress secrets in the current obfuscation helper.
+
+## v0.5 — Review and apply changes to WordPress
+
+Deliver a visible target page and reviewed proposal, conflict detection against a fresh baseline, controlled apply, read-back verification and a tested recovery path. Reuse v0.3's additive assembly and diff.
+
+Before release: verify actual write/revision behavior on staging. Do not invent an `expected_hash` parameter or call client-side hashes atomic locking. If the native interface cannot provide atomic conflict detection, document that limit and disable unsafe unattended writes. A saved JSON backup is not evidence that revision rollback works. Render before/after on the actual Bricks installation at desktop/mobile widths; a local iframe sketch is insufficient.
+
+## v0.6 — Distribute templates and client guidance
+
+Deliver a Bricks-compatible remote library after testing its real consumer contract, with pagination, asset handling and access rules where needed. Add reusable guidance for supported AI clients, using tool discovery and the existing Bricks schemas rather than duplicating stale element rules.
+
+Before release: successful browse/import inside a supported Bricks editor, missing-asset/dependency tests, documented compatibility, and explicit package publishing configuration if a standalone npm package is desired.
+
+## 2.0 milestone
+
+Use the 2.0 name when a connected site can be read, a change reviewed, applied, verified and recovered through a tested workflow. Intermediate releases should deliver useful complete workflows without implying that later phases are already available.

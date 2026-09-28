@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { BricksTemplate } from "@/lib/bricks-engine";
 import { diffTemplates, mergeTemplates, readStagingTemplate } from "@/lib/template-staging";
 import { generateMcpPage } from "@/lib/mcp-generation";
@@ -36,7 +36,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
   const inspect = () => {
     invalidate();
     try {
-      const before = readStagingTemplate(JSON.parse(baseline || "[]"), true);
+      const before = readStagingTemplate(JSON.parse(baseline.trim() || "[]"), true);
       const addition = JSON.parse(candidate);
       if (mode === "compare") {
         const template = readStagingTemplate(addition, true);
@@ -49,13 +49,15 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
   };
   const demo = () => {
     invalidate();
-    setBaseline(JSON.stringify(generateMcpPage({ prompt: "A modern studio website", sections: ["hero", "footer"] }).template, null, 2));
+    const page = generateMcpPage({ prompt: "A modern studio website", sections: ["hero", "footer"] }).template;
+    setBaseline(JSON.stringify(page, null, 2));
     setCandidate(JSON.stringify(generateMcpPage({ prompt: "A modern studio website", sections: ["features"] }).template, null, 2));
-    setMode("after"); setAfterId("");
+    setMode("after"); setAfterId(page.content.find(el => el.parent === 0)?.id ?? "");
   };
-  // Only read roots on demand. Invalid drafts remain editable without silently repairing them.
-  let roots: Array<{ id: string; label: string }> = [];
-  try { roots = readStagingTemplate(JSON.parse(baseline || "[]"), true).content.filter(el => el.parent === 0).map(el => ({ id: el.id, label: el.label || el.name })); } catch { /* Display validation errors when Review is selected. */ }
+  const roots = useMemo(() => {
+    try { return readStagingTemplate(JSON.parse(baseline.trim() || "[]"), true).content.filter(el => el.parent === 0).map(el => ({ id: el.id, label: el.label || el.name })); }
+    catch { return []; } // Keep invalid drafts editable; report errors on Review.
+  }, [baseline]);
 
   return <section className="space-y-6" aria-labelledby="staging-title">
     <div className="flex flex-wrap items-end justify-between gap-4">

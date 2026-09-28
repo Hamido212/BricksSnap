@@ -48,12 +48,15 @@ describe("strict staging", () => {
     expect(() => mergeTemplates({ ...base(), pageSettings: { a: 1 } }, { ...wrapTemplate([el("dddddd")]), pageSettings: { a: 2 } }, { mode: "append" })).toThrow(/metadata/);
   });
   it("rejects malformed, cyclic, oversized and inconsistent baseline trees", () => {
+    expect(() => readStagingTemplate([{ ...el("aaaaaa"), label: { unexpected: true } }])).toThrow(/label/);
+    expect(() => readStagingTemplate([{ ...el("aaaaaa"), cid: {} }])).toThrow(/component/);
     for (const input of [undefined, {}, [el("bad")], [el("aaaaaa"), el("aaaaaa")], [el("aaaaaa", "bbbbbb")], [el("aaaaaa", 0, ["bbbbbb"])] ]) expect(() => readStagingTemplate(input)).toThrow();
     expect(() => readStagingTemplate([el("aaaaaa", "bbbbbb", ["bbbbbb"]), el("bbbbbb", "aaaaaa", ["aaaaaa"])])).toThrow(/cycle/);
     expect(() => readStagingTemplate([el("aaaaaa", 0, [], { text: "x".repeat(2_000_000) })])).toThrow(/2 MB/);
     expect(() => mergeTemplates(base(), [el("dddddd")], { mode: "after", afterId: "bbbbbb" })).toThrow(/top-level/);
   });
   it("reports removals, setting changes, reordered siblings and metadata changes", () => {
+    expect(diffTemplates(base(), { ...base(), pageSettings: null }).metadata).toContain("pageSettings");
     const before = base();
     const after = { ...wrapTemplate([el("cccccc"), el("aaaaaa", 0, [], { tag: "main" })]), title: "New title" };
     const diff = diffTemplates(before, after);
@@ -63,6 +66,14 @@ describe("strict staging", () => {
     const nested = wrapTemplate([el("aaaaaa", 0, ["bbbbbb", "cccccc"]), el("bbbbbb", "aaaaaa"), el("cccccc", "aaaaaa")]);
     const reordered = structuredClone(nested); reordered.content[0].children.reverse();
     expect(diffTemplates(nested, reordered).counts).toMatchObject({ changed: 1, moved: 2 });
+  });
+  it("enforces combined size and rejects conflicting component definitions", () => {
+    const large = Array.from({ length: 800 }, (_, i) => el(i.toString(36).padStart(6, "0")));
+    expect(() => mergeTemplates(large, large, { mode: "append" })).toThrow(/1500/);
+    const before = { ...base(), components: [{ id: "component1", content: [] }] };
+    const incoming = { ...wrapTemplate([el("dddddd")]), components: [{ id: "component1", content: [el("eeeeee")] }] };
+    expect(() => mergeTemplates(before, incoming, { mode: "append" })).toThrow(/Conflicting components/);
+    expect(() => mergeTemplates(base(), JSON.parse('{"content":[{"id":"dddddd","name":"section","parent":0,"children":[],"settings":{}}],"__proto__":{"changed":true}}'), { mode: "append" })).toThrow(/metadata/);
   });
   it("stages every built-in catalog template and the same template twice", () => {
     for (const entry of TEMPLATES) {
