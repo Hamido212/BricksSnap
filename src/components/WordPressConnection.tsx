@@ -303,7 +303,7 @@ export default function WordPressConnection({
                   <select
                     value={selectedPostId ?? ""}
                     onChange={e => setSelectedPostId(Number(e.target.value))}
-                    className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs grow sm:max-w-md"
+                    className="w-full min-w-0 rounded-lg border border-border bg-card px-2.5 py-1 text-xs sm:w-auto sm:grow sm:max-w-md"
                   >
                     {pages.map(p => (
                       <option key={p.id} value={p.id}>

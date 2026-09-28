@@ -17,6 +17,9 @@
   - The design import reads the paginated palette and class lists and ignores Bricks' default palette.
   - The page list now loads after connecting.
   - Tests replay sanitized captured responses.
+- Browser-tested the Staging connection flow in Chromium against the live site at 1440 px and 390 px: connect, page list, page import, review and design import, with no console errors and no horizontal overflow.
+  - Fixed a stale "insert after" section that survived a baseline replacement, which made review fail.
+  - Fixed the page picker overflowing narrow screens.
 
 See the research document for open items.
 

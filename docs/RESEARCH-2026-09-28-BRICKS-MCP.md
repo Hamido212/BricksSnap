@@ -144,7 +144,7 @@ Adjusted after the live capture:
 
 Still open before release:
 
-1. **Browser review of the UI flow** on the live or a staging site, including narrow screens. The design import result is not yet applied anywhere: `StagingWorkspace` does not pass `onImportDesign`.
+1. **Apply the design import.** Browser review at 1440 px and 390 px passed against the live site: connect, page list, page import, review and design import. The imported design context is not yet used anywhere, because `StagingWorkspace` does not pass `onImportDesign`.
 2. **Decide how local and staging sites connect.** Bricks recommends testing on local or staging sites, but the current transport rejects:
    - private and loopback addresses (LocalWP, DDEV, LAN staging);
    - custom ports;

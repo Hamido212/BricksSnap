@@ -51,7 +51,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         const template = readStagingTemplate(addition, true);
         setReview({ before, template, diff: diffTemplates(before, template), warnings: ["Comparison can include removals. Export contains the full candidate, not only the differences.", "Structure comparison only. Check layout, dynamic data, links and forms in Bricks before publishing."] });
       } else {
-        const merged = mergeTemplates(before, addition, mode === "after" ? { mode, afterId: afterId.trim() } : { mode });
+        const merged = mergeTemplates(before, addition, mode === "after" ? { mode, afterId: selectedAfter } : { mode });
         setReview({ before, ...merged });
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Could not review templates."); }
@@ -68,6 +68,8 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
     try { return readStagingTemplate(JSON.parse(baseline.trim() || "[]"), true).content.filter(el => el.parent === 0).map(el => ({ id: el.id, label: el.label || el.name })); }
     catch { return []; } // Keep invalid drafts editable; report errors on Review.
   }, [baseline]);
+  // A replaced baseline (demo, file, WordPress page) can drop the previously chosen section.
+  const selectedAfter = roots.some(root => root.id === afterId.trim()) ? afterId.trim() : "";
 
   return <section className="space-y-6" aria-labelledby="staging-title">
     <div className="flex flex-wrap items-end justify-between gap-4">
@@ -106,7 +108,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         </select>
       </div>
       {mode === "after" && <div className="grow sm:grow-0 min-w-0"><label className="block text-xs text-muted mb-2" htmlFor="staging-after">After section</label>
-        <select id="staging-after" className={control} value={afterId} onChange={e => { invalidate(); setAfterId(e.target.value); }}><option value="">Choose a section</option>{roots.map(root => <option key={root.id} value={root.id}>{root.label} · {root.id}</option>)}</select>
+        <select id="staging-after" className={control} value={selectedAfter} onChange={e => { invalidate(); setAfterId(e.target.value); }}><option value="">Choose a section</option>{roots.map(root => <option key={root.id} value={root.id}>{root.label} · {root.id}</option>)}</select>
       </div>}
       <button className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-40" disabled={!candidate.trim()} onClick={inspect}>Review changes</button>
       <p className="text-xs text-muted sm:ml-auto">{source ? `Connected WordPress baseline (Post #${source.postId})` : "No WordPress connection required"}</p>

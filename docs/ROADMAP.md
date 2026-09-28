@@ -24,7 +24,7 @@ Acceptance: catalog-wide merge tests, real stdio protocol integration, HTTP chec
 
 Deliver one complete read-only path: connection setup, capability/version discovery, page selection, read page structure and import available design context. Show which source and timestamp each baseline came from. Preserve unknown data without claiming full support for third-party CSS frameworks.
 
-Status: the read-only client (`src/lib/wordpress-client.ts`) ran connect, page search, page import and design import end to end against a live Bricks 2.4.2 / WordPress 7.1.2 / MCP Adapter 0.6.1 site. Tests replay sanitized captured responses. Open items are listed in the [research](RESEARCH-2026-09-28-BRICKS-MCP.md#v04--read-a-connected-site): browser review, wiring the design import, session cleanup and an opt-in for local/staging targets.
+Status: the read-only client (`src/lib/wordpress-client.ts`) ran connect, page search, page import and design import end to end against a live Bricks 2.4.2 / WordPress 7.1.2 / MCP Adapter 0.6.1 site. Tests replay sanitized captured responses. A Chromium review of the Staging flow at desktop and 390 px widths passed. Open items are listed in the [research](RESEARCH-2026-09-28-BRICKS-MCP.md#v04--read-a-connected-site): wiring the design import, session cleanup and an opt-in for local/staging targets.
 
 Before release: inspect the installed abilities' actual schemas and permissions; test missing capabilities, revoked credentials, timeouts and inconsistent responses. Choose an explicit local-only or authenticated server-side credential model. For hosted connections, implement tenant isolation and outbound request protections before accepting arbitrary site URLs. Do not store WordPress secrets in the current obfuscation helper.
 
