@@ -6,6 +6,8 @@ import { diffTemplates, mergeTemplates, readStagingTemplate } from "@/lib/templa
 import { generateMcpPage } from "@/lib/mcp-generation";
 import JsonPreview from "./JsonPreview";
 import StructurePreview from "./StructurePreview";
+import WordPressConnection from "./WordPressConnection";
+import type { WordPressSource } from "@/lib/wordpress-contract";
 
 type Review = { before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
 const control = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
@@ -18,11 +20,18 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
   const [afterId, setAfterId] = useState("");
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState("");
+  const [source, setSource] = useState<WordPressSource | null>(null);
   // A slow file read must not overwrite a subsequent edit or show a stale review.
   const revision = useRef(0);
   const invalidate = () => { revision.current++; setReview(null); setError(""); };
   const edit = (side: "baseline" | "candidate", text: string) => {
-    invalidate(); (side === "baseline" ? setBaseline : setCandidate)(text);
+    invalidate();
+    if (side === "baseline") {
+      setBaseline(text);
+      setSource(null);
+    } else {
+      setCandidate(text);
+    }
   };
   const loadFile = async (side: "baseline" | "candidate", file?: File) => {
     if (!file) return;
@@ -49,6 +58,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
   };
   const demo = () => {
     invalidate();
+    setSource(null);
     const page = generateMcpPage({ prompt: "A modern studio website", sections: ["hero", "footer"] }).template;
     setBaseline(JSON.stringify(page, null, 2));
     setCandidate(JSON.stringify(generateMcpPage({ prompt: "A modern studio website", sections: ["features"] }).template, null, 2));
@@ -68,6 +78,14 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
       </div>
       <button className={button} onClick={demo}>Load demo</button>
     </div>
+    <WordPressConnection
+      currentSource={source}
+      onImportBaseline={(template, newSource) => {
+        invalidate();
+        setBaseline(JSON.stringify(template, null, 2));
+        setSource(newSource);
+      }}
+    />
     <div className="grid gap-5 lg:grid-cols-2">
       {(["baseline", "candidate"] as const).map((side, i) => <div key={side} className="min-w-0 rounded-xl border border-border bg-card p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -91,7 +109,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         <select id="staging-after" className={control} value={afterId} onChange={e => { invalidate(); setAfterId(e.target.value); }}><option value="">Choose a section</option>{roots.map(root => <option key={root.id} value={root.id}>{root.label} · {root.id}</option>)}</select>
       </div>}
       <button className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-40" disabled={!candidate.trim()} onClick={inspect}>Review changes</button>
-      <p className="text-xs text-muted sm:ml-auto">No WordPress connection required</p>
+      <p className="text-xs text-muted sm:ml-auto">{source ? `Connected WordPress baseline (Post #${source.postId})` : "No WordPress connection required"}</p>
     </div>
     {error && <p role="alert" className="rounded-lg border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-400 break-words">{error}</p>}
     {review && <div className="space-y-5" aria-live="polite">
