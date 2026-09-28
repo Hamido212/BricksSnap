@@ -49,6 +49,11 @@ For direct site editing, use the [official Bricks AI integration](https://academ
 
 With `npm run dev:local`, the Staging tab can read a page and its global classes from a Bricks 2.4+ site through the WordPress MCP Adapter and use it as the baseline. After review, it can save the change back with Bricks' document-digest guard and restore the previous revision. Both need an application password, and saving needs the `set-page-elements` ability enabled. See [Connect a WordPress site](WORDPRESS.md).
 
+## Remote library and AI clients
+
+- **Remote library.** Any deployment serves the catalog as a Bricks remote template library at `/wp-json/bricks/v1/get-templates-data` ([remote library](REMOTE-LIBRARY.md)).
+- **AI clients.** To combine BricksSnap's MCP tools with your site's Bricks abilities in Claude Code, Codex or Cursor, see [AI clients](CLIENTS.md).
+
 ## HTTP API
 
 `POST /api/generate`, JSON body:

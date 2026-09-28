@@ -40,6 +40,13 @@ Before release: verify actual write/revision behavior on staging. Do not invent 
 
 ## v0.6 — Distribute templates and client guidance
 
+Status:
+- **Remote library.** Implemented against the legacy Bricks response shape captured from a Bricks 2.4.2 source ([remote library](REMOTE-LIBRARY.md)).
+- **Client guidance.** Written ([AI clients](CLIENTS.md)).
+- **Pending.** The end-to-end browse/insert from a Bricks site needs a publicly reachable deployment. On the project's Vercel deployment, the firewall currently denies `/wp-json/*` paths (`x-vercel-mitigated: deny`).
+
+The original scope follows.
+
 Deliver a Bricks-compatible remote library after testing its real consumer contract, with pagination, asset handling and access rules where needed. Add reusable guidance for supported AI clients, using tool discovery and the existing Bricks schemas rather than duplicating stale element rules.
 
 Before release: successful browse/import inside a supported Bricks editor, missing-asset/dependency tests, documented compatibility, and explicit package publishing configuration if a standalone npm package is desired.
