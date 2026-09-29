@@ -1,7 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { EventEmitter } from "node:events";
 import { RequestError } from "./api-request";
@@ -22,6 +23,26 @@ export function assertLocalCodex(request: Request) {
   if (request.headers.get("x-brickssnap-local") !== "1") throw new RequestError("Local client header required.", 403);
 }
 
+/**
+ * How to start the Codex CLI without a shell. On Windows, npm installs `codex` as a `codex.cmd` shim,
+ * which Node cannot spawn without a shell; run the package's script with this Node binary instead.
+ */
+export function codexCommand(env: Record<string, string | undefined> = process.env, platform: NodeJS.Platform = process.platform, exists: (path: string) => boolean = existsSync): { command: string; args: string[] } {
+  const configured = env.BRICKSSNAP_CODEX_BIN;
+  if (platform !== "win32") return { command: configured || "codex", args: [] };
+  const npmScript = (dir: string) => win32.join(dir, "node_modules", "@openai", "codex", "bin", "codex.js");
+  if (configured) {
+    if (!/\.(cmd|bat)$/i.test(configured)) return { command: configured, args: [] };
+    const script = npmScript(win32.dirname(configured));
+    return exists(script) ? { command: process.execPath, args: [script] } : { command: configured, args: [] };
+  }
+  for (const dir of (env.PATH ?? env.Path ?? "").split(";").map(d => d.trim()).filter(Boolean)) {
+    if (exists(win32.join(dir, "codex.exe"))) return { command: win32.join(dir, "codex.exe"), args: [] };
+    if (exists(win32.join(dir, "codex.cmd")) && exists(npmScript(dir))) return { command: process.execPath, args: [npmScript(dir)] };
+  }
+  return { command: "codex", args: [] };
+}
+
 class CodexBridge {
   child?: ChildProcessWithoutNullStreams;
   ready?: Promise<void>;
@@ -31,6 +52,8 @@ class CodexBridge {
   busy = false;
   idle?: ReturnType<typeof setTimeout>;
   workspace = "";
+  /** Why the last start failed, for a message that says what to do. */
+  failure = "";
 
   async start() {
     if (this.ready) return this.ready;
@@ -44,7 +67,9 @@ class CodexBridge {
       const disabled = ["shell_tool", "unified_exec", "apply_patch_freeform", "apps", "connectors", "plugins", "hooks", "codex_hooks", "plugin_hooks", "multi_agent", "collab", "code_mode", "js_repl", "browser_use", "computer_use", "image_generation", "view_image", "memories", "memory_tool", "skill_search"];
       const args = ["app-server", "--stdio", "-c", 'web_search="disabled"', "-c", 'sandbox_mode="read-only"', "-c", 'approval_policy="never"', ...disabled.flatMap(f => ["-c", `features.${f}=false`])];
       // The CLI is installed on the local host; it must never be bundled into a deployment.
-      this.child = spawn(/* turbopackIgnore: true */ process.env.BRICKSSNAP_CODEX_BIN || "codex", args, { env, cwd: this.workspace, windowsHide: true, shell: false, stdio: "pipe" });
+      const codex = codexCommand();
+      this.failure = "";
+      this.child = spawn(/* turbopackIgnore: true */ codex.command, [...codex.args, ...args], { env, cwd: this.workspace, windowsHide: true, shell: false, stdio: "pipe" });
       this.child.stderr.resume(); // Never echo subprocess output that could contain auth data.
       createInterface({ input: this.child.stdout }).on("line", line => {
         if (line.length > 4_000_000) { this.stop(); return; }
@@ -59,7 +84,12 @@ class CodexBridge {
           } else if (message.method) this.events.emit(message.method, message.params);
         } catch { /* Ignore non-protocol diagnostics. */ }
       });
-      this.child.on("error", () => this.stop());
+      this.child.on("error", (error: NodeJS.ErrnoException) => {
+        this.failure = error.code === "ENOENT"
+          ? "Codex CLI was not found. Install it with npm install -g @openai/codex, check with codex --version, then restart npm run dev:local."
+          : `Codex CLI could not be started (${error.code ?? "error"}). Set BRICKSSNAP_CODEX_BIN to the full path of codex and restart npm run dev:local.`;
+        this.stop();
+      });
       this.child.on("exit", () => this.stop());
       await this.rpc("initialize", { clientInfo: { name: "brickssnap", title: "BricksSnap", version: "0.2.0" } });
       this.send({ method: "initialized", params: {} });
@@ -81,7 +111,7 @@ class CodexBridge {
   stop() {
     const child = this.child; this.child = undefined; this.ready = undefined;
     child?.removeAllListeners(); child?.kill(); clearTimeout(this.idle);
-    for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(new RequestError("Local Codex stopped. Ensure Codex CLI is installed and retry.", 503)); }
+    for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(new RequestError(this.failure || "Local Codex stopped. Ensure Codex CLI is installed and retry.", 503)); }
     this.pending.clear(); this.events.emit("bridgeStopped");
   }
 

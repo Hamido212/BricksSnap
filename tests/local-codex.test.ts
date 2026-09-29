@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assertLocalCodex, localCodex } from "../src/lib/local-codex";
+import { assertLocalCodex, codexCommand, localCodex } from "../src/lib/local-codex";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 const request = (headers: Record<string, string> = {}) => new Request("http://127.0.0.1:3001/api/codex", {
@@ -47,5 +47,23 @@ describe("Codex app-server protocol", () => {
     await expect(localCodex.generate("Test", undefined, new AbortController().signal)).rejects.toThrow("Sign in");
     expect(rpc).not.toHaveBeenCalled();
     expect(localCodex.busy).toBe(false);
+  });
+});
+
+describe("Codex command", () => {
+  const files = (...paths: string[]) => (path: string) => paths.includes(path);
+  it("uses codex on PATH outside Windows and honours BRICKSSNAP_CODEX_BIN", () => {
+    expect(codexCommand({}, "darwin")).toEqual({ command: "codex", args: [] });
+    expect(codexCommand({ BRICKSSNAP_CODEX_BIN: "/opt/codex" }, "linux")).toEqual({ command: "/opt/codex", args: [] });
+  });
+  it("runs the npm package script on Windows instead of the codex.cmd shim", () => {
+    const dir = "C:\\Users\\a\\AppData\\Roaming\\npm";
+    const script = `${dir}\\node_modules\\@openai\\codex\\bin\\codex.js`;
+    expect(codexCommand({ Path: `C:\\Windows;${dir}` }, "win32", files(`${dir}\\codex.cmd`, script))).toEqual({ command: process.execPath, args: [script] });
+    expect(codexCommand({ BRICKSSNAP_CODEX_BIN: `${dir}\\codex.cmd` }, "win32", files(script))).toEqual({ command: process.execPath, args: [script] });
+  });
+  it("prefers a native codex.exe and falls back to codex", () => {
+    expect(codexCommand({ PATH: "C:\\tools" }, "win32", files("C:\\tools\\codex.exe"))).toEqual({ command: "C:\\tools\\codex.exe", args: [] });
+    expect(codexCommand({ PATH: "C:\\tools" }, "win32", files())).toEqual({ command: "codex", args: [] });
   });
 });
