@@ -26,7 +26,9 @@ export const STARTER_PAGES: Record<IndustryId, SectionPick[]> = {
 };
 
 /** Where a newly added section goes: headers first, footers last, everything else before the footer. */
-export function insertSection(page: SectionPick[], pick: SectionPick): SectionPick[] {
+export function insertSection(page: SectionPick[], pick: SectionPick, at?: number): SectionPick[] {
+  // An explicit position (e.g. "add after this section") wins over the smart placement.
+  if (at !== undefined) { const i = Math.max(0, Math.min(page.length, at)); return [...page.slice(0, i), pick, ...page.slice(i)]; }
   if (pick.type === "navbar") return [pick, ...page];
   const footer = page.findIndex(s => s.type === "footer");
   if (pick.type === "footer" || footer < 0) return [...page, pick];

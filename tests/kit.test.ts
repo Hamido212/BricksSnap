@@ -163,6 +163,10 @@ describe("studio helpers", () => {
     const page = [{ type: "hero" as const }, { type: "footer" as const }];
     expect(insertSection(page, { type: "navbar" }).map(s => s.type)).toEqual(["navbar", "hero", "footer"]);
     expect(insertSection(page, { type: "faq" }).map(s => s.type)).toEqual(["hero", "faq", "footer"]);
+    // An explicit position ("add after this section") wins, clamped to the page.
+    expect(insertSection(page, { type: "cta" }, 1).map(s => s.type)).toEqual(["hero", "cta", "footer"]);
+    expect(insertSection(page, { type: "navbar" }, 2).map(s => s.type)).toEqual(["hero", "footer", "navbar"]);
+    expect(insertSection(page, { type: "faq" }, 99).map(s => s.type)).toEqual(["hero", "footer", "faq"]);
     expect(insertSection([{ type: "hero" }], { type: "faq" }).map(s => s.type)).toEqual(["hero", "faq"]);
   });
 
