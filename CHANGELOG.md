@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 — 2026-09-29
+
+Work in the connected site's design, media, global classes and templates; fix font stacks in the engine. See the [release notes](docs/RELEASE-0.7.0.md).
 
 - **Import images into the media library.** Before applying, external images in a reviewed change can be copied into the site's media library (`upload-media`). BricksSnap downloads each image itself (HTTPS, public addresses, image types, 8 MB, 30 images) and uploads it as data, so the save request carries no external URL. Re-imports reuse earlier uploads.
 - **Generate in the site's design.** Built-in sections in the connected site's colors and fonts.

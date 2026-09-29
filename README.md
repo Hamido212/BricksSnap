@@ -13,6 +13,8 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Use buil
 - Save with Bricks' atomic document-digest guard, verify the read-back and restore the previous revision.
 - Runs locally through the official WordPress MCP Adapter.
 
+**v0.7: [site design, classes and templates](docs/WORDPRESS.md)** ([release notes](docs/RELEASE-0.7.0.md)). Generate sections in a connected site's colors and fonts, import images and create missing global classes before saving, and edit headers, footers and their display conditions.
+
 **v0.6: [Bricks remote library](docs/REMOTE-LIBRARY.md) and [AI client guidance](docs/CLIENTS.md)** ([release notes](docs/RELEASE-0.6.0.md)). Add a BricksSnap deployment under Bricks → Remote libraries to browse and insert the catalog inside the builder.
 
 v0.5 builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [template staging and local MCP](docs/STAGING-MCP.md). See the [release plan](docs/ROADMAP.md) and the [Bricks AI/MCP research](docs/RESEARCH-2026-09-28-BRICKS-MCP.md).

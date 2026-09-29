@@ -51,6 +51,15 @@ Deliver a Bricks-compatible remote library after testing its real consumer contr
 
 Before release: successful browse/import inside a supported Bricks editor, missing-asset/dependency tests, documented compatibility, and explicit package publishing configuration if a standalone npm package is desired.
 
+## v0.7 — Site design, classes and templates
+
+Delivered in 0.7.0 (see [release notes](RELEASE-0.7.0.md)):
+- **Site design.** Built-in sections in the site's palette and page colors and fonts.
+- **Before saving.** External images imported into the media library; missing global classes created in one ownership-guarded write.
+- **Templates.** Headers, footers and sections loaded, saved back guarded, created as drafts, and their display conditions edited.
+- **Engine.** Native font fallbacks.
+- **Not included.** Theme styles and global variables as design sources, template settings beyond conditions, and deleting templates.
+
 ## 2.0 milestone
 
 Use the 2.0 name when a connected site can be read, a change reviewed, applied, verified and recovered through a tested workflow. Intermediate releases should deliver useful complete workflows without implying that later phases are already available.
