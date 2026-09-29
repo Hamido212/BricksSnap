@@ -340,7 +340,7 @@ export default function Home() {
 
       <footer className="mt-16 border-t border-border">
         <div className="mx-auto flex max-w-[1440px] flex-col items-start justify-between gap-3 px-4 py-6 text-xs text-muted sm:flex-row sm:items-center sm:px-6">
-          <p>BricksSnap v{version} · Free template generator for Bricks Builder</p>
+          <p>BricksSnap v{version} · Free for your own and your clients&apos; sites · <a className="underline hover:text-foreground" href="https://github.com/Hamido212/BricksSnap/blob/BricksSnap/LICENSING.md" target="_blank" rel="noreferrer">License</a> · <a className="underline hover:text-foreground" href="https://github.com/Hamido212/BricksSnap" target="_blank" rel="noreferrer">GitHub</a> · Not affiliated with Bricks</p>
           <p className="font-mono text-[11px]">{VARIANTS.length} studio layouts · {TEMPLATES.length} classic templates · Bricks 2.4 schema</p>
         </div>
       </footer>

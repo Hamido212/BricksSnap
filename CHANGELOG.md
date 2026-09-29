@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.1 — 2026-09-29
+
+- **License.** BricksSnap is now licensed under the [PolyForm Shield License 1.0.0](LICENSE) instead of MIT.
+  - Using it for your own and your clients' websites, commercial work included, stays free.
+  - An additional permission lets you use generated templates in those websites without attribution.
+  - Offering BricksSnap or a modified version to others as a product, or redistributing its layouts as a template pack, is not allowed without permission.
+  - Versions up to and including 0.8.0 remain available under MIT.
+  - See [licensing](LICENSING.md).
+- **Notices.** New [third-party notices](THIRD_PARTY_NOTICES.md) (Ionicons MIT, fonts under the SIL Open Font License). The app footer links the license and states that BricksSnap is not affiliated with Bricks.
+
 ## 0.8.0 — 2026-09-29
 
 The Studio: modern layouts customized with a brand kit and industry copy, exported with a central design system, plus a light redesign of the app. See the [release notes](docs/RELEASE-0.8.0.md) and the [Studio guide](docs/STUDIO.md).

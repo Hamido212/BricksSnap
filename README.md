@@ -1,11 +1,13 @@
 # BricksSnap
 
 [![npm](https://img.shields.io/npm/v/brickssnap)](https://www.npmjs.com/package/brickssnap)
-[![GitHub](https://img.shields.io/github/license/Hamido212/BricksSnap)](https://github.com/Hamido212/BricksSnap)
+[![License: PolyForm Shield 1.0.0](https://img.shields.io/badge/license-PolyForm%20Shield%201.0.0-c2410c)](LICENSING.md)
 
 A Next.js tool that creates editable **Bricks Builder JSON templates**. Build modern pages in the Studio without AI, or use an AI provider (OpenAI, Anthropic, Azure, OpenRouter), local ChatGPT sign-in through Codex, or connect ChatGPT or Claude over MCP. Review exports in Bricks before publishing.
 
-**Start here: [setup, both AI connections and import guide](docs/SETUP.md).**
+**Try it: [bricks-snap.vercel.app](https://bricks-snap.vercel.app)** · **Start here: [setup, both AI connections and import guide](docs/SETUP.md).**
+
+Free for your own and your clients' websites. You may not offer BricksSnap itself to others as a hosted app or sell it; see [licensing](LICENSING.md).
 
 **v0.8: [Studio](docs/STUDIO.md)** ([release notes](docs/RELEASE-0.8.0.md)). Pick from 40 layouts in five style directions, set your brand color, fonts, corners and spacing, and get copy written for your industry in German or English. Export native Bricks JSON whose global classes follow one design system, and install that system's palette and variables on a connected site.
 
@@ -96,3 +98,9 @@ Request fields:
 - Built with the Next.js App Router.
 - Apply deployment rate limits. Keep server-funded keys disabled on public deployments without authentication.
 - Validation covers structure/control names, not all nested values or WordPress runtime behavior. See the [audit](docs/AUDIT-2026-09-25.md) for outstanding integration checks.
+
+## License
+
+BricksSnap is licensed under the [PolyForm Shield License 1.0.0](LICENSE). Use it for your own and your clients' websites, commercial work included, and use the templates you generate without attribution. Do not offer BricksSnap or a modified version to others as a product, and do not redistribute its layouts as a template pack. See [licensing](LICENSING.md) for details, sample-content licenses and the [third-party notices](THIRD_PARTY_NOTICES.md). Versions up to 0.8.0 were released under the MIT License.
+
+BricksSnap is an independent project and is not affiliated with or endorsed by Bricks.

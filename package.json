@@ -1,6 +1,6 @@
 {
   "name": "brickssnap",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "scripts": {
     "dev": "next dev --webpack",
     "dev:local": "node scripts/dev-local.mjs",
@@ -41,7 +41,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "MIT",
+  "license": "PolyForm-Shield-1.0.0",
   "type": "module",
   "bugs": {
     "url": "https://github.com/Hamido212/BricksSnap/issues"
