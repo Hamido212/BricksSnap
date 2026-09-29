@@ -19,6 +19,7 @@ export const STARTER_PAGES: Record<IndustryId, SectionPick[]> = {
   kfz: [p("navbar", "topbar"), p("hero", "panel"), p("services", "list"), p("steps", "cards"), p("testimonials", "rating"), p("faq", "split"), p("cta", "band"), p("contact", "split"), p("footer", "contact")],
   handwerk: [p("navbar", "topbar"), p("hero", "cover"), p("services", "rows"), p("stats", "band"), p("content", "split"), p("testimonials", "grid"), p("cta", "split"), p("contact", "split"), p("footer", "columns")],
   praxis: [p("navbar", "classic"), p("hero", "split"), p("services", "grid"), p("features", "icons"), p("team", "grid"), p("faq", "split"), p("contact", "split"), p("footer", "contact")],
+  zahnarzt: [p("navbar", "classic"), p("hero", "split"), p("features", "icons"), p("services", "grid"), p("pricing", "list"), p("testimonials", "rating"), p("faq", "split"), p("cta", "band"), p("contact", "split"), p("footer", "contact")],
   restaurant: [p("navbar", "minimal"), p("hero", "cover"), p("content", "split"), p("pricing", "list"), p("gallery", "grid"), p("testimonials", "spotlight"), p("contact", "split"), p("footer", "simple")],
   agentur: [p("navbar", "minimal"), p("hero", "centered"), p("logos", "row"), p("services", "bento"), p("portfolio", "grid"), p("stats", "row"), p("testimonials", "grid"), p("cta", "box"), p("footer", "columns")],
   business: [p("navbar", "classic"), p("hero", "split"), p("logos", "row"), p("features", "icons"), p("services", "grid"), p("pricing", "plans"), p("testimonials", "grid"), p("faq", "split"), p("cta", "band"), p("footer", "columns")],
@@ -44,6 +45,8 @@ const resizePhotos = (markup: string, width: number) => markup.replace(/(https:\
 export function kitPreview(kit: BrandKit, profile: BusinessProfile, sections: SectionPick[], options: { fonts?: Record<string, string>; imageWidth?: number } = {}): KitPreview {
   const result = generateKitTemplate({ kit, profile, sections });
   const declarations = result.designSystem.css.replace(/^:root \{\n/, "").replace(/\n\}$/, "");
-  const { html, css } = renderPreview(result.template, { variables: declarations, fonts: options.fonts });
+  const rendered = renderPreview(result.template, { variables: declarations, fonts: options.fonts });
+  // The page language, as Bricks sets it on <html>: headings hyphenate long words by it.
+  const html = `<div lang="${result.content.lang}">${rendered.html}</div>`, css = rendered.css;
   return options.imageWidth ? { result, html: resizePhotos(html, options.imageWidth), css: resizePhotos(css, options.imageWidth) } : { result, html, css };
 }

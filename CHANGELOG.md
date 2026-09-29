@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.2 — 2026-09-29
+
+Feedback from the first Reddit users.
+
+- **More room on phones.** Button rows stack at full width on phones instead of squeezing side by side. Hero buttons get more space below the text, and the side gutter grows from 20 to 24 px.
+- **Long words wrap.** Headings hyphenate by the page language and never run past the edge, even for long German words.
+- **Tablet preview in the Library.** Designs show at desktop, tablet (820 px) and phone width, like the Studio.
+- **Dental practice.** A new industry with German and English copy: hygiene, aligners, nervous patients, prices, team and FAQ. It comes with seven dental sample photos.
+- **Design "Lachfalte".** A dental practice with personality instead of clinical blue: terracotta, Fraunces serif, round shapes and yellow stars. The remote library now serves 106 templates.
+
 ## 0.9.1 — 2026-09-29
 
 Fixes for the local ChatGPT connection in the Generator.

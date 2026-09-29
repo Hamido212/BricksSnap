@@ -15,6 +15,7 @@ export const INDUSTRIES: Record<IndustryId, { label: Record<Language, string>; d
   kfz: { label: { de: "Kfz-Zulassungsdienst", en: "Vehicle registration" }, description: { de: "Zulassung, Ummeldung, Kennzeichen", en: "Registration, transfers, plates" } },
   handwerk: { label: { de: "Handwerk", en: "Trades" }, description: { de: "Elektro, Sanitär, Heizung", en: "Electrical, plumbing, heating" } },
   praxis: { label: { de: "Arztpraxis", en: "Medical practice" }, description: { de: "Hausarzt, Vorsorge, Termine", en: "GP, prevention, appointments" } },
+  zahnarzt: { label: { de: "Zahnarztpraxis", en: "Dental practice" }, description: { de: "Prophylaxe, Aligner, Angstpatienten", en: "Hygiene, aligners, nervous patients" } },
   restaurant: { label: { de: "Restaurant", en: "Restaurant" }, description: { de: "Speisekarte, Reservierung, Events", en: "Menu, bookings, events" } },
   agentur: { label: { de: "Agentur", en: "Agency" }, description: { de: "Webdesign, Branding, Marketing", en: "Web design, branding, marketing" } },
   business: { label: { de: "Unternehmen", en: "Business" }, description: { de: "Beratung und Dienstleistung", en: "Consulting and services" } },

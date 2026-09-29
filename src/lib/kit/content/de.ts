@@ -320,6 +320,105 @@ export const industriesDe: Record<IndustryId, IndustryCopy> = {
     timeline: { eyebrow: "Geschichte", title: "Unsere Praxis", items: [{ year: "2001", title: "Praxisgründung", text: "Dr. Lehmann eröffnet die Praxis in der Lindenallee." }, { year: "2012", title: "Lehrpraxis", text: "Anerkennung als akademische Lehrpraxis." }, { year: "2020", title: "Videosprechstunde", text: "Digitale Termine und Online-Rezepte." }, { year: "2025", title: "Erweiterung", text: "Zweiter Arzt und neue Diagnostikräume." }] },
   },
 
+  zahnarzt: {
+    brand: { name: "Zahnpraxis Lachfalte", city: "Hamburg", phone: "040 555 017 89", address: "Schulterblatt 12, 20357 Hamburg", tagline: "Zahnmedizin, die sich gut anfühlt.", hours: ["Mo–Do 8:00–19:00 Uhr", "Fr 8:00–15:00 Uhr"] },
+    navCta: { label: "Termin buchen", href: "#kontakt" },
+    hero: {
+      eyebrow: "Zahnarztpraxis in {city}", title: "Hier wird gelacht. Auch beim Zahnarzt.",
+      lead: "Gründliche Zahnmedizin ohne Praxis-Kälte: Wir erklären alles, planen mit Ihnen und nehmen uns Zeit – besonders, wenn Sie ungern zum Zahnarzt gehen.",
+      primary: { label: "Termin buchen", href: "#kontakt" }, secondary: { label: "Was wir machen", href: "#leistungen" },
+      points: ["Online-Termine auch abends", "Extra-Zeit für Angstpatienten", "Kinder willkommen"],
+      image: "aligner", panelTitle: "Sprechzeiten", panelLines: ["Mo–Do 8:00–19:00 Uhr", "Fr 8:00–15:00 Uhr", "Schmerztermine täglich ab 8 Uhr"],
+    },
+    services: {
+      eyebrow: "Leistungen", title: "Alles für Ihr Lächeln – unter einem Dach", lead: "Von der Zahnreinigung bis zur unsichtbaren Schiene.",
+      items: [
+        { icon: "sunny", title: "Prophylaxe & Zahnreinigung", text: "Gründliche Reinigung, Politur und Tipps, die im Alltag wirklich funktionieren.", image: "dentalChair" },
+        { icon: "happy", title: "Aligner", text: "Durchsichtige Schienen für gerade Zähne – ohne Metall, mit digitaler Planung.", image: "aligner" },
+        { icon: "search", title: "Digitale Diagnostik", text: "3D-Scan statt Abdrucklöffel und strahlungsarmes Röntgen.", image: "dentalScan" },
+        { icon: "shield", title: "Füllungen & Kronen", text: "Zahnfarbene Füllungen und langlebiger Zahnersatz aus Keramik.", image: "dentalVisit" },
+        { icon: "flower", title: "Bleaching", text: "Schonende Aufhellung in der Praxis oder mit Schienen für zu Hause.", image: "dentalRoom" },
+        { icon: "heart", title: "Kinderzahnheilkunde", text: "Spielerisch, geduldig und mit kleiner Überraschung am Ende.", image: "dentist" },
+      ],
+    },
+    features: {
+      eyebrow: "Warum wir", title: "Zahnarzt, aber entspannt", lead: "Wir haben die Praxis so eingerichtet, wie wir selbst gern behandelt werden würden.",
+      items: [
+        { icon: "chatbubbles", title: "Erst reden, dann behandeln", text: "Jeder Schritt wird vorher erklärt. Sie entscheiden das Tempo." },
+        { icon: "hand", title: "Für Angstpatienten", text: "Längere Termine, Pausen auf Handzeichen und auf Wunsch Kopfhörer." },
+        { icon: "calendar", title: "Abends & online", text: "Termine bis 19 Uhr, online buchbar rund um die Uhr." },
+        { icon: "cash", title: "Klare Kosten", text: "Schriftlicher Kostenplan vor jeder größeren Behandlung." },
+      ],
+    },
+    steps: {
+      eyebrow: "Ihr erster Besuch", title: "So entspannt geht’s los", lead: "Drei Schritte bis zum Plan für Ihre Zähne.",
+      items: [
+        { title: "Kennenlernen", text: "Wir sprechen über Wünsche, Sorgen und Ihre bisherigen Erfahrungen." },
+        { title: "Untersuchen", text: "Gründlicher Check mit 3D-Scan – ohne Abdrucklöffel." },
+        { title: "Gemeinsam planen", text: "Sie bekommen Ihre Optionen samt Kosten schriftlich und entscheiden in Ruhe." },
+      ],
+    },
+    stats: { eyebrow: "Über die Praxis", title: "Seit 12 Jahren in {city}", items: [{ value: "12", label: "Jahre Erfahrung" }, { value: "4.500+", label: "Patientinnen und Patienten" }, { value: "7", label: "Behandlungsräume" }, { value: "4,9 / 5", label: "Bewertung" }] },
+    pricing: {
+      eyebrow: "Preise", title: "Transparent, bevor es losgeht", lead: "Richtwerte für häufige Privatleistungen. Ihren persönlichen Kostenplan bekommen Sie immer vorab.", note: "Richtwerte nach GOZ, abhängig vom Aufwand. Viele Zusatzversicherungen übernehmen einen Teil.",
+      plans: [
+        { name: "Zahnreinigung", price: "95 €", unit: "pro Sitzung", description: "Professionell und gründlich", features: ["Entfernung von Belägen", "Politur und Fluoridierung", "Pflege-Tipps"], cta: { label: "Termin buchen", href: "#kontakt" } },
+        { name: "Aligner", price: "ab 2.900 €", unit: "Behandlung", description: "Gerade Zähne, unsichtbar", features: ["3D-Scan und Simulation", "Alle Schienen inklusive", "Kontrolltermine"], featured: true, cta: { label: "Beratung buchen", href: "#kontakt" } },
+        { name: "Bleaching", price: "ab 290 €", unit: "Behandlung", description: "Schonend aufhellen", features: ["Vorab-Check und Reinigung", "In der Praxis oder zu Hause", "Nachkontrolle"], cta: { label: "Termin buchen", href: "#kontakt" } },
+      ],
+      list: [
+        { name: "Professionelle Zahnreinigung", detail: "ca. 60 Minuten", price: "95 €" },
+        { name: "Kinder-Prophylaxe", detail: "bis 17 Jahre", price: "45 €" },
+        { name: "Bleaching in der Praxis", detail: "eine Sitzung", price: "ab 290 €" },
+        { name: "Aligner-Beratung mit 3D-Scan", detail: "inkl. Simulation", price: "79 €" },
+        { name: "Keramik-Inlay", detail: "pro Zahn", price: "ab 690 €" },
+        { name: "Knirscherschiene", detail: "individuell angepasst", price: "ab 220 €" },
+      ],
+    },
+    testimonials: {
+      eyebrow: "Stimmen", title: "Was unsere Patientinnen und Patienten sagen", rating: { score: "4,9", count: "260 Bewertungen", source: "Google" },
+      items: [
+        { quote: "Ich war zehn Jahre nicht beim Zahnarzt. Hier hat mir niemand ein schlechtes Gewissen gemacht – ich komme jetzt sogar gern.", name: "Jonas K.", role: "Patient seit 2023", photo: "portraitB" },
+        { quote: "Meine Tochter fragt, wann wir wieder zur „Lachfalte“ gehen. Mehr muss ich nicht sagen.", name: "Sandra P.", role: "Mama von Lea, 6", photo: "portraitC" },
+        { quote: "Kostenplan vorab, Termin um 18 Uhr, Behandlung ruhig erklärt. Genau so.", name: "Mehmet A.", role: "Patient", photo: "portraitF" },
+      ],
+    },
+    team: {
+      eyebrow: "Team", title: "Die Menschen hinter dem Lächeln", lead: "Zahnärztinnen, Zahnärzte und ein Team, das gern lacht.",
+      members: [{ name: "Dr. Mila Hoffmann", role: "Zahnärztin, Praxisinhaberin", photo: "portraitA" }, { name: "Dr. Jan Petersen", role: "Zahnarzt, Aligner-Spezialist", photo: "portraitD" }, { name: "Aylin Kaya", role: "Dentalhygienikerin", photo: "portraitE" }, { name: "Tom Becker", role: "Empfang & gute Laune", photo: "portraitB" }],
+    },
+    about: {
+      eyebrow: "Über uns", title: "Ihre Zahnarztpraxis im Herzen von {city}",
+      paragraphs: ["Wir glauben, dass gute Zahnmedizin mit Vertrauen beginnt. Deshalb nehmen wir uns Zeit für Gespräche, erklären ohne Fachchinesisch und planen gemeinsam mit Ihnen.", "Helle Räume, moderne Technik und ein Team, das Sie beim Namen kennt, machen den Termin so angenehm wie möglich."],
+      points: ["Alle Kassen und Privatpatienten", "Barrierefreier Zugang", "Termine bis 19 Uhr"],
+      image: "dentalRoom", secondImage: "dentalVisit",
+    },
+    faq: {
+      eyebrow: "Fragen & Antworten", title: "Gut zu wissen", lead: "Noch etwas offen? Rufen Sie uns an oder schreiben Sie per WhatsApp.",
+      items: [
+        { q: "Ich habe Angst vor dem Zahnarzt. Was nun?", a: "Sagen Sie es uns bei der Buchung. Sie bekommen einen längeren Termin, wir erklären jeden Schritt und machen Pausen, wann immer Sie möchten." },
+        { q: "Nehmen Sie neue Patientinnen und Patienten auf?", a: "Ja, gern – aus {city} und Umgebung. Buchen Sie einfach einen Kennenlern-Termin." },
+        { q: "Was kostet eine Zahnreinigung?", a: "Rund 95 € pro Sitzung, je nach Aufwand. Viele Krankenkassen und Zusatzversicherungen beteiligen sich." },
+        { q: "Behandeln Sie auch Kinder?", a: "Sehr gern, ab dem ersten Zahn. Kinder-Termine legen wir bevorzugt auf den Vormittag." },
+        { q: "Was mache ich bei Zahnschmerzen?", a: "Rufen Sie uns an – Schmerztermine gibt es täglich ab 8 Uhr. Nachts und am Wochenende hilft der zahnärztliche Notdienst." },
+        { q: "Gibt es Parkplätze?", a: "Ein Parkhaus ist zwei Minuten entfernt, die U-Bahn-Station direkt um die Ecke." },
+      ],
+    },
+    cta: { eyebrow: "Termin", title: "Bereit für Ihr nächstes Lächeln?", lead: "Buchen Sie online – rund um die Uhr. Oder rufen Sie uns einfach an.", primary: { label: "Online-Termin buchen", href: "#kontakt" }, secondary: { label: "Anrufen", href: "tel:" } },
+    gallery: { eyebrow: "Einblicke", title: "Unsere Praxis", images: ["dentalChair", "dentalRoom", "dentalVisit", "dentalScan", "dentist", "aligner"] },
+    portfolio: { eyebrow: "Schwerpunkte", title: "Worauf wir uns spezialisiert haben", lead: "Hier kennen wir uns besonders gut aus.", items: [{ title: "Aligner-Therapie", category: "Kieferorthopädie", image: "aligner" }, { title: "Digitale Abformung", category: "3D-Diagnostik", image: "dentalScan" }, { title: "Angstpatienten", category: "Behandlung", image: "dentalVisit" }, { title: "Kinderzahnheilkunde", category: "Familie", image: "dentalChair" }] },
+    blog: {
+      eyebrow: "Zahnwissen", title: "Aus der Praxis", lead: "Tipps für gesunde Zähne – kurz und verständlich.",
+      posts: [
+        { title: "Elektrisch oder Hand? Die Zahnbürsten-Frage", excerpt: "Was wirklich zählt – und warum die Technik wichtiger ist als der Motor.", category: "Pflege", date: "Oktober 2026", image: "dentalChair" },
+        { title: "Aligner: Für wen sie sich eignen", excerpt: "Dauer, Kosten und Alltag mit unsichtbaren Schienen.", category: "Aligner", date: "September 2026", image: "aligner" },
+        { title: "Keine Angst mehr vorm Bohrer", excerpt: "Wie wir Angstpatienten den Termin leichter machen.", category: "Praxis", date: "August 2026", image: "dentalVisit" },
+      ],
+    },
+    logos: { title: "Partner", names: ["Dentallabor Nord", "Kinderzahnärzte HH", "Zahnärztekammer", "Uniklinik", "Prophylaxe Plus"] },
+    timeline: { eyebrow: "Geschichte", title: "Unsere Praxis", items: [{ year: "2014", title: "Praxisgründung", text: "Dr. Hoffmann eröffnet die Praxis am Schulterblatt." }, { year: "2018", title: "Digitaler Scan", text: "3D-Scanner statt Abdrucklöffel." }, { year: "2022", title: "Aligner", text: "Start der Aligner-Therapie mit Dr. Petersen." }, { year: "2026", title: "Neue Räume", text: "Sieben Behandlungsräume und Kinderecke." }] },
+  },
+
   restaurant: {
     brand: { name: "Trattoria Luce", city: "Köln", phone: "0221 444 555 66", address: "Am Rheinufer 21, 50667 Köln", tagline: "Italienische Küche mit regionalen Zutaten.", hours: ["Di–Sa 12:00–23:00 Uhr", "So 12:00–21:00 Uhr"] },
     navCta: { label: "Tisch reservieren", href: "#kontakt" },

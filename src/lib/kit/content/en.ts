@@ -320,6 +320,105 @@ export const industriesEn: Record<IndustryId, IndustryCopy> = {
     timeline: { eyebrow: "History", title: "Our practice", items: [{ year: "2001", title: "Founded", text: "Dr. Lehmann opens the practice on Lindenallee." }, { year: "2012", title: "Teaching practice", text: "Recognised as an academic teaching practice." }, { year: "2020", title: "Video consultations", text: "Online appointments and repeat prescriptions." }, { year: "2025", title: "Expansion", text: "A second doctor and new diagnostic rooms." }] },
   },
 
+  zahnarzt: {
+    brand: { name: "Smile Lines Dental", city: "Hamburg", phone: "+49 40 555 017 89", address: "Schulterblatt 12, 20357 Hamburg", tagline: "Dentistry that feels good.", hours: ["Mon–Thu 8 am–7 pm", "Fri 8 am–3 pm"] },
+    navCta: { label: "Book a visit", href: "#contact" },
+    hero: {
+      eyebrow: "Dental practice in {city}", title: "Laughing allowed. Even at the dentist.",
+      lead: "Thorough dentistry without the clinical chill: we explain everything, plan with you and take our time – especially if the dentist isn’t your favourite place.",
+      primary: { label: "Book a visit", href: "#contact" }, secondary: { label: "What we do", href: "#services" },
+      points: ["Online booking, evening slots", "Extra time for nervous patients", "Kids welcome"],
+      image: "aligner", panelTitle: "Opening hours", panelLines: ["Mon–Thu 8 am–7 pm", "Fri 8 am–3 pm", "Same-day slots for toothache from 8 am"],
+    },
+    services: {
+      eyebrow: "Services", title: "Everything for your smile – under one roof", lead: "From a proper clean to invisible aligners.",
+      items: [
+        { icon: "sunny", title: "Hygiene & cleaning", text: "A thorough clean, polish and tips that actually work in everyday life.", image: "dentalChair" },
+        { icon: "happy", title: "Aligners", text: "Clear aligners for straight teeth – no metal, planned digitally.", image: "aligner" },
+        { icon: "search", title: "Digital diagnostics", text: "3D scans instead of impression trays and low-dose X-rays.", image: "dentalScan" },
+        { icon: "shield", title: "Fillings & crowns", text: "Tooth-coloured fillings and long-lasting ceramic restorations.", image: "dentalVisit" },
+        { icon: "flower", title: "Whitening", text: "Gentle whitening in the practice or with trays at home.", image: "dentalRoom" },
+        { icon: "heart", title: "Children’s dentistry", text: "Playful, patient and with a small surprise at the end.", image: "dentist" },
+      ],
+    },
+    features: {
+      eyebrow: "Why us", title: "The dentist, but relaxed", lead: "We set up the practice the way we’d like to be treated ourselves.",
+      items: [
+        { icon: "chatbubbles", title: "Talk first, treat second", text: "Every step is explained beforehand. You set the pace." },
+        { icon: "hand", title: "For nervous patients", text: "Longer visits, breaks on a hand signal and headphones if you like." },
+        { icon: "calendar", title: "Evenings & online", text: "Appointments until 7 pm, bookable online around the clock." },
+        { icon: "cash", title: "Clear costs", text: "A written cost estimate before any larger treatment." },
+      ],
+    },
+    steps: {
+      eyebrow: "Your first visit", title: "An easy start", lead: "Three steps to a plan for your teeth.",
+      items: [
+        { title: "Get to know us", text: "We talk about your wishes, worries and past experiences." },
+        { title: "Check-up", text: "A thorough exam with a 3D scan – no impression trays." },
+        { title: "Plan together", text: "You get your options and costs in writing and decide in your own time." },
+      ],
+    },
+    stats: { eyebrow: "About the practice", title: "In {city} for 12 years", items: [{ value: "12", label: "Years of experience" }, { value: "4,500+", label: "Patients" }, { value: "7", label: "Treatment rooms" }, { value: "4.9 / 5", label: "Rating" }] },
+    pricing: {
+      eyebrow: "Prices", title: "Clear before we start", lead: "Guide prices for common private treatments. You always get your personal estimate first.", note: "Guide prices; the final cost depends on the treatment. Many supplementary insurances cover part of it.",
+      plans: [
+        { name: "Professional clean", price: "€95", unit: "per visit", description: "Thorough and gentle", features: ["Plaque and tartar removal", "Polish and fluoride", "Care tips"], cta: { label: "Book a visit", href: "#contact" } },
+        { name: "Aligners", price: "from €2,900", unit: "treatment", description: "Straight teeth, invisibly", features: ["3D scan and simulation", "All aligners included", "Check-ups"], featured: true, cta: { label: "Book a consultation", href: "#contact" } },
+        { name: "Whitening", price: "from €290", unit: "treatment", description: "Brighten gently", features: ["Check-up and clean first", "In practice or at home", "Follow-up visit"], cta: { label: "Book a visit", href: "#contact" } },
+      ],
+      list: [
+        { name: "Professional clean", detail: "about 60 minutes", price: "€95" },
+        { name: "Children’s hygiene visit", detail: "up to 17", price: "€45" },
+        { name: "In-practice whitening", detail: "one session", price: "from €290" },
+        { name: "Aligner consultation with 3D scan", detail: "incl. simulation", price: "€79" },
+        { name: "Ceramic inlay", detail: "per tooth", price: "from €690" },
+        { name: "Night guard", detail: "custom-fitted", price: "from €220" },
+      ],
+    },
+    testimonials: {
+      eyebrow: "Reviews", title: "What our patients say", rating: { score: "4.9", count: "260 reviews", source: "Google" },
+      items: [
+        { quote: "I hadn’t seen a dentist in ten years. Nobody made me feel guilty – now I actually like coming.", name: "Jonas K.", role: "Patient since 2023", photo: "portraitB" },
+        { quote: "My daughter asks when we’re going back to “the smiley dentist”. Enough said.", name: "Sandra P.", role: "Mum of Lea, 6", photo: "portraitC" },
+        { quote: "Estimate up front, a 6 pm slot, everything explained calmly. Exactly right.", name: "Mehmet A.", role: "Patient", photo: "portraitF" },
+      ],
+    },
+    team: {
+      eyebrow: "Team", title: "The people behind the smiles", lead: "Dentists and a team that likes to laugh.",
+      members: [{ name: "Dr. Mila Hoffmann", role: "Dentist, practice owner", photo: "portraitA" }, { name: "Dr. Jan Petersen", role: "Dentist, aligner specialist", photo: "portraitD" }, { name: "Aylin Kaya", role: "Dental hygienist", photo: "portraitE" }, { name: "Tom Becker", role: "Front desk & good mood", photo: "portraitB" }],
+    },
+    about: {
+      eyebrow: "About us", title: "Your dental practice in the heart of {city}",
+      paragraphs: ["We believe good dentistry starts with trust. So we take time to talk, explain things without jargon and plan together with you.", "Bright rooms, modern technology and a team that knows your name make every visit as pleasant as possible."],
+      points: ["All insurances and private patients", "Step-free access", "Appointments until 7 pm"],
+      image: "dentalRoom", secondImage: "dentalVisit",
+    },
+    faq: {
+      eyebrow: "Questions & answers", title: "Good to know", lead: "Anything else? Call us or send a WhatsApp message.",
+      items: [
+        { q: "I’m scared of the dentist. What now?", a: "Tell us when you book. You’ll get a longer appointment, we explain every step and pause whenever you want." },
+        { q: "Are you taking new patients?", a: "Yes, gladly – from {city} and around. Just book a get-to-know-you visit." },
+        { q: "How much is a professional clean?", a: "Around €95 per visit, depending on the work needed. Many insurers contribute." },
+        { q: "Do you treat children?", a: "We love to, from the first tooth. We prefer morning slots for kids." },
+        { q: "What if I have toothache?", a: "Call us – there are same-day slots from 8 am. At night and at weekends the dental emergency service helps." },
+        { q: "Is there parking?", a: "A car park is two minutes away, and the underground station is just around the corner." },
+      ],
+    },
+    cta: { eyebrow: "Appointments", title: "Ready for your next smile?", lead: "Book online – around the clock. Or simply give us a call.", primary: { label: "Book online", href: "#contact" }, secondary: { label: "Call us", href: "tel:" } },
+    gallery: { eyebrow: "Inside", title: "Our practice", images: ["dentalChair", "dentalRoom", "dentalVisit", "dentalScan", "dentist", "aligner"] },
+    portfolio: { eyebrow: "Focus areas", title: "What we specialise in", lead: "Where we know our stuff best.", items: [{ title: "Aligner therapy", category: "Orthodontics", image: "aligner" }, { title: "Digital impressions", category: "3D diagnostics", image: "dentalScan" }, { title: "Nervous patients", category: "Treatment", image: "dentalVisit" }, { title: "Children’s dentistry", category: "Family", image: "dentalChair" }] },
+    blog: {
+      eyebrow: "Tooth talk", title: "From the practice", lead: "Tips for healthy teeth – short and clear.",
+      posts: [
+        { title: "Electric or manual? The toothbrush question", excerpt: "What really matters – and why technique beats the motor.", category: "Care", date: "October 2026", image: "dentalChair" },
+        { title: "Aligners: who they suit", excerpt: "Duration, cost and everyday life with clear aligners.", category: "Aligners", date: "September 2026", image: "aligner" },
+        { title: "No more fear of the drill", excerpt: "How we make visits easier for nervous patients.", category: "Practice", date: "August 2026", image: "dentalVisit" },
+      ],
+    },
+    logos: { title: "Partners", names: ["Dental Lab North", "Kids Dental HH", "Dental Chamber", "University Hospital", "Prophylaxis Plus"] },
+    timeline: { eyebrow: "History", title: "Our practice", items: [{ year: "2014", title: "Opening", text: "Dr. Hoffmann opens the practice on Schulterblatt." }, { year: "2018", title: "Digital scans", text: "A 3D scanner replaces impression trays." }, { year: "2022", title: "Aligners", text: "Aligner therapy starts with Dr. Petersen." }, { year: "2026", title: "New rooms", text: "Seven treatment rooms and a kids’ corner." }] },
+  },
+
   restaurant: {
     brand: { name: "Trattoria Luce", city: "Cologne", phone: "+49 221 444 555 66", address: "Am Rheinufer 21, 50667 Cologne", tagline: "Italian cooking with local ingredients.", hours: ["Tue–Sat 12 pm–11 pm", "Sun 12 pm–9 pm"] },
     navCta: { label: "Book a table", href: "#contact" },

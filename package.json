@@ -1,6 +1,6 @@
 {
   "name": "brickssnap",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "scripts": {
     "dev": "next dev --webpack",
     "dev:local": "node scripts/dev-local.mjs",
