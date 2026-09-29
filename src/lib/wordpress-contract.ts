@@ -15,8 +15,8 @@ export const WP_READ_ABILITIES = [
 
 export type ReadAbility = typeof WP_READ_ABILITIES[number];
 
-/** Writes are limited to guarded whole-page replacement and restoring the revision it created. */
-export const WP_WRITE_ABILITIES = ["bricks/set-page-elements", "bricks/restore-revision"] as const;
+/** Writes: guarded whole-page replacement, restoring the revision it created, and importing images. */
+export const WP_WRITE_ABILITIES = ["bricks/set-page-elements", "bricks/restore-revision", "bricks/upload-media"] as const;
 
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/, "Reload the page into the baseline: Bricks' document digest is missing.");
 
@@ -57,6 +57,8 @@ export const wpRequestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("design"), credentials: wpCredentialsSchema }).strict(),
   // Let Bricks render the saved page and a proposal without saving (read-only).
   z.object({ action: z.literal("render"), credentials: wpCredentialsSchema, postId: z.number().int().positive(), template: z.unknown() }).strict(),
+  // Copy external images of a proposal into the site's media library and point the settings at them.
+  z.object({ action: z.literal("media"), credentials: wpCredentialsSchema, template: z.unknown(), confirm: z.literal(true) }).strict(),
   // Replace the page's elements only if Bricks' stored document still has the reviewed baseline digest.
   z.object({
     action: z.literal("apply"), credentials: wpCredentialsSchema, postId: z.number().int().positive(),
@@ -137,6 +139,13 @@ export type WordPressApplyResult = {
   /** Differences between the reviewed proposal and the read-back page (normalization by Bricks). */
   verification: { matches: boolean; added: number; removed: number; changed: number; moved: number; fields: string[] };
   warnings?: string[];
+};
+
+export type WordPressMediaResult = {
+  /** The proposal with imported images pointing at the media library. */
+  template: BricksTemplate;
+  imported: Array<{ source: string; id: number; url: string; reused: boolean }>;
+  skipped: Array<{ source: string; reason: string }>;
 };
 
 export type RenderedMarkup = { html: string; css: string };

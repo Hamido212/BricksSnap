@@ -7,6 +7,7 @@ import {
   WP_READ_ABILITIES,
   WP_WRITE_ABILITIES,
   type WordPressApplyResult,
+  type WordPressMediaResult,
   type WordPressRenderResult,
   type WordPressRestoreResult,
   type WordPressCredentials,
@@ -20,6 +21,7 @@ import {
 import { diffTemplates, readStagingTemplate, stableJson } from "./template-staging";
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 import packageJson from "../../package.json";
+import { downloadImage, findExternalImages, MAX_IMAGES, replaceImages, uploadName, type SiteImage } from "./wordpress-media";
 
 type JsonRecord = Record<string, unknown>;
 type InputSchema = { properties?: JsonRecord } | undefined;
@@ -543,6 +545,67 @@ export async function applyWordPressPage(
   });
 }
 
+/**
+ * Copy the proposal's external images into the media library. BricksSnap downloads each file and uploads
+ * it as base64, so the write carries no external URL. Earlier imports of the same URL are reused.
+ */
+export async function importWordPressMedia(
+  credentials: WordPressCredentials,
+  request: { template: unknown },
+  signal: AbortSignal
+): Promise<WordPressMediaResult> {
+  const proposal = readStagingTemplate(request.template);
+  const images = findExternalImages(proposal, new URL(credentials.endpoint).hostname);
+  if (!images.length) return { template: proposal, imported: [], skipped: [] };
+  if (images.length > MAX_IMAGES) throw new RequestError(`The change uses ${images.length} external images; import at most ${MAX_IMAGES} at once.`, 422);
+
+  return withSession(credentials, signal, async session => {
+    await requireWriteAbility(session, "bricks/upload-media");
+    const media = new Map<string, SiteImage>();
+    const imported: WordPressMediaResult["imported"] = [];
+    const skipped: WordPressMediaResult["skipped"] = [];
+
+    for (const image of images) {
+      const base = uploadName(image.url, "").replace(/\.\w*$/, "");
+      try {
+        let existing: SiteImage | undefined;
+        try {
+          const found = await callAbility(session, "bricks/find-media", [
+            { names: ["query"], value: base, required: true },
+            { names: ["mimeType"], value: "image" },
+            { names: ["detailLevel"], value: "compact" },
+          ]);
+          const row = (isRecord(found) && Array.isArray(found.results) ? found.results : []).find(r => isRecord(r) && typeof r.filename === "string" && r.filename.startsWith(base));
+          if (isRecord(row) && typeof row.id === "number" && typeof row.url === "string") existing = { id: row.id, url: row.url, filename: String(row.filename) };
+        } catch {
+          // Lookup is an optimization; upload below.
+        }
+        if (existing) {
+          media.set(image.url, existing);
+          imported.push({ source: image.url, id: existing.id, url: existing.url, reused: true });
+          continue;
+        }
+
+        const { data, contentType } = await downloadImage(image.url, signal);
+        const filename = uploadName(image.url, contentType);
+        const uploaded = await callAbility(session, "bricks/upload-media", [
+          { names: ["base64"], value: data.toString("base64"), required: true },
+          { names: ["filename"], value: filename, required: true },
+          { names: ["title"], value: image.filename.replace(/\.\w+$/, "") || base },
+          ...(image.alt ? [{ names: ["alt"], value: image.alt }] : []),
+        ]);
+        if (!isRecord(uploaded) || typeof uploaded.id !== "number" || typeof uploaded.url !== "string") throw new RequestError("WordPress did not return the uploaded file.", 502);
+        const item = { id: uploaded.id, url: uploaded.url, filename: typeof uploaded.filename === "string" ? uploaded.filename : filename };
+        media.set(image.url, item);
+        imported.push({ source: image.url, ...item, reused: false });
+      } catch (error) {
+        skipped.push({ source: image.url, reason: error instanceof Error ? error.message : "Import failed." });
+      }
+    }
+    return { template: replaceImages(proposal, media), imported: imported.map(({ source, id, url, reused }) => ({ source, id, url, reused })), skipped };
+  });
+}
+
 /** Site root for an MCP endpoint (/wp-json/mcp/… or /?rest_route=/mcp/…). */
 export function siteRoot(endpoint: string): string {
   const url = new URL(endpoint);
@@ -608,7 +671,7 @@ export async function restoreWordPressRevision(
 export async function handleWordPressRequest(
   request: WordPressRequest,
   signal: AbortSignal
-): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult> {
+): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult> {
   switch (request.action) {
     case "connect":
       return connectWordPress(request.credentials, signal);
@@ -620,6 +683,8 @@ export async function handleWordPressRequest(
       return getWordPressDesignContext(request.credentials, signal);
     case "render":
       return renderWordPressPreview(request.credentials, request, signal);
+    case "media":
+      return importWordPressMedia(request.credentials, request, signal);
     case "apply":
       return applyWordPressPage(request.credentials, request, signal);
     case "restore":

@@ -142,6 +142,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
       source={source}
       credentials={credentials}
       proposal={review?.template ?? null}
+      onProposalChange={template => setReview(current => current && { ...current, id: current.id + 0.5, template, diff: diffTemplates(current.before, template) })}
       onUpdated={(template, newSource) => {
         invalidate();
         setBaseline(JSON.stringify(template, null, 2));

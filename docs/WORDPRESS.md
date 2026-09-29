@@ -11,7 +11,7 @@ BricksSnap can read a live Bricks page and the site's global classes through the
   - required: `get-page-elements` and `get-design-context`;
   - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version`, `list-ability-status` and `render-elements` (for the rendered preview).
 
-  Saving additionally needs `set-page-elements`, and restoring needs `restore-revision`. Keep both disabled if you only want to read.
+  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, and importing images needs `upload-media` and `find-media`. Keep them disabled if you only want to read.
 
 ## Connect
 
@@ -50,7 +50,16 @@ After **Review changes**, section **5. Apply to WordPress** shows the target pag
 What to expect:
 
 - **Read-back differences** are usually normalization: Bricks 2.4 converts custom CSS rules into native style controls, for example `transition` → `_cssTransition` and a hover background → `_background:hover`. Check the page in Bricks when differences are reported.
-- **"The web host answered with a page … instead of WordPress"** means a host firewall, rate limit or maintenance mode blocked the request, and nothing was confirmed as saved. On the test site, the host's firewall blocked writes containing external image URLs (the sample images in BricksSnap's built-in sections). Use media from your own site, or ask your host to allow requests to `/wp-json/mcp/`.
+- **"The web host answered with a page … instead of WordPress"** means a host firewall, rate limit or maintenance mode blocked the request, and nothing was confirmed as saved. On the test site, the host's firewall blocked writes containing external image URLs, such as the sample images in BricksSnap's built-in sections. Import the images first (below), or ask your host to allow requests to `/wp-json/mcp/`.
+
+### Import external images into the media library
+
+When a reviewed change uses images from other servers, **Apply to WordPress** lists them and offers **Import images into the media library** (`upload-media` must be enabled).
+
+- **How files are copied.** BricksSnap downloads each image itself and uploads it to WordPress as base64 data, so the request carries no external URL. Downloads must be HTTPS from public addresses (checked for every redirect), with image content types only, 8 MB per file and at most 30 images.
+- **Rewriting.** The image settings are rewritten to the media item's ID and URL. Links and other URLs are left alone.
+- **Re-imports.** Uploads are named `brickssnap-<hash>.<ext>`, so importing the same image again reuses the earlier upload (`find-media`).
+- **Failures.** Images that fail are listed and stay external.
 - **Scope of a save.** Only elements are saved. Page settings are not changed, and global class definitions are never created; classes must already exist.
 - **Empty pages.** A page that was empty has no previous version to restore.
 
