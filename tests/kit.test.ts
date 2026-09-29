@@ -8,6 +8,8 @@ import { contrast } from "../src/lib/kit/color";
 import { contrastChecks, normalizeKit, resolveKit, STYLE_IDS } from "../src/lib/kit/tokens";
 import { validateBricksElements } from "../src/lib/bricks-validator";
 import { readStagingTemplate } from "../src/lib/template-staging";
+import { insertSection, kitPreview, SECTION_LABELS, STARTER_PAGES } from "../src/lib/kit/studio";
+import { kitCatalog, kitTemplateType } from "../src/lib/kit/generate";
 
 const LAYOUTS = SECTION_TYPES.flatMap(type => variantsFor(type).map(v => ({ type, variant: v.id })));
 
@@ -142,5 +144,40 @@ describe("preview renderer", () => {
     expect(css).toContain("var(--font-jakarta)");
     expect(css).not.toMatch(/\d(vw|vh)\b/);
     expect(css).toMatch(/@layer bricks/);
+  });
+});
+
+describe("studio helpers", () => {
+  it("names every section type and builds every starter page with known layouts and no quality warnings about structure", () => {
+    expect(Object.keys(SECTION_LABELS).sort()).toEqual([...SECTION_TYPES].sort());
+    for (const industry of INDUSTRY_IDS) {
+      const page = STARTER_PAGES[industry];
+      for (const pick of page) expect(variantsFor(pick.type).map(v => v.id)).toContain(pick.variant);
+      const { result } = kitPreview(normalizeKit({}), { industry, language: "de" }, page);
+      expect(result.quality.filter(q => /h1|Überschrift|Alternativtext/.test(q.message) && q.level === "warning")).toEqual([]);
+    }
+  });
+
+  it("inserts headers first, footers last and other sections before the footer", () => {
+    const page = [{ type: "hero" as const }, { type: "footer" as const }];
+    expect(insertSection(page, { type: "navbar" }).map(s => s.type)).toEqual(["navbar", "hero", "footer"]);
+    expect(insertSection(page, { type: "faq" }).map(s => s.type)).toEqual(["hero", "faq", "footer"]);
+    expect(insertSection([{ type: "hero" }], { type: "faq" }).map(s => s.type)).toEqual(["hero", "faq"]);
+  });
+
+  it("uses smaller sample photos for thumbnails only", () => {
+    const { result, html, css } = kitPreview(normalizeKit({}), { industry: "handwerk", language: "de" }, [{ type: "hero", variant: "cover" }, { type: "services", variant: "rows" }], { imageWidth: 640 });
+    expect(`${html}${css}`).toContain("?w=640");
+    expect(`${html}${css}`).not.toContain("?w=1600");
+    expect(JSON.stringify(result.template)).toContain("?w=1600");
+  });
+
+  it("lists options and picks the Bricks template type", () => {
+    const catalog = kitCatalog();
+    expect(catalog.sections.reduce((n, s) => n + s.variants.length, 0)).toBe(LAYOUTS.length);
+    expect(kitTemplateType(["navbar"])).toBe("header");
+    expect(kitTemplateType([{ type: "footer" }])).toBe("footer");
+    expect(kitTemplateType(["hero"])).toBe("section");
+    expect(kitTemplateType(["navbar", "hero"])).toBe("content");
   });
 });

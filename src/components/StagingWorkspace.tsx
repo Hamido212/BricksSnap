@@ -16,13 +16,14 @@ import BricksRenderPreview from "./BricksRenderPreview";
 import SiteDesignGenerator from "./SiteDesignGenerator";
 import { pageDesign, type SitePalette } from "@/lib/site-design";
 import type { WordPressCredentials, WordPressPageResult, WordPressSource } from "@/lib/wordpress-contract";
+import type { DesignSystem } from "@/lib/kit/generate";
 
 // `version` counts changes to the reviewed template after review (imported images, created classes).
 type Review = { id: number; version: number; before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
 const control = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
 const button = "rounded-lg border border-border px-3 py-2 text-sm hover:bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed";
 
-export default function StagingWorkspace({ generatedTemplate }: { generatedTemplate: BricksTemplate | null }) {
+export default function StagingWorkspace({ generatedTemplate }: { generatedTemplate: BricksTemplate | null; designSystem?: DesignSystem | null }) {
   const [baseline, setBaseline] = useState("");
   const [candidate, setCandidate] = useState("");
   const [mode, setMode] = useState<"append" | "prepend" | "after" | "compare">("append");

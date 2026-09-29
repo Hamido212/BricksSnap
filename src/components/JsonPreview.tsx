@@ -4,33 +4,13 @@ import { useState, useCallback } from "react";
 import { syntaxHighlight } from "@/lib/json-highlight";
 import { buildBricksImportJson, TemplateType } from "@/lib/bricks-export";
 import type { BricksTemplate } from "@/lib/bricks-engine";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface JsonPreviewProps {
   data: BricksTemplate;
   maxHeight?: string;
   templateName?: string;
   initialType?: TemplateType;
-}
-
-// Clipboard fallback for non-secure contexts (HTTP)
-async function copyToClipboard(text: string): Promise<void> {
-  if (navigator.clipboard && window.isSecureContext) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-  // Fallback: create textarea, select, execCommand
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  textarea.style.left = "-9999px";
-  textarea.style.top = "-9999px";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-  const copied = document.execCommand("copy");
-  document.body.removeChild(textarea);
-  if (!copied) throw new Error("Clipboard unavailable");
 }
 
 export default function JsonPreview({ data, maxHeight = "500px", templateName = "BricksSnap Template", initialType = "section" }: JsonPreviewProps) {

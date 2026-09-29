@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { fontVariables } from "./fonts";
 
 export const metadata: Metadata = {
   title: "BricksSnap - Free Template Generator for Bricks Builder",
@@ -23,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={fontVariables}>
       <body className="antialiased">
         {children}
       </body>
