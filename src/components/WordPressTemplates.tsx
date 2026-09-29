@@ -16,7 +16,7 @@ interface WordPressTemplatesProps {
 
 type Editor = { template: WordPressTemplateSummary; loaded: TemplateCondition[]; unsupported: string[]; rows: ConditionFields[]; confirm: boolean };
 
-const control = "w-full min-w-0 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs focus:outline-2 focus:outline-primary";
+const control = "w-full min-w-0 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs focus:outline-2 focus:outline-primary";
 const small = "rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed";
 const MAIN_LABELS: Record<ConditionFields["main"], string> = {
   any: "Entire website", frontpage: "Front page", postType: "Post types", archiveType: "Archives",
@@ -88,13 +88,13 @@ export default function WordPressTemplates({ credentials, onLoad, currentId }: W
         </li>)}
       </ul>}
 
-      {editor && <section className="rounded-lg border border-border bg-background p-3 space-y-3" aria-label={`Conditions of ${editor.template.title}`}>
+      {editor && <section className="rounded-lg border border-border bg-subtle p-3 space-y-3" aria-label={`Conditions of ${editor.template.title}`}>
         <div>
           <h4 className="text-sm font-medium">Where “{editor.template.title}” applies</h4>
           <p className="text-xs text-muted mt-1">{editor.template.status === "publish" ? "Published: saved conditions take effect on the site immediately." : `Status ${editor.template.status}: conditions take effect once the template is published.`} Exclusions win over inclusions.</p>
         </div>
         {editor.unsupported.length > 0
-          ? <p className="text-xs text-amber-300 break-words">These conditions use settings BricksSnap cannot edit ({editor.unsupported.join(", ")}). Edit them in Bricks.</p>
+          ? <p className="text-xs text-warning break-words">These conditions use settings BricksSnap cannot edit ({editor.unsupported.join(", ")}). Edit them in Bricks.</p>
           : <>
             {!editor.rows.length && <p className="text-xs text-muted">No conditions: Bricks does not use this template anywhere yet.</p>}
             {editor.rows.map((row, i) => <div key={i} className="grid gap-2 rounded-lg border border-border p-2 sm:grid-cols-[10rem_1fr_auto]">
@@ -115,16 +115,16 @@ export default function WordPressTemplates({ credentials, onLoad, currentId }: W
             </div>)}
             <button className={small} disabled={editor.rows.length >= 50} onClick={() => setEditor(current => current && { ...current, confirm: false, rows: [...current.rows, emptyRow()] })}>Add condition</button>
             {rowsError
-              ? <p role="alert" className="text-xs text-red-400">{rowsError}</p>
+              ? <p role="alert" className="text-xs text-danger">{rowsError}</p>
               : conditions.length > 0 && <ul className="text-xs text-muted list-disc pl-5">{conditions.map((c, i) => <li key={i}>{describeCondition(c)}</li>)}</ul>}
             {!unchanged && !rowsError && <>
               <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={editor.confirm} onChange={e => setEditor({ ...editor, confirm: e.target.checked })}/>Replace the conditions of {editor.template.title} (#{editor.template.id}) on the site.</label>
-              <button className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-black disabled:opacity-40" disabled={busy || !editor.confirm} onClick={save}>{busy ? "Saving…" : "Save conditions"}</button>
+              <button className="rounded-lg bg-warning px-4 py-2 text-sm font-medium text-black disabled:opacity-40" disabled={busy || !editor.confirm} onClick={save}>{busy ? "Saving…" : "Save conditions"}</button>
             </>}
           </>}
       </section>}
       {status && <p role="status" className="text-xs text-muted">{status}</p>}
-      {error && <p role="alert" className="text-xs text-red-400 break-words">{error}</p>}
+      {error && <p role="alert" className="text-xs text-danger break-words">{error}</p>}
     </div>
   </details>;
 }

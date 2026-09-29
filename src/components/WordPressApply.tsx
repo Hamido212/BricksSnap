@@ -57,7 +57,7 @@ export default function WordPressApply({ source, credentials, proposal, onUpdate
     } finally { setBusy(false); }
   }
 
-  return <section className="rounded-xl border border-amber-400/30 bg-amber-400/5 p-5 space-y-4" aria-labelledby="wp-apply-title">
+  return <section className="rounded-xl border border-warning/30 bg-warning/5 p-5 space-y-4" aria-labelledby="wp-apply-title">
     <div>
       <h3 id="wp-apply-title" className="font-medium">5. Apply to WordPress</h3>
       <p className="text-xs text-muted mt-1 break-words">Target: <strong>{target}</strong> on {host} · baseline digest <span className="font-mono">{source.documentDigest?.slice(0, 12)}</span> · loaded {new Date(source.fetchedAt).toLocaleTimeString()}</p>
@@ -67,28 +67,28 @@ export default function WordPressApply({ source, credentials, proposal, onUpdate
       <p className="text-sm">Saving replaces all elements of this page with the reviewed version. Bricks refuses the save if the page changed since it was loaded, and keeps a revision of the current state first.</p>
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>I reviewed these changes and want to save them to {target}.</label>
       {lockedPage && <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={allowLocked} onChange={e => setAllowLocked(e.target.checked)}/>Apply although the page is open in the builder. The next save in the builder can overwrite this change.</label>}
-      <button className={`${button} bg-amber-500 text-black`} disabled={!confirmed || busy || (lockedPage && !allowLocked)} onClick={apply}>{busy ? "Saving…" : "Apply to WordPress"}</button>
+      <button className={`${button} bg-warning text-black`} disabled={!confirmed || busy || (lockedPage && !allowLocked)} onClick={apply}>{busy ? "Saving…" : "Apply to WordPress"}</button>
     </div>}
     {!proposal && !applied && !restored && <p className="text-xs text-muted">Review a change above to apply it to this page.</p>}
 
-    {applied && <div role="status" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-4 space-y-2 text-sm">
+    {applied && <div role="status" className="rounded-lg border border-success/30 bg-success/5 p-4 space-y-2 text-sm">
       <p><strong>Saved to {target}.</strong> {applied.template.content.length} elements, new digest <span className="font-mono">{applied.documentDigest.slice(0, 12)}</span>.</p>
       <p>{applied.verification.matches
         ? "Read-back matches the reviewed version."
         : `Read-back differs in ${applied.verification.changed + applied.verification.added + applied.verification.removed + applied.verification.moved} elements, typically Bricks converting custom CSS into native style controls (${applied.verification.fields.slice(0, 6).join(", ")}${applied.verification.fields.length > 6 ? ", …" : ""}). Check the page in Bricks.`}</p>
-      {applied.warnings?.map((w, i) => <p key={i} className="text-xs text-amber-300 break-words">{w}</p>)}
+      {applied.warnings?.map((w, i) => <p key={i} className="text-xs text-warning break-words">{w}</p>)}
       {applied.revisionId
         ? <div className="flex flex-wrap items-center gap-2 pt-1">
             {!confirmRestore
               ? <button className={`${button} border border-border`} disabled={busy} onClick={() => setConfirmRestore(true)}>Restore previous version</button>
               : <><span className="text-xs">Restore revision #{applied.revisionId} and discard the applied change?</span>
-                  <button className={`${button} bg-red-500 text-white`} disabled={busy} onClick={restore}>{busy ? "Restoring…" : "Confirm restore"}</button>
+                  <button className={`${button} bg-danger text-white`} disabled={busy} onClick={restore}>{busy ? "Restoring…" : "Confirm restore"}</button>
                   <button className={`${button} border border-border`} disabled={busy} onClick={() => setConfirmRestore(false)}>Cancel</button></>}
           </div>
         : <p className="text-xs text-muted">The page was empty before, so there is no previous version to restore.</p>}
     </div>}
 
-    {restored && <p role="status" className="rounded-lg border border-border bg-background p-4 text-sm">Restored revision #{restored.fromRevisionId}: {restored.template.content.length} elements, digest <span className="font-mono">{restored.documentDigest.slice(0, 12)}</span>.{restored.newRevisionId ? ` Bricks kept revision #${restored.newRevisionId} of the replaced state.` : ""}</p>}
-    {error && <p role="alert" className="rounded-lg border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-400 break-words">{error}</p>}
+    {restored && <p role="status" className="rounded-lg border border-border bg-subtle p-4 text-sm">Restored revision #{restored.fromRevisionId}: {restored.template.content.length} elements, digest <span className="font-mono">{restored.documentDigest.slice(0, 12)}</span>.{restored.newRevisionId ? ` Bricks kept revision #${restored.newRevisionId} of the replaced state.` : ""}</p>}
+    {error && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/5 p-4 text-sm text-danger break-words">{error}</p>}
   </section>;
 }

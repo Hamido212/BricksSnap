@@ -22,7 +22,11 @@ import {
   type WordPressDesignResult,
   type WordPressPageSummary,
   type WordPressSource,
+  type WordPressDesignSystemResult,
 } from "./wordpress-contract";
+import { designSystemInstalled, planDesignSystem, readSiteCategories, readSitePalettes, readSiteVariables } from "./design-system-install";
+import { designSystemFor } from "./kit/generate";
+import { resolveKit, type BrandKit } from "./kit/tokens";
 import { diffTemplates, readStagingTemplate, stableJson } from "./template-staging";
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 import packageJson from "../../package.json";
@@ -882,10 +886,147 @@ export async function restoreWordPressRevision(
   });
 }
 
+/** Palettes and variables with the ownership envelopes Bricks requires for writes. */
+async function readDesignStores(session: Session) {
+  const paletteResult = await callAbility(session, "bricks/list-color-palettes", [{ names: ["perPage"], value: 200 }]);
+  if (!isRecord(paletteResult) || !isRecord(paletteResult.ownership)) throw new RequestError("This Bricks version does not report palette ownership; the design system cannot be installed safely.", 422);
+  if (paletteResult.hasMore === true) throw new RequestError("The site has more than 200 color palettes; BricksSnap cannot compare them safely.", 422);
+  const variableRows: unknown[] = [];
+  let variables: JsonRecord = {};
+  for (let page = 1; page <= 10; page++) {
+    const result = await callAbility(session, "bricks/list-global-variables", [{ names: ["page"], value: page }, { names: ["perPage"], value: 200 }]);
+    if (!isRecord(result) || !isRecord(result.variableOwnership) || !isRecord(result.categoryOwnership)) throw new RequestError("This Bricks version does not report variable ownership; the design system cannot be installed safely.", 422);
+    if (page > 1 && stableJson(result.variableOwnership) !== stableJson(variables.variableOwnership)) throw new RequestError("Global variables changed on the site while they were read. Try again.", 409);
+    variables = result;
+    const rows = Array.isArray(result.items) ? result.items : [];
+    variableRows.push(...rows);
+    if (result.hasMore !== true || !rows.length) break;
+  }
+  return {
+    palettes: readSitePalettes(Array.isArray(paletteResult.items) ? paletteResult.items : []),
+    paletteOwnership: paletteResult.ownership,
+    variables: readSiteVariables(variableRows),
+    categories: readSiteCategories(Array.isArray(variables.categories) ? variables.categories : []),
+    variableOwnership: variables.variableOwnership as JsonRecord,
+    categoryOwnership: variables.categoryOwnership as JsonRecord,
+  };
+}
+
+/** Bricks' ownership guard refused a write because the store changed after it was read. */
+async function designWrite(session: Session, ability: typeof WP_WRITE_ABILITIES[number], args: Argument[]): Promise<JsonRecord> {
+  try {
+    const result = await callAbility(session, ability, args);
+    return isRecord(result) ? result : {};
+  } catch (error) {
+    if (error instanceof RequestError && /ownership|digest|conflict|stale|changed/i.test(error.message)) throw new RequestError(`The site's palettes or variables changed during the install. Check again and retry. (${error.message})`, 409);
+    throw error;
+  }
+}
+
+const withoutDigests = (row: JsonRecord) => Object.fromEntries(Object.entries(row).filter(([key]) => key !== "itemDigest" && key !== "itemOwnership"));
+const resourceOwnership = (value: unknown, fallback: JsonRecord): JsonRecord => (isRecord(value) && typeof value.resourceDigest === "string" ? value : fallback);
+
+/**
+ * Compare the Studio kit's design system with the site and, when confirmed, install it: a "BricksSnap"
+ * color palette whose colors define the --bs-* variables, and global variables in a "BricksSnap"
+ * category. Each write is guarded by the ownership digest from the read before it; nothing is deleted,
+ * and colors or variables defined by anything else are reported, not changed.
+ */
+export async function installWordPressDesignSystem(credentials: WordPressCredentials, request: { kit: Partial<BrandKit>; install: boolean }, signal: AbortSignal): Promise<WordPressDesignSystemResult> {
+  const resolved = resolveKit(request.kit);
+  const ds = designSystemFor(resolved);
+  const fontWarning = ds.fonts.length ? [`The variables name the fonts ${ds.fonts.join(" and ")}. Bricks does not load fonts referenced only in variables: add them under Bricks → Settings → Custom fonts or in a theme style, or the fallback system fonts are shown.`] : [];
+  return withSession(credentials, signal, async session => {
+    const stores = await readDesignStores(session);
+    const plan = planDesignSystem(ds, stores.palettes, stores.variables, stores.categories);
+    const summary = (installed: boolean, verified?: boolean): WordPressDesignSystemResult => ({
+      installed,
+      palette: { name: plan.palette.name, exists: !!plan.palette.siteId, create: plan.palette.create.length, update: plan.palette.update.length, unchanged: plan.palette.unchanged },
+      category: { name: plan.category.name, create: plan.category.create },
+      variables: { create: plan.variables.create.length, update: plan.variables.update.length, unchanged: plan.variables.unchanged },
+      conflicts: plan.conflicts, changes: plan.changes, fonts: ds.fonts,
+      ...(verified === undefined ? {} : { verified }),
+      warnings: [...(plan.conflicts.length ? [`${plan.conflicts.length} variables are already defined elsewhere on the site and were left unchanged: ${sample(plan.conflicts)}.`] : []), ...fontWarning],
+    });
+    if (!request.install || !plan.changes.length && !plan.category.create) return summary(false);
+
+    // Palette colors.
+    let paletteOwnership = stores.paletteOwnership;
+    if (plan.palette.create.length || plan.palette.update.length) {
+      if (!plan.palette.siteId) {
+        await requireWriteAbility(session, "bricks/create-color-palette");
+        const created = await designWrite(session, "bricks/create-color-palette", [
+          { names: ["name"], value: plan.palette.name, required: true },
+          { names: ["colors"], value: plan.palette.create.map(c => ({ id: c.id, light: c.light, raw: c.raw })) },
+          { names: ["expectedOwnership"], value: paletteOwnership, required: true },
+        ]);
+        paletteOwnership = resourceOwnership(created.ownership, paletteOwnership);
+      } else {
+        const paletteId = plan.palette.siteId;
+        if (plan.palette.update.length) await requireWriteAbility(session, "bricks/update-color");
+        for (const { siteColor, light } of plan.palette.update) {
+          const digest = isRecord(siteColor.itemOwnership) ? siteColor.itemOwnership.itemDigest : undefined;
+          if (typeof digest !== "string") throw new RequestError("Bricks did not report a digest for an existing palette color; it cannot be updated safely.", 422);
+          const updated = await designWrite(session, "bricks/update-color", [
+            { names: ["colorId"], value: siteColor.id, required: true }, { names: ["paletteId"], value: paletteId },
+            { names: ["light"], value: light }, { names: ["expectedOwnership"], value: { ...paletteOwnership, itemDigest: digest }, required: true },
+          ]);
+          paletteOwnership = resourceOwnership(updated.ownership, paletteOwnership);
+        }
+        if (plan.palette.create.length) await requireWriteAbility(session, "bricks/create-color");
+        for (const color of plan.palette.create) {
+          const created = await designWrite(session, "bricks/create-color", [
+            { names: ["paletteId"], value: paletteId, required: true }, { names: ["light"], value: color.light },
+            { names: ["raw"], value: color.raw }, { names: ["expectedOwnership"], value: paletteOwnership, required: true },
+          ]);
+          paletteOwnership = resourceOwnership(created.ownership, paletteOwnership);
+        }
+      }
+    }
+
+    // Variable category, then variables. Palettes, variables and categories share one design version
+    // that every write bumps, so each step reads fresh ownership after a previous write.
+    if (plan.category.create || plan.variables.create.length || plan.variables.update.length) {
+      const wrotePalette = plan.palette.create.length > 0 || plan.palette.update.length > 0;
+      let { variableOwnership, categoryOwnership } = stores;
+      if (wrotePalette) {
+        const fresh = await readDesignStores(session);
+        // Only the shared version may differ; changed contents would invalidate the plan.
+        if (fresh.variableOwnership.resourceDigest !== variableOwnership.resourceDigest || fresh.categoryOwnership.resourceDigest !== categoryOwnership.resourceDigest) {
+          throw new RequestError("Global variables changed on the site during the install. The palette was saved; check again and retry to add the variables.", 409);
+        }
+        ({ variableOwnership, categoryOwnership } = fresh);
+      }
+      if (plan.category.create) {
+        await requireWriteAbility(session, "bricks/set-global-variable-categories");
+        await designWrite(session, "bricks/set-global-variable-categories", [
+          { names: ["categories"], value: [...stores.categories.map(withoutDigests), { id: plan.category.id, name: plan.category.name }], required: true },
+          { names: ["expectedOwnership"], value: categoryOwnership, required: true },
+          { names: ["expectedVariableOwnership"], value: variableOwnership, required: true },
+        ]);
+        ({ variableOwnership, categoryOwnership } = await readDesignStores(session));
+      }
+      if (plan.variables.create.length || plan.variables.update.length) {
+        await requireWriteAbility(session, "bricks/set-global-variables");
+        await designWrite(session, "bricks/set-global-variables", [
+          { names: ["variables"], value: [...plan.variables.update, ...plan.variables.create].map(withoutDigests), required: true },
+          { names: ["expectedVariableOwnership"], value: variableOwnership, required: true },
+          { names: ["expectedCategoryOwnership"], value: categoryOwnership, required: true },
+        ]);
+      }
+    }
+
+    // Read back: every color and variable BricksSnap owns must now carry the kit's value.
+    const after = await readDesignStores(session);
+    const check = designSystemInstalled(ds, after.palettes, after.variables);
+    return summary(true, check.missing.every(name => plan.conflicts.includes(name)));
+  });
+}
+
 export async function handleWordPressRequest(
   request: WordPressRequest,
   signal: AbortSignal
-): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult | WordPressClassesResult | WordPressTemplatesResult | WordPressConditionsResult | WordPressCreateTemplateResult> {
+): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult | WordPressClassesResult | WordPressTemplatesResult | WordPressConditionsResult | WordPressCreateTemplateResult | WordPressDesignSystemResult> {
   switch (request.action) {
     case "connect":
       return connectWordPress(request.credentials, signal);
@@ -913,5 +1054,9 @@ export async function handleWordPressRequest(
       return applyWordPressPage(request.credentials, request, signal);
     case "restore":
       return restoreWordPressRevision(request.credentials, request, signal);
+    case "design-system-plan":
+      return installWordPressDesignSystem(request.credentials, { kit: request.kit, install: false }, signal);
+    case "design-system":
+      return installWordPressDesignSystem(request.credentials, { kit: request.kit, install: true }, signal);
   }
 }

@@ -39,9 +39,9 @@ export default function ConnectionGuide({ onImport, disabled }: { onImport: (tem
           try { importJson(await file.text()); } catch { setError("Could not read this file."); }
           e.target.value = "";
         }} /></label>
-        <textarea aria-label="Bricks JSON to import" maxLength={2_000_000} value={json} onChange={e => setJson(e.target.value)} placeholder='{"content": [...]}' className="w-full mt-3 h-28 p-3 border border-border rounded-lg bg-background font-mono text-xs" />
+        <textarea aria-label="Bricks JSON to import" maxLength={2_000_000} value={json} onChange={e => setJson(e.target.value)} placeholder='{"content": [...]}' className="w-full mt-3 h-28 p-3 border border-border rounded-lg bg-card font-mono text-xs" />
         <button disabled={disabled || !json.trim()} onClick={() => importJson(json)} className="mt-2 px-4 py-2 border border-primary rounded-lg text-foreground disabled:opacity-50">Validate & import JSON</button>
-        {error && <p role="alert" className="mt-2 text-red-300">{error}</p>}
+        {error && <p role="alert" className="mt-2 text-danger">{error}</p>}
       </div>
       <div><h3 className="font-semibold text-foreground">Bricks 2.4</h3><p>Bricks now has native AI Abilities, HTML/CSS conversion, component management and global data transfers. For direct site editing, configure the official integration in WordPress → Bricks → AI. BricksSnap remains a standalone template workspace. Its preview is a structure sketch; Bricks is the final rendering check.</p>
         <a href="https://academy.bricksbuilder.io/builder/features/ai-abilities-and-skills/" target="_blank" rel="noreferrer" className="text-primary underline">Bricks AI setup</a>

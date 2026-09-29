@@ -19,7 +19,7 @@ interface WordPressConnectionProps {
   currentSource: WordPressSource | null;
 }
 
-const inputClass = "w-full rounded-lg border border-border bg-background px-3 py-2 text-xs focus:outline-2 focus:outline-primary";
+const inputClass = "w-full rounded-lg border border-border bg-card px-3 py-2 text-xs focus:outline-2 focus:outline-primary";
 const buttonClass = "rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed";
 
 export default function WordPressConnection({
@@ -180,11 +180,11 @@ export default function WordPressConnection({
   }
 
   return (
-    <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-4">
+    <div className="rounded-xl border border-border bg-card p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-emerald-400" : "bg-muted"}`} />
+            <span className={`inline-block h-2 w-2 rounded-full ${connected ? "bg-success" : "bg-muted"}`} />
             <h3 className="font-semibold text-sm">Connect WordPress site · local MCP{connected && version ? ` · Bricks ${version}` : ""}</h3>
           </div>
           <p className="text-xs text-muted mt-1 leading-relaxed">
@@ -200,7 +200,7 @@ export default function WordPressConnection({
       </div>
 
       {currentSource && (
-        <div className="rounded-lg bg-background/80 border border-border p-3 text-xs flex flex-wrap items-center justify-between gap-2">
+        <div className="rounded-lg border border-border bg-card p-3 text-xs flex flex-wrap items-center justify-between gap-2">
           <div>
             <span className="font-medium text-foreground">Active baseline source: </span>
             <span className="text-muted">{currentSource.endpoint}</span>
@@ -294,7 +294,7 @@ export default function WordPressConnection({
           </div>
 
           {connected && (
-            <div className="rounded-lg border border-border bg-background p-3 space-y-3">
+            <div className="rounded-lg border border-border bg-subtle p-3 space-y-3">
               <h4 className="font-medium text-xs">Select a page or template to import into staging</h4>
               <div className="flex flex-wrap gap-2 items-center">
                 <input
@@ -331,7 +331,7 @@ export default function WordPressConnection({
             </div>
           )}
 
-          {error && <p role="alert" className="text-xs text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-xs text-danger">{error}</p>}
           {status && <p role="status" className="text-xs text-muted">{status}</p>}
         </div>
       )}

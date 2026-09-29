@@ -16,13 +16,15 @@ import BricksRenderPreview from "./BricksRenderPreview";
 import SiteDesignGenerator from "./SiteDesignGenerator";
 import { pageDesign, type SitePalette } from "@/lib/site-design";
 import type { WordPressCredentials, WordPressPageResult, WordPressSource } from "@/lib/wordpress-contract";
+import type { BrandKit } from "@/lib/kit/tokens";
+import WordPressDesignSystem from "./WordPressDesignSystem";
 
 // `version` counts changes to the reviewed template after review (imported images, created classes).
 type Review = { id: number; version: number; before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
-const control = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
+const control = "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
 const button = "rounded-lg border border-border px-3 py-2 text-sm hover:bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed";
 
-export default function StagingWorkspace({ generatedTemplate }: { generatedTemplate: BricksTemplate | null }) {
+export default function StagingWorkspace({ generatedTemplate, kit }: { generatedTemplate: BricksTemplate | null; kit?: BrandKit | null }) {
   const [baseline, setBaseline] = useState("");
   const [candidate, setCandidate] = useState("");
   const [mode, setMode] = useState<"append" | "prepend" | "after" | "compare">("append");
@@ -107,9 +109,9 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
   return <section className="space-y-6" aria-labelledby="staging-title">
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div className="max-w-2xl">
-        <p className="text-xs uppercase tracking-widest text-primary mb-2">Template staging</p>
-        <h2 id="staging-title" className="text-3xl font-semibold tracking-tight">Build on what you already have.</h2>
-        <p className="mt-3 text-sm text-muted leading-relaxed">Add a section to an existing Bricks export, or compare two versions. Review the structure and download the result. Templates stay in this browser tab until you export them.</p>
+        <p className="label-mono mb-3">Staging</p>
+        <h2 id="staging-title" className="text-[32px] font-semibold leading-[1.1] tracking-[-0.03em]">Build on what you already have.</h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-text">Add a section to an existing Bricks export, or compare two versions. Review the structure and download the result. Templates stay in this browser tab until you export them.</p>
       </div>
       <button className={button} onClick={demo}>Load demo</button>
     </div>
@@ -123,17 +125,18 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         setSource(newSource);
       }}
     />
+    {credentials && kit && <WordPressDesignSystem key={`${credentials.endpoint}#${JSON.stringify(kit)}`} credentials={credentials} kit={kit}/>}
     {credentials && <WordPressTemplates key={`${credentials.endpoint}#${templatesVersion}`} credentials={credentials} onLoad={loadIntoBaseline} currentId={source?.postId}/>}
     {designPalettes.length > 0 && credentials && <SiteDesignGenerator key={`${credentials.endpoint}#${source?.postId ?? ""}#${sitePalettes.length}`} palettes={designPalettes} fonts={loadedDesign.fonts} host={new URL(credentials.endpoint).host} onGenerate={json => { edit("candidate", json); if (mode === "compare") setMode("append"); }}/>}
     <div className="grid gap-5 lg:grid-cols-2">
       {(["baseline", "candidate"] as const).map((side, i) => <div key={side} className="min-w-0 rounded-xl border border-border bg-card p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-medium">{i + 1}. {side === "baseline" ? "Existing page" : "New section or version"}</h3>
-          {side === "candidate" && <button className={button} disabled={!generatedTemplate} onClick={() => edit(side, JSON.stringify(generatedTemplate, null, 2))}>Use generator result</button>}
+          {side === "candidate" && <button className={button} disabled={!generatedTemplate} onClick={() => edit(side, JSON.stringify(generatedTemplate, null, 2))}>Use latest result</button>}
         </div>
         <p className="text-xs text-muted">{side === "baseline" ? "Paste a Bricks JSON export. Leave empty to start a new page." : "Add a section, or supply a complete version when comparing."}</p>
         <label className="block text-xs text-muted" htmlFor={`staging-${side}-file`}>Import JSON file</label>
-        <input id={`staging-${side}-file`} type="file" accept=".json,application/json" className="block w-full min-w-0 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-background file:px-3 file:py-2 file:text-foreground" onChange={e => { void loadFile(side, e.target.files?.[0]); e.target.value = ""; }} />
+        <input id={`staging-${side}-file`} type="file" accept=".json,application/json" className="block w-full min-w-0 text-xs file:mr-3 file:rounded-md file:border-0 file:bg-subtle file:px-3 file:py-2 file:text-foreground" onChange={e => { void loadFile(side, e.target.files?.[0]); e.target.value = ""; }} />
         <label className="sr-only" htmlFor={`staging-${side}`}>{side === "baseline" ? "Existing page JSON" : "Candidate JSON"}</label>
         <textarea id={`staging-${side}`} spellCheck={false} value={side === "baseline" ? baseline : candidate} onChange={e => edit(side, e.target.value)} maxLength={2_000_000} rows={7} className={`${control} resize-y font-mono text-xs`} placeholder={side === "baseline" ? "[]" : '{"content": [...]}'}/>
       </div>)}
@@ -150,11 +153,11 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
       <button className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-40" disabled={!candidate.trim()} onClick={inspect}>Review changes</button>
       <p className="text-xs text-muted sm:ml-auto">{source ? `Connected WordPress baseline (Post #${source.postId})` : "No WordPress connection required"}</p>
     </div>
-    {error && <p role="alert" className="rounded-lg border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-400 break-words">{error}</p>}
+    {error && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/5 p-4 text-sm text-danger break-words">{error}</p>}
     {review && <div className="space-y-5" aria-live="polite">
       <div className="rounded-xl border border-border bg-card p-5">
         <h3 className="font-medium mb-4">3. Review changes</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">{Object.entries(review.diff.counts).map(([label, count]) => <div key={label} className="rounded-lg bg-background p-3"><p className="text-2xl font-semibold tabular-nums">{count}</p><p className="text-xs text-muted capitalize">{label}</p></div>)}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">{Object.entries(review.diff.counts).map(([label, count]) => <div key={label} className="rounded-lg bg-subtle p-3"><p className="text-2xl font-semibold tabular-nums">{count}</p><p className="text-xs text-muted capitalize">{label}</p></div>)}</div>
         {review.diff.metadata.length > 0 && <p className="text-xs text-muted mt-4 break-words">Changed metadata: {review.diff.metadata.join(", ")}</p>}
         <details className="mt-4 text-sm"><summary className="cursor-pointer">Element changes ({review.diff.elements.length})</summary><ul className="mt-3 max-h-64 overflow-auto space-y-2">{review.diff.elements.map(el => <li key={el.id} className="break-words"><span className="font-mono text-xs text-muted">{el.id}</span> · {el.label} · <strong>{el.status}</strong>{el.fields.length > 0 && ` (${el.fields.join(", ")})`}</li>)}</ul></details>
       </div>

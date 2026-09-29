@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 import { TEMPLATE_TYPES, templateConditionsSchema, type TemplateCondition } from "./template-conditions";
+import { FONT_PAIR_IDS, RADIUS_IDS, SPACING_IDS, STYLE_IDS } from "./kit/tokens";
+import type { DesignSystemChange } from "./design-system-install";
 
 // Only these fixed abilities are called; no arbitrary tool names or endpoints per call.
 export const WP_READ_ABILITIES = [
@@ -14,14 +16,16 @@ export const WP_READ_ABILITIES = [
   "bricks/list-global-classes",
   "bricks/list-templates",
   "bricks/get-template-settings",
+  "bricks/list-global-variables",
 ] as const;
 
 export type ReadAbility = typeof WP_READ_ABILITIES[number];
 
-/** Writes: guarded element replacement, restoring its revision, images, classes, templates and their conditions. */
+/** Writes: guarded element replacement, restoring its revision, images, classes, templates and their conditions, the kit's design system. */
 export const WP_WRITE_ABILITIES = [
   "bricks/set-page-elements", "bricks/restore-revision", "bricks/upload-media", "bricks/batch-create-global-classes",
   "bricks/create-template", "bricks/set-template-conditions",
+  "bricks/create-color-palette", "bricks/create-color", "bricks/update-color", "bricks/set-global-variable-categories", "bricks/set-global-variables",
 ] as const;
 
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/, "Reload the page into the baseline: Bricks' document digest is missing.");
@@ -55,6 +59,12 @@ export const wpCredentialsSchema = z.object({
 
 export type WordPressCredentials = z.infer<typeof wpCredentialsSchema>;
 
+// The server derives every value from the kit's choices; no CSS reaches the site from the request.
+const kitSchema = z.object({
+  style: z.enum(STYLE_IDS), primary: z.string().max(20), accent: z.string().max(20).optional(), fonts: z.enum(FONT_PAIR_IDS),
+  radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]),
+}).partial().strict();
+
 export const wpRequestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("connect"), credentials: wpCredentialsSchema }).strict(),
   // An empty search lists recently modified Bricks content.
@@ -85,6 +95,9 @@ export const wpRequestSchema = z.discriminatedUnion("action", [
     action: z.literal("apply"), credentials: wpCredentialsSchema, postId: z.number().int().positive(),
     expectedDocumentDigest: digestSchema, template: z.unknown(), confirm: z.literal(true), allowLocked: z.boolean().default(false),
   }).strict(),
+  // Compare the Studio kit's palette and variables with the site (read-only), or install them.
+  z.object({ action: z.literal("design-system-plan"), credentials: wpCredentialsSchema, kit: kitSchema }).strict(),
+  z.object({ action: z.literal("design-system"), credentials: wpCredentialsSchema, kit: kitSchema, confirm: z.literal(true) }).strict(),
   // Restore the snapshot an apply created, only while the page still has the applied digest.
   z.object({
     action: z.literal("restore"), credentials: wpCredentialsSchema, postId: z.number().int().positive(),
@@ -216,4 +229,18 @@ export type WordPressRestoreResult = {
   documentDigest: string;
   template: BricksTemplate;
   source: WordPressSource;
+};
+
+export type WordPressDesignSystemResult = {
+  installed: boolean;
+  palette: { name: string; exists: boolean; create: number; update: number; unchanged: number };
+  category: { name: string; create: boolean };
+  variables: { create: number; update: number; unchanged: number };
+  /** CSS variables already defined by another palette or variable; left alone. */
+  conflicts: string[];
+  changes: DesignSystemChange[];
+  /** After an install: every color and variable read back with its value. */
+  verified?: boolean;
+  fonts: string[];
+  warnings: string[];
 };

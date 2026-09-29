@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { storeApiKey, clearApiKey, getPersistPreference, Provider } from "@/lib/secure-storage";
 
-import { DEFAULT_MODELS } from "@/lib/ai-config";
+import { ANTHROPIC_MODELS, DEFAULT_MODELS } from "@/lib/ai-config";
 import ChatGPTConnection from "./ChatGPTConnection";
+import ClaudeConnection from "./ClaudeConnection";
 
 interface SettingsPanelProps {
   useChatGPT: boolean;
@@ -46,12 +47,12 @@ const PROVIDER_CONFIG = {
   },
   anthropic: {
     label: "Anthropic",
-    sub: "Claude Sonnet / Opus",
+    sub: "Claude Sonnet 5.5 / Opus 5.5",
     icon: "A",
     color: "#d4a27f",
     placeholder: "sk-ant-...",
     keyHint: "console.anthropic.com",
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-5-5",
     speed: "Fast",
     quality: "Excellent",
   },
@@ -80,9 +81,10 @@ const PROVIDER_CONFIG = {
 } as const;
 
 const OPENROUTER_POPULAR = [
-  "anthropic/claude-sonnet-4-5",
-  "anthropic/claude-opus-4",
-  "openai/gpt-4.1",
+  "anthropic/claude-sonnet-5.5",
+  "anthropic/claude-opus-5.5",
+  "anthropic/claude-haiku-4.5",
+  "openai/gpt-5.5",
   "openai/gpt-4o-mini",
     "meta-llama/llama-3.3-70b-instruct",
   "mistralai/mistral-large",
@@ -161,9 +163,10 @@ function SettingsPanelBody({
       <button
         key={p}
         onClick={() => { if (p === provider) return; setTempProvider(p); setTempKey(""); setTempModel(""); setConnectionStatus(""); }}
-        className={`relative flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+        aria-pressed={isSelected}
+        className={`relative flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-colors ${
           isSelected
-            ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+            ? "border-primary bg-primary-soft"
             : "border-border hover:border-border-hover"
         }`}
       >
@@ -175,8 +178,7 @@ function SettingsPanelBody({
           </div>
         )}
         <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black"
-          style={{ background: `${c.color}18`, color: c.color }}
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-subtle text-xs font-semibold text-foreground"
         >
           {c.icon}
         </div>
@@ -192,41 +194,35 @@ function SettingsPanelBody({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-fade-in"
+        className="fixed inset-0 z-[100] bg-foreground/20 animate-fade-in"
         onClick={onClose}
       />
       {/* Panel */}
       <div className="fixed right-0 top-0 bottom-0 z-[101] w-full max-w-md bg-card border-l border-border overflow-y-auto animate-slide-in-right">
-        <div className="p-6">
-          <ChatGPTConnection enabled={useChatGPT} setEnabled={setUseChatGPT} model={chatgptModel} setModel={setChatgptModel} />
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-lg font-bold text-foreground">Settings</h2>
-              <p className="text-xs text-muted mt-0.5">Configure your AI provider and API key</p>
-            </div>
-            <button
-              onClick={onClose}
-              aria-label="Close settings"
-              className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted hover:text-foreground hover:bg-card-hover transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-6 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Settings</h2>
+            <p className="mt-0.5 text-xs text-muted">Connect Claude or ChatGPT, or use your own API key</p>
           </div>
-
+          <button onClick={onClose} aria-label="Close settings" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted transition-colors hover:bg-subtle hover:text-foreground">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div className="p-6">
+          <ClaudeConnection />
+          <ChatGPTConnection enabled={useChatGPT} setEnabled={setUseChatGPT} model={chatgptModel} setModel={setChatgptModel} />
+          <h3 className="label-mono mb-4 mt-8 border-t border-border pt-6">Your own API key</h3>
           <div className="space-y-6">
             {/* BYOK Section */}
-            <div className="p-4 rounded-xl border border-accent/20 bg-accent/5">
+            <div className="rounded-xl border border-border bg-subtle p-4">
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-card">
+                  <svg className="h-4 w-4 text-text" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                   </svg>
                 </div>
                 <div className="text-xs">
-                  <p className="font-semibold text-foreground mb-1">BYOK - Bring Your Own Key</p>
+                  <p className="mb-1 font-medium text-foreground">Bring your own key</p>
                   <p className="text-muted leading-relaxed">
                     Use your own API key. Direct billing from your provider. We charge nothing extra.
                     Your key is sent to this BricksSnap server and the selected provider when you generate or test. Browser storage is optional and accessible to scripts on this origin.
@@ -252,7 +248,7 @@ function SettingsPanelBody({
                   value={tempKey}
                   onChange={(e) => { setTempKey(e.target.value); setConnectionStatus(""); }}
                   placeholder={cfg.placeholder}
-                  className="w-full px-4 py-3 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary focus:shadow-lg focus:shadow-primary-glow transition-all font-mono"
+                  className="w-full px-4 py-3 rounded-lg border border-border bg-card text-sm text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
                 />
                 <button
                   type="button"
@@ -273,7 +269,7 @@ function SettingsPanelBody({
                 {tempKey && (
                   <button
                     onClick={handleClearKey}
-                    className="text-[10px] text-red-400 hover:text-red-300 font-medium"
+                    className="text-[10px] text-danger hover:text-danger font-medium"
                   >
                     Clear Key
                   </button>
@@ -283,7 +279,7 @@ function SettingsPanelBody({
 
             {/* Azure-specific fields */}
             {provider === "azure" && (
-              <div className="space-y-3 p-4 rounded-xl border border-[#0078d4]/20 bg-[#0078d4]/5">
+              <div className="space-y-3 p-4 rounded-xl border border-border bg-subtle">
                 <p className="text-xs font-semibold text-foreground">Azure Configuration</p>
                 <div>
                   <label className="text-[10px] text-muted mb-1 block">Endpoint URL</label>
@@ -292,7 +288,7 @@ function SettingsPanelBody({
                     value={tempAzureEndpoint}
                     onChange={(e) => setTempAzureEndpoint(e.target.value)}
                     placeholder="https://my-resource.openai.azure.com"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-card text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
                   />
                 </div>
                 <div>
@@ -302,7 +298,7 @@ function SettingsPanelBody({
                     value={tempAzureDeployment}
                     onChange={(e) => setTempAzureDeployment(e.target.value)}
                     placeholder="my-gpt4o-deployment"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-card text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
                   />
                   <p className="text-[10px] text-muted mt-1">The name you gave when deploying a model in Azure AI Foundry.</p>
                 </div>
@@ -311,7 +307,7 @@ function SettingsPanelBody({
 
             {/* OpenRouter model selector */}
             {provider === "openrouter" && (
-              <div className="space-y-3 p-4 rounded-xl border border-[#6366f1]/20 bg-[#6366f1]/5">
+              <div className="space-y-3 p-4 rounded-xl border border-border bg-subtle">
                 <p className="text-xs font-semibold text-foreground">Model Selection</p>
                 <div>
                   <label className="text-[10px] text-muted mb-1 block">Model ID</label>
@@ -319,8 +315,8 @@ function SettingsPanelBody({
                     type="text"
                     value={tempOpenrouterModel}
                     onChange={(e) => setTempOpenrouterModel(e.target.value)}
-                    placeholder="anthropic/claude-sonnet-4-5"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
+                    placeholder="anthropic/claude-sonnet-5.5"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-card text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
                   />
                 </div>
                 <div>
@@ -332,8 +328,8 @@ function SettingsPanelBody({
                         onClick={() => setTempOpenrouterModel(m)}
                         className={`text-[9px] px-2 py-0.5 rounded-full border font-mono transition-colors ${
                           tempOpenrouterModel === m
-                            ? "border-[#6366f1] bg-[#6366f1]/10 text-[#6366f1]"
-                            : "border-border text-muted hover:border-[#6366f1]/50"
+                            ? "border-primary bg-primary-soft text-primary-hover"
+                            : "border-border text-muted hover:border-border-hover"
                         }`}
                       >
                         {m}
@@ -346,15 +342,16 @@ function SettingsPanelBody({
 
             {provider !== "azure" && provider !== "openrouter" && <div>
               <label htmlFor="ai-model" className="text-xs font-semibold block mb-2">Model ID</label>
-              <input id="ai-model" value={tempModel} onChange={e => { setTempModel(e.target.value); setConnectionStatus(""); }} placeholder={DEFAULT_MODELS[provider]} className="w-full p-3 rounded-lg border border-border bg-background text-sm" />
+              <input id="ai-model" list={provider === "anthropic" ? "anthropic-models" : undefined} value={tempModel} onChange={e => { setTempModel(e.target.value); setConnectionStatus(""); }} placeholder={DEFAULT_MODELS[provider]} className="w-full p-3 rounded-lg border border-border bg-card text-sm" />
+              {provider === "anthropic" && <datalist id="anthropic-models">{ANTHROPIC_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</datalist>}
               <p className="text-xs text-muted mt-2">Leave empty for {DEFAULT_MODELS[provider]}. Use a model available to your API account.</p>
             </div>}
             {provider === "openai" && <p className="text-xs text-muted">API billing is separate from ChatGPT subscriptions. To use ChatGPT itself, see “ChatGPT & import” on the main page.</p>}
-            <button onClick={test} disabled={testing} className="w-full p-3 border border-primary rounded-lg text-sm disabled:opacity-50">{testing ? "Checking…" : "Test connection"}</button>
+            <button onClick={test} disabled={testing} className="h-10 w-full rounded-lg border border-border bg-card text-sm font-medium hover:border-border-hover hover:bg-subtle disabled:opacity-50">{testing ? "Checking…" : "Test connection"}</button>
             {provider === "azure" && <p className="text-xs text-muted">The Azure check sends a tiny request and may incur a small API charge.</p>}
             {connectionStatus && <p role="status" className="text-xs">{connectionStatus}</p>}
             {/* Persist toggle */}
-            <div className="p-3 rounded-lg border border-border bg-background">
+            <div className="p-3 rounded-lg border border-border bg-card">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -374,9 +371,9 @@ function SettingsPanelBody({
             </div>
 
             {/* Status */}
-            <div className="p-3 rounded-lg border border-border bg-background">
+            <div className="p-3 rounded-lg border border-border bg-card">
               <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${tempKey && tempKey.length > 10 ? "bg-success animate-pulse" : "bg-muted"}`} />
+                <span className={`w-2 h-2 rounded-full ${tempKey && tempKey.length > 10 ? "bg-success" : "bg-muted"}`} />
                 <span className="text-xs text-muted">
                   {tempKey && tempKey.length > 10
                     ? `Key entered (${cfg.label}); use Test connection to verify`
@@ -386,7 +383,7 @@ function SettingsPanelBody({
             </div>
 
             {/* Model info */}
-            <div className="p-4 rounded-xl border border-border bg-background">
+            <div className="p-4 rounded-xl border border-border bg-card">
               <h3 className="text-xs font-semibold text-foreground mb-3">Model Selection</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
@@ -409,26 +406,26 @@ function SettingsPanelBody({
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted">Quality</span>
-                  <span className="text-accent">{cfg.quality}</span>
+                  <span className="text-text">{cfg.quality}</span>
                 </div>
               </div>
             </div>
 
             {/* How it works */}
-            <div className="p-4 rounded-xl border border-border bg-background">
+            <div className="p-4 rounded-xl border border-border bg-card">
               <h3 className="text-xs font-semibold text-foreground mb-3">How BricksSnap Works</h3>
               <div className="space-y-3 text-xs text-muted leading-relaxed">
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                  <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-subtle font-mono text-[10px] text-text">1</span>
                   <p><strong className="text-foreground">With API Key:</strong> AI generates custom Bricks JSON based on your exact prompt, style preset, and color palette.</p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                  <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-subtle font-mono text-[10px] text-text">2</span>
                   <p><strong className="text-foreground">Without API Key:</strong> Built-in engine detects sections from your prompt and generates templates using our curated designs.</p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                  <p><strong className="text-foreground">Library:</strong> Browse {">"}60 pre-built templates across 24 categories. One click to generate.</p>
+                  <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-subtle font-mono text-[10px] text-text">3</span>
+                  <p><strong className="text-foreground">Studio:</strong> Modern layouts with your brand kit, global classes and a design system. No key needed.</p>
                 </div>
               </div>
             </div>
@@ -436,7 +433,7 @@ function SettingsPanelBody({
             {/* Save button */}
             <button
               onClick={handleSave}
-              className="w-full py-3 rounded-lg bg-primary hover:bg-primary-hover text-white text-sm font-semibold transition-colors shadow-lg shadow-primary/20"
+              className="h-10 w-full rounded-lg bg-primary text-sm font-medium text-white transition-colors hover:bg-primary-hover"
             >
               Save Settings
             </button>

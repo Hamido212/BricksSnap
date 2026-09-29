@@ -129,7 +129,7 @@ export default function StructurePreview({ elements }: StructurePreviewProps) {
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="px-4 py-3 border-b border-border bg-[#111113] flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-border bg-subtle flex items-center justify-between">
         <div className="flex items-center gap-2">
           <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h7" />
@@ -146,7 +146,7 @@ export default function StructurePreview({ elements }: StructurePreviewProps) {
         ))}
       </div>
       {/* Legend */}
-      <div className="px-4 py-2 border-t border-border bg-[#111113] flex flex-wrap gap-3">
+      <div className="px-4 py-2 border-t border-border bg-subtle flex flex-wrap gap-3">
         {Object.entries(ELEMENT_COLORS)
           .slice(0, 6)
           .map(([name, color]) => (
