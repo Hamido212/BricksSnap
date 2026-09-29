@@ -3,7 +3,15 @@ import { PROVIDERS } from "./ai-config";
 import { SECTION_TYPES } from "./presets";
 
 export class RequestError extends Error {
-  constructor(message: string, public status = 400) { super(message); }
+  constructor(message: string, public status = 400) { super(message); this.name = "RequestError"; }
+}
+
+/**
+ * Also matches a RequestError from another route's bundle: the local ChatGPT bridge lives on globalThis,
+ * so an error thrown by it may come from a different copy of this class than `instanceof` expects.
+ */
+export function isRequestError(error: unknown): error is RequestError {
+  return error instanceof RequestError || (error instanceof Error && error.name === "RequestError" && typeof (error as { status?: unknown }).status === "number");
 }
 
 export const connectionSchema = z.object({
@@ -66,7 +74,7 @@ export function resolveKey(config: ConnectionConfig): string {
 
 export function errorResponse(error: unknown): Response {
   if (error instanceof z.ZodError) return Response.json({ error: error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
-  if (error instanceof RequestError) return Response.json({ error: error.message }, { status: error.status });
+  if (isRequestError(error)) return Response.json({ error: error.message }, { status: error.status });
   if (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) return Response.json({ error: "Generation timed out or was cancelled. Try fewer sections." }, { status: 504 });
   return Response.json({ error: "Unable to complete the request. Please retry." }, { status: 500 });
 }

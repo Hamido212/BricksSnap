@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assertLocalCodex, codexCommand, localCodex } from "../src/lib/local-codex";
+import { errorResponse, RequestError } from "../src/lib/api-request";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 const request = (headers: Record<string, string> = {}) => new Request("http://127.0.0.1:3001/api/codex", {
@@ -65,5 +66,17 @@ describe("Codex command", () => {
   it("prefers a native codex.exe and falls back to codex", () => {
     expect(codexCommand({ PATH: "C:\\tools" }, "win32", files("C:\\tools\\codex.exe"))).toEqual({ command: "C:\\tools\\codex.exe", args: [] });
     expect(codexCommand({ PATH: "C:\\tools" }, "win32", files())).toEqual({ command: "codex", args: [] });
+  });
+});
+
+describe("ChatGPT errors across route bundles", () => {
+  it("keeps the message of a RequestError from another copy of the class", async () => {
+    // Each route can bundle its own copy; the shared bridge may throw the other one.
+    class OtherRequestError extends Error { constructor(message: string, public status = 400) { super(message); this.name = "RequestError"; } }
+    const response = errorResponse(new OtherRequestError("ChatGPT generation timed out. Try fewer sections.", 422));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ error: "ChatGPT generation timed out. Try fewer sections." });
+    expect(errorResponse(new RequestError("Nope", 409)).status).toBe(409);
+    expect(errorResponse(new Error("internal detail")).status).toBe(500);
   });
 });
