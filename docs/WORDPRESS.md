@@ -21,9 +21,21 @@ BricksSnap can read a live Bricks page and the site's global classes through the
 4. The status shows the Bricks and WordPress versions and any missing abilities. Recently modified Bricks pages and templates are listed automatically. **Filter pages** searches titles. "open in builder" marks a page someone is currently editing.
 5. Select **Load page into baseline**. BricksSnap reads the element tree and Bricks' document digest. It also includes the site's definitions of any global classes the page uses.
 6. Optional: **Import site design context** loads all global classes and palette colors. Review then warns when a staged class reuses a site class name under another ID, or differs from the site's definition.
-7. Add a section or version on the right and **Review changes** as usual. Download the reviewed template and import it in Bricks.
+7. Add a section or version on the right, or generate one in the site's design (below), and **Review changes** as usual. Download the reviewed template and import it in Bricks, or apply it.
 
 The password is kept only in the open browser tab and sent to the local BricksSnap server for each request. It is not stored.
+
+## Generate in the site's design
+
+Once a page is loaded (or the design context imported), **Generate in the site's design** builds BricksSnap's built-in sections in the site's colors and fonts and puts them into the right-hand field as the new section.
+
+- **Color sources.** The site's palettes (`list-color-palettes`) and the solid colors the loaded page uses, most used first. Many sites style pages directly rather than through palettes; the page's colors cover that case.
+- **Roles.** Each role (primary, secondary, accent, background, surface, text, heading, muted, border) gets a suggested color. Palette names decide first, for example "brand-primary" or "text-body". Otherwise lightness, chroma and frequency on the page decide: the lightest neutral becomes the background, the darkest the heading color. Bricks' default palette ranks last. Change any role before generating; "BricksSnap default" keeps the built-in color.
+- **Palette links.** With **Link palette colors to their CSS variables**, colors taken from a palette are written as `var(--name, #hex)`. Later palette changes on the site then apply to the section; the hex keeps it readable where the variable is missing. Page colors have no variable and stay literal.
+- **Fonts.** The page's font stacks are offered first. Stacks are written as Bricks' font family plus its native `fallback`, which Bricks renders as `font-family: "Segoe UI", Arial, sans-serif`. **Site typography** leaves fonts to theme styles; **BricksSnap default** keeps Inter.
+- **Content.** Sections contain sample copy and sample images. Review the text, and import the images before applying (below).
+
+MCP clients can do the same with `bricks_generate_section` or `bricks_assemble_page` and the `colors` argument (hex per role), for example from `bricks/list-color-palettes`.
 
 ## Preview as Bricks renders it (v0.5)
 
@@ -93,7 +105,7 @@ This allows private and loopback addresses and custom ports; HTTPS stays mandato
 
 - **Pages.** One page or template at a time, up to 1,500 elements and a 3 MB response.
 - **What is read.** Header and footer templates are read from their own area automatically. Page settings are read but not staged.
-- **Colors.** Brand colors are mapped by palette color name (primary, secondary, background, text, …). Bricks' built-in default palette is ignored.
+- **Colors.** The design context's brand colors are mapped by palette color name (primary, secondary, background, text, …); Bricks' built-in default palette is ignored there. Generating in the site's design suggests roles from all palettes and the loaded page. Theme styles and global variables are not read yet.
 - **Review scope.** The comparison is structural. Check rendering, dynamic data and forms in Bricks.
 
 See the [roadmap](ROADMAP.md) for what comes next.

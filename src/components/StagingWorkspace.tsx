@@ -9,6 +9,8 @@ import StructurePreview from "./StructurePreview";
 import WordPressConnection from "./WordPressConnection";
 import WordPressApply from "./WordPressApply";
 import BricksRenderPreview from "./BricksRenderPreview";
+import SiteDesignGenerator from "./SiteDesignGenerator";
+import { pageDesign, type SitePalette } from "@/lib/site-design";
 import type { WordPressCredentials, WordPressSource } from "@/lib/wordpress-contract";
 
 type Review = { id: number; before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
@@ -25,6 +27,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
   const [source, setSource] = useState<WordPressSource | null>(null);
   // Global classes imported from the connected site; review checks staged classes against them.
   const [siteClasses, setSiteClasses] = useState<BricksGlobalClass[] | null>(null);
+  const [sitePalettes, setSitePalettes] = useState<SitePalette[]>([]);
   // Verified connection credentials, kept in memory for applying reviewed changes.
   const [credentials, setCredentials] = useState<WordPressCredentials | null>(null);
   // A slow file read must not overwrite a subsequent edit or show a stale review.
@@ -74,6 +77,13 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
     try { return readStagingTemplate(JSON.parse(baseline.trim() || "[]"), true).content.filter(el => el.parent === 0).map(el => ({ id: el.id, label: el.label || el.name })); }
     catch { return []; } // Keep invalid drafts editable; report errors on Review.
   }, [baseline]);
+  // Colors and fonts the loaded WordPress page uses, for sites styled per page rather than through palettes.
+  const loadedDesign = useMemo(() => {
+    if (!source) return { palette: null, fonts: [] };
+    try { return pageDesign(readStagingTemplate(JSON.parse(baseline), true), `Colors on ${source.postTitle ?? `#${source.postId}`}`); }
+    catch { return { palette: null, fonts: [] }; }
+  }, [baseline, source]);
+  const designPalettes = loadedDesign.palette ? [loadedDesign.palette, ...sitePalettes] : sitePalettes;
   // A replaced baseline (demo, file, WordPress page) can drop the previously chosen section.
   const selectedAfter = roots.some(root => root.id === afterId.trim()) ? afterId.trim() : "";
 
@@ -88,7 +98,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
     </div>
     <WordPressConnection
       currentSource={source}
-      onImportDesign={(_tokens, classes) => { invalidate(); setSiteClasses(classes); }}
+      onImportDesign={(_tokens, classes, palettes) => { invalidate(); setSiteClasses(classes); setSitePalettes(palettes); }}
       onCredentials={setCredentials}
       onImportBaseline={(template, newSource) => {
         invalidate();
@@ -96,6 +106,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         setSource(newSource);
       }}
     />
+    {designPalettes.length > 0 && credentials && <SiteDesignGenerator key={`${credentials.endpoint}#${source?.postId ?? ""}#${sitePalettes.length}`} palettes={designPalettes} fonts={loadedDesign.fonts} host={new URL(credentials.endpoint).host} onGenerate={json => { edit("candidate", json); if (mode === "compare") setMode("append"); }}/>}
     <div className="grid gap-5 lg:grid-cols-2">
       {(["baseline", "candidate"] as const).map((side, i) => <div key={side} className="min-w-0 rounded-xl border border-border bg-card p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

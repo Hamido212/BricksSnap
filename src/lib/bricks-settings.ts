@@ -26,15 +26,17 @@ export function normalizeSettings(name: string, input: Record<string, unknown>) 
       delete settings[key]; changes.push(`${key} → ${target}.text-align`);
     }
   }
-  const typography = settings._typography;
-  if (typography && typeof typography === "object" && !Array.isArray(typography)) {
+  for (const key of Object.keys(settings)) {
+    const typography = settings[key];
+    if (key.split(":")[0] !== "_typography" || !typography || typeof typography !== "object" || Array.isArray(typography)) continue;
     const value = typography as Record<string, unknown>;
     const family = value["font-family"];
     if (typeof family === "string" && family.includes(",") && /^[a-zA-Z0-9 ,"'_-]+$/.test(family)) {
-      // Bricks quotes the complete native font value. Keep fallback stacks in CSS.
-      settings._typography = { ...value, "font-family": family.split(",")[0].trim().replace(/^["']|["']$/g, "") };
-      settings._cssCustom = `${typeof settings._cssCustom === "string" ? settings._cssCustom : ""}\n%root% { font-family: ${family}; }`;
-      changes.push("Font stack → scoped CSS");
+      // Bricks quotes the complete native font value, and its abilities turn a font-family in custom CSS
+      // back into that quoted value. The native `fallback` key renders as: "First", rest.
+      const [first, ...rest] = family.split(",").map(part => part.trim()).filter(Boolean);
+      settings[key] = { ...value, "font-family": first.replace(/^["']|["']$/g, ""), ...(value.fallback === undefined ? { fallback: rest.join(", ") } : {}) };
+      changes.push(`${key} font stack → native fallback`);
     }
   }
   for (const key of Object.keys(settings)) {

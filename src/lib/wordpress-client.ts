@@ -396,7 +396,20 @@ export async function getWordPressDesignContext(credentials: WordPressCredential
       if (isRecord(cls) && typeof cls.id === "string" && typeof cls.name === "string") globalClasses.push(siteClass(cls));
     }
 
-    return { endpoint: credentials.endpoint, fetchedAt, designTokens, globalClasses, rawDesignContext: result };
+    const text = (value: unknown) => (typeof value === "string" ? value : undefined);
+    const sitePalettes = (palettes as unknown[]).filter(isRecord).map((palette, p) => {
+      const id = String(palette.id ?? "") || `palette-${p}`;
+      return {
+        id,
+        name: text(palette.name) ?? "Palette",
+        colors: (Array.isArray(palette.colors) ? palette.colors as unknown[] : []).filter(isRecord).map((color, c) => {
+          // Older palettes store the value as `hex` instead of `light`.
+          const light = text(color.light) ?? text(color.hex);
+          return { id: String(color.id ?? "") || `${id}-${c}`, ...(text(color.raw) ? { raw: text(color.raw) } : {}), ...(light ? { light } : {}), ...(text(color.name) ? { name: text(color.name) } : {}) };
+        }),
+      };
+    });
+    return { endpoint: credentials.endpoint, fetchedAt, designTokens, globalClasses, palettes: sitePalettes, rawDesignContext: result };
   });
 }
 

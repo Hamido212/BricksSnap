@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Import images into the media library.** Before applying, external images in a reviewed change can be copied into the site's media library (`upload-media`). BricksSnap downloads each image itself (HTTPS, public addresses, image types, 8 MB, 30 images) and uploads it as data, so the save request carries no external URL. Re-imports reuse earlier uploads.
+- **Generate in the site's design.** Built-in sections in the connected site's colors and fonts.
+  - Colors come from the site's palettes and from the colors the loaded page uses, suggested per role and adjustable.
+  - Palette colors can be linked to their CSS variables with the hex as fallback.
+  - The page's font stack, the site's typography or BricksSnap's default font can be chosen.
+  - The MCP tools `bricks_generate_section` and `bricks_assemble_page` accept role `colors`.
+- **Font stacks (engine).** Font stacks are written as Bricks' font family plus its native `fallback` (`font-family: "Segoe UI", Arial, sans-serif`), including breakpoint and state typography. Previously the stack went into scoped custom CSS, which Bricks' abilities convert into a single quoted font name that browsers cannot match.
+
 ## 0.6.0 — 2026-09-29
 
 Distribute the catalog to Bricks sites and document AI client setups.

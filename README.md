@@ -31,6 +31,8 @@ v0.5 builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [
 - Eight MCP tools over optional HTTP or local stdio; section generation, page assembly, merge and comparison
 - Local WordPress connection: page search, live page import with Bricks' document digest, site class and palette import, class conflict warnings
 - Bricks-rendered before/after preview (1280/390 px), guarded apply with read-back verification and revision restore
+- Import of external images into the site's media library before applying
+- Built-in sections in a connected site's colors (palettes and the loaded page) and fonts
 - Bricks remote template library (`/wp-json/bricks/v1/get-templates-data`) with optional whitelist/password
 
 ## Prerequisites

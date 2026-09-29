@@ -124,6 +124,8 @@ export type WordPressDesignResult = {
   fetchedAt: string;
   designTokens: Partial<DesignTokens>;
   globalClasses: BricksGlobalClass[];
+  /** Site color palettes ({ id, raw, light }) for generating in the site's design. */
+  palettes: Array<{ id: string; name: string; colors: Array<{ id: string; raw?: string; light?: string; name?: string }> }>;
   rawDesignContext?: unknown;
 };
 
