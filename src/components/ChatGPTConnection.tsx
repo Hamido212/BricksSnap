@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 type Model = { model: string; displayName: string; isDefault: boolean };
 export default function ChatGPTConnection({ enabled, setEnabled, model, setModel }: { enabled: boolean; setEnabled: (value: boolean) => void; model: string; setModel: (value: string) => void }) {
   const [status, setStatus] = useState("");
@@ -7,6 +7,8 @@ export default function ChatGPTConnection({ enabled, setEnabled, model, setModel
   const [busy, setBusy] = useState(false);
   const [authUrl, setAuthUrl] = useState("");
   const [models, setModels] = useState<Model[]>([]);
+  // A saved choice from an earlier visit: check the connection once so its models show again.
+  const restored = useRef(enabled || !!model);
   async function action(action: "status" | "login" | "logout") {
     setBusy(true); setStatus("");
     try {
@@ -20,11 +22,18 @@ export default function ChatGPTConnection({ enabled, setEnabled, model, setModel
           setAuthUrl(""); setModels(data.models || []);
           if (!model || !data.models?.some((m: Model) => m.model === model)) setModel(data.models?.find((m: Model) => m.isDefault)?.model || data.models?.[0]?.model || "");
           setStatus(`ChatGPT connected${data.plan ? ` · ${data.plan}` : ""}. Uses your Codex account limits.`);
-        } else { setEnabled(false); setStatus("Not signed in to BricksSnap's local ChatGPT connection."); }
+        } else { setEnabled(false); setModels([]); setStatus("Not signed in to BricksSnap's local ChatGPT connection."); }
       }
     } catch (error) { setStatus(error instanceof Error ? error.message : "Connection failed."); }
     finally { setBusy(false); }
   }
+  useEffect(() => {
+    if (!restored.current) return;
+    restored.current = false;
+    void action("status");
+    // Runs once on open; action only reads the current props.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return <section className="mb-6 space-y-3 rounded-xl border border-border p-4">
     <h3 className="font-semibold text-sm">ChatGPT account · local</h3>
     <p className="text-xs text-muted leading-relaxed">Sign in with ChatGPT through the official Codex CLI. No API key needed. Start BricksSnap with <code>npm run dev:local</code>. Sign-in is stored separately on this computer and uses your account’s Codex limits.</p>
@@ -35,8 +44,9 @@ export default function ChatGPTConnection({ enabled, setEnabled, model, setModel
     </div>
     {authUrl && <a href={authUrl} target="_blank" rel="noreferrer" className="block text-sm text-primary underline">Open OpenAI sign-in</a>}
     {status && <p role="status" className="text-xs leading-relaxed">{status}</p>}
+    {!models.length && model && <p className="text-xs text-text">Saved model: <span className="font-mono">{model}</span></p>}
     {models.length > 0 && <label className="block text-xs">ChatGPT model<select value={model} onChange={e => setModel(e.target.value)} className="block w-full mt-1 p-2 rounded-lg bg-card border border-border">{models.map(m => <option key={m.model} value={m.model}>{m.displayName}</option>)}</select></label>}
     <label className="flex gap-2 items-center text-xs"><input type="checkbox" checked={enabled} disabled={!connected && !enabled} onChange={e => setEnabled(e.target.checked)} />Use ChatGPT account for AI generation</label>
-    <p className="text-xs text-muted">Text prompts only. This selection applies immediately to the current page. The API provider below is used when this option is off.</p>
+    <p className="text-xs text-muted">Text prompts only. Your choice and model are remembered on this computer. The API provider below is used when this option is off.</p>
   </section>;
 }

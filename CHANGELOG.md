@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.1 — 2026-09-29
+
+Fixes for the local ChatGPT connection in the Generator.
+
+- **Clear errors.** A failed ChatGPT generation now shows its real reason (timeout, quota, invalid JSON) instead of "Unable to complete the request". The connection is shared between routes, and its errors were not recognized by the other route.
+- **No stale result.** When a new generation fails, the previous result is marked as such, with the prompt it came from, instead of a green "✓". Every result shows its prompt.
+- **Remembered choice.** "Use ChatGPT account" and the selected model survive a page reload. Opening Settings checks the connection again and shows the models.
+- **More time.** ChatGPT generations may take up to 4 minutes (was 2) before they time out.
+
 ## 0.9.0 — 2026-09-29
 
 A library of ready-made designs replaces the classic templates in the app and in Bricks' remote library. See the [release notes](docs/RELEASE-0.9.0.md).

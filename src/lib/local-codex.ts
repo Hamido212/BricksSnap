@@ -150,7 +150,7 @@ class CodexBridge {
         const stopped = () => fail("ChatGPT connection stopped. Retry the generation.");
         const item = (params: { threadId?: string; item?: { type: string; text?: string } }) => { if (params.threadId === threadId && params.item?.type === "agentMessage") text = params.item.text || text; };
         const complete = (params: { threadId?: string; turn?: { status: string } }) => { if (params.threadId !== threadId) return; cleanup(); if (params.turn?.status === "completed" && text) resolve(text); else reject(new RequestError("ChatGPT could not finish. Check your quota and retry with fewer sections.", 422)); };
-        const timer = setTimeout(() => { this.stop(); fail("ChatGPT generation timed out. Try fewer sections."); }, 120_000);
+        const timer = setTimeout(() => { this.stop(); fail("ChatGPT generation timed out. Try fewer sections."); }, 240_000);
         this.events.on("item/completed", item); this.events.on("turn/completed", complete); this.events.on("bridgeStopped", stopped);
         signal.addEventListener("abort", abort, { once: true });
         if (signal.aborted) { abort(); return; }

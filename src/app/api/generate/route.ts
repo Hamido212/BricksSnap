@@ -8,7 +8,7 @@ import { templateWarnings } from "@/lib/template-warnings";
 import { assertLocalCodex, localCodex } from "@/lib/local-codex";
 
 export const runtime = "nodejs";
-export const maxDuration = 180;
+export const maxDuration = 300;
 let activeRequests = 0;
 
 export async function POST(request: Request) {

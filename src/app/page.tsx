@@ -8,6 +8,7 @@ import VisualPreview from "@/components/VisualPreview";
 import SettingsPanel from "@/components/SettingsPanel";
 import type { BricksElement, BricksTemplate } from "@/lib/bricks-engine";
 import { loadApiKey, clearApiKey, Provider } from "@/lib/secure-storage";
+import { loadChatGPTSettings, saveChatGPTSettings, type ChatGPTSettings } from "@/lib/chatgpt-settings";
 
 import ConnectionGuide from "@/components/ConnectionGuide";
 import StagingWorkspace from "@/components/StagingWorkspace";
@@ -47,8 +48,15 @@ export default function Home() {
   const [generationError, setGenerationError] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [model, setModel] = useState("");
-  const [useChatGPT, setUseChatGPT] = useState(false);
-  const [chatgptModel, setChatgptModel] = useState("");
+  const [chatgpt, setChatgpt] = useState<ChatGPTSettings>({ enabled: false, model: "" });
+  const { enabled: useChatGPT, model: chatgptModel } = chatgpt;
+  const updateChatGPT = useCallback((patch: Partial<ChatGPTSettings>) => setChatgpt(previous => {
+    const next = { ...previous, ...patch };
+    saveChatGPTSettings(next);
+    return next;
+  }), []);
+  // The prompt the shown result was generated from; null for an imported template.
+  const [resultPrompt, setResultPrompt] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   // BYOK state
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -75,6 +83,7 @@ export default function Home() {
     }
     } catch { /* Storage can be unavailable in private or restricted browsers. */ }
 
+    setChatgpt(loadChatGPTSettings());
     const loaded = loadApiKey();
     if (loaded.model) setModel(loaded.model);
     if (loaded.key) setApiKey(loaded.key);
@@ -93,7 +102,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
-        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(150000)]),
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(280000)]),
         headers: { "Content-Type": "application/json", ...(useChatGPT ? { "X-BricksSnap-Local": "1" } : {}) },
         body: JSON.stringify({
           prompt: config.prompt,
@@ -135,6 +144,7 @@ export default function Home() {
         });
         setAiAvailable(data.aiAvailable);
         setLastMode(data.mode);
+        setResultPrompt(config.prompt);
       }
     } catch (error) {
       setGenerationError(controller.signal.aborted ? "Generation cancelled." : error instanceof Error ? error.message : "Generation failed.");
@@ -216,7 +226,7 @@ export default function Home() {
               {generationError && <p role="alert" className="mt-4 rounded-lg border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{generationError}</p>}
               {warnings.length > 0 && <details className="mt-3 text-sm"><summary className="cursor-pointer">{warnings.length} validation notes – review before importing</summary><ul className="mt-2 list-disc pl-5 text-text">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul></details>}
               <ConnectionGuide disabled={isLoading} onImport={(template, notes) => {
-                setGeneratedTemplate(template); setGeneratedElements(template.content); setWarnings(notes); setGenerationError(""); setLastMode(null);
+                setGeneratedTemplate(template); setGeneratedElements(template.content); setWarnings(notes); setGenerationError(""); setLastMode(null); setResultPrompt(null);
                 setGenerationInfo({ elementCount: template.content.length, sections: template.content.filter(e => e.parent === 0).map(e => e.label || e.name) });
               }} />
             </div>
@@ -232,12 +242,13 @@ export default function Home() {
             {generatedTemplate && !isLoading && (
               <div className="animate-fade-in space-y-6">
                 {generationInfo && (
-                  <div className="flex max-w-4xl flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-4">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-success/10 text-success" aria-hidden>✓</span>
+                  <div className={`flex max-w-4xl flex-wrap items-center gap-4 rounded-xl border p-4 ${generationError ? "border-warning/40 bg-warning/5" : "border-border bg-card"}`}>
+                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${generationError ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`} aria-hidden>{generationError ? "!" : "✓"}</span>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">
-                        {generationError ? "Previous template retained." : lastMode === null ? "Template imported." : "Template generated."}
+                        {generationError ? "The new generation failed. This is still the previous result." : lastMode === null ? "Template imported." : "Template generated."}
                       </p>
+                      {resultPrompt && <p className="mt-0.5 truncate text-xs text-text" title={resultPrompt}>{generationError ? "Previous prompt" : "Prompt"}: {resultPrompt}</p>}
                       <p className="mt-0.5 text-xs text-muted">{generationInfo.elementCount} elements across {generationInfo.sections.length} sections: {generationInfo.sections.join(", ")}</p>
                     </div>
                   </div>
@@ -298,9 +309,9 @@ export default function Home() {
 
       <SettingsPanel
         useChatGPT={useChatGPT}
-        setUseChatGPT={setUseChatGPT}
+        setUseChatGPT={enabled => updateChatGPT({ enabled })}
         chatgptModel={chatgptModel}
-        setChatgptModel={setChatgptModel}
+        setChatgptModel={model => updateChatGPT({ model })}
         model={model}
         setModel={setModel}
         isOpen={settingsOpen}
