@@ -182,7 +182,8 @@ export function siteClassWarnings(template: BricksTemplate, siteClasses: SiteCla
   for (const cls of template.globalClasses ?? []) {
     const sameId = byId.get(cls.id);
     const sameName = byName.get(cls.name);
-    if (sameId && (sameId.name !== cls.name || stableJson(sameId.settings ?? {}) !== stableJson(cls.settings ?? {}))) warnings.push(`Global class ${cls.name} (${cls.id}) differs from the site's definition of ${sameId.name}.`);
+    if (sameId && sameId.name !== cls.name) warnings.push(`The site uses the ID ${cls.id} of global class ${cls.name} for another class (${sameId.name}). "Create missing global classes" gives ${cls.name} a new ID before saving.`);
+    else if (sameId && stableJson(sameId.settings ?? {}) !== stableJson(cls.settings ?? {})) warnings.push(`Global class ${cls.name} already exists on the site with a different definition (for example from another BricksSnap design). The page will use the site's version; it is never overwritten.`);
     else if (!sameId && sameName) warnings.push(`Global class name ${cls.name} already exists on the site with ID ${sameName.id}; importing would create a second class.`);
   }
   const known = new Set([...(template.globalClasses ?? []).map(c => c.id), ...byId.keys()]);

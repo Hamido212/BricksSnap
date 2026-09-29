@@ -3,6 +3,7 @@ import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-e
 import { TEMPLATE_TYPES, templateConditionsSchema, type TemplateCondition } from "./template-conditions";
 import { FONT_PAIR_IDS, RADIUS_IDS, SPACING_IDS, STYLE_IDS } from "./kit/tokens";
 import type { DesignSystemChange } from "./design-system-install";
+import { designSnapshotSchema, type DesignSnapshot } from "./design-system-lifecycle";
 
 // Only these fixed abilities are called; no arbitrary tool names or endpoints per call.
 export const WP_READ_ABILITIES = [
@@ -26,6 +27,7 @@ export const WP_WRITE_ABILITIES = [
   "bricks/set-page-elements", "bricks/restore-revision", "bricks/upload-media", "bricks/batch-create-global-classes",
   "bricks/create-template", "bricks/set-template-conditions",
   "bricks/create-color-palette", "bricks/create-color", "bricks/update-color", "bricks/set-global-variable-categories", "bricks/set-global-variables",
+  "bricks/delete-color-palette", "bricks/delete-color", "bricks/delete-global-variable",
 ] as const;
 
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/, "Reload the page into the baseline: Bricks' document digest is missing.");
@@ -96,8 +98,13 @@ export const wpRequestSchema = z.discriminatedUnion("action", [
     expectedDocumentDigest: digestSchema, template: z.unknown(), confirm: z.literal(true), allowLocked: z.boolean().default(false),
   }).strict(),
   // Compare the Studio kit's palette and variables with the site (read-only), or install them.
-  z.object({ action: z.literal("design-system-plan"), credentials: wpCredentialsSchema, kit: kitSchema }).strict(),
-  z.object({ action: z.literal("design-system"), credentials: wpCredentialsSchema, kit: kitSchema, confirm: z.literal(true) }).strict(),
+  z.object({ action: z.literal("design-system-plan"), credentials: wpCredentialsSchema, kit: kitSchema, label: z.string().max(120).optional() }).strict(),
+  z.object({ action: z.literal("design-system"), credentials: wpCredentialsSchema, kit: kitSchema, label: z.string().max(120).optional(), confirm: z.literal(true) }).strict(),
+  // Set back what an install changed (its snapshot), only where nothing was edited since.
+  z.object({ action: z.literal("design-system-undo"), credentials: wpCredentialsSchema, snapshot: designSnapshotSchema, confirm: z.literal(true) }).strict(),
+  // Remove BricksSnap's palette, variables, manifest and category (preview first; values edited in Bricks only on request).
+  z.object({ action: z.literal("design-system-uninstall-plan"), credentials: wpCredentialsSchema, includeModified: z.boolean().default(false) }).strict(),
+  z.object({ action: z.literal("design-system-uninstall"), credentials: wpCredentialsSchema, includeModified: z.boolean().default(false), confirm: z.literal(true) }).strict(),
   // Restore the snapshot an apply created, only while the page still has the applied digest.
   z.object({
     action: z.literal("restore"), credentials: wpCredentialsSchema, postId: z.number().int().positive(),
@@ -205,6 +212,10 @@ export type WordPressClassesResult = {
   conflicts: Array<{ id: string; siteId: string; name: string }>;
   /** Referenced class IDs without a definition in the proposal. */
   undefinedIds: string[];
+  /** Staged classes whose ID the site uses for another class; created under a new ID. */
+  remapped: Array<{ id: string; newId: string; name: string; siteName: string }>;
+  /** Same ID and name on the site with another definition; the site's class is kept. */
+  mismatched: Array<{ id: string; name: string }>;
 };
 
 export type RenderedMarkup = { html: string; css: string };
@@ -243,4 +254,39 @@ export type WordPressDesignSystemResult = {
   verified?: boolean;
   fonts: string[];
   warnings: string[];
+  /** The manifest on the site, and whether this install writes (or rewrote) it. */
+  manifest: { current: ManifestSummary | null; write: boolean };
+  /** The replaced values, for undo; also returned when a write failed halfway. */
+  snapshot?: DesignSnapshot;
+  /** A write failed after the install started; some changes may be saved. */
+  failed?: string;
+};
+
+export type ManifestSummary = { app: string; installedAt: string; label?: string; style: string; primary: string };
+
+export type WordPressDesignSystemRevertResult = {
+  done: boolean;
+  verified: boolean;
+  restored: number;
+  removed: number;
+  palette: boolean;
+  category: boolean;
+  /** Left alone: edited after the install, or already gone. */
+  skipped: Array<{ name: string; reason: "changed" | "missing" }>;
+};
+
+export type WordPressDesignSystemUninstallResult = {
+  manifest: ManifestSummary | null;
+  colors: number;
+  variables: number;
+  palette: boolean;
+  category: boolean;
+  /** Values that differ from what the recorded kit installs; kept unless included. */
+  modified: string[];
+  /** bs- global classes on the site (kept). */
+  classes: number;
+  done: boolean;
+  verified?: boolean;
+  removed?: number;
+  skipped?: Array<{ name: string; reason: "changed" | "missing" }>;
 };

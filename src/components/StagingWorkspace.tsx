@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { BricksGlobalClass, BricksTemplate } from "@/lib/bricks-engine";
 import { diffTemplates, mergeTemplates, readStagingTemplate, siteClassWarnings } from "@/lib/template-staging";
+import { knownClassIds } from "@/lib/template-classes";
 import { generateMcpPage } from "@/lib/mcp-generation";
 import JsonPreview from "./JsonPreview";
 import StructurePreview from "./StructurePreview";
@@ -18,13 +19,14 @@ import { pageDesign, type SitePalette } from "@/lib/site-design";
 import type { WordPressCredentials, WordPressPageResult, WordPressSource } from "@/lib/wordpress-contract";
 import type { BrandKit } from "@/lib/kit/tokens";
 import WordPressDesignSystem from "./WordPressDesignSystem";
+import WordPressDesignSystemManage, { loadLastInstall, saveLastInstall, type LastInstall } from "./WordPressDesignSystemManage";
 
 // `version` counts changes to the reviewed template after review (imported images, created classes).
 type Review = { id: number; version: number; before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
 const control = "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
 const button = "rounded-lg border border-border px-3 py-2 text-sm hover:bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed";
 
-export default function StagingWorkspace({ generatedTemplate, kit }: { generatedTemplate: BricksTemplate | null; kit?: BrandKit | null }) {
+export default function StagingWorkspace({ generatedTemplate, kit, kitLabel }: { generatedTemplate: BricksTemplate | null; kit?: BrandKit | null; kitLabel?: string }) {
   const [baseline, setBaseline] = useState("");
   const [candidate, setCandidate] = useState("");
   const [mode, setMode] = useState<"append" | "prepend" | "after" | "compare">("append");
@@ -37,6 +39,9 @@ export default function StagingWorkspace({ generatedTemplate, kit }: { generated
   const [sitePalettes, setSitePalettes] = useState<SitePalette[]>([]);
   // Verified connection credentials, kept in memory for applying reviewed changes.
   const [credentials, setCredentials] = useState<WordPressCredentials | null>(null);
+  // The last design-system install on the connected site from this browser, for undo.
+  const [lastInstall, setLastInstall] = useState<LastInstall | null>(null);
+  const updateLastInstall = (endpoint: string, value: LastInstall | null) => { saveLastInstall(endpoint, value); setLastInstall(value); };
   // A save was refused because global classes are missing on the site.
   const [classesMissing, setClassesMissing] = useState(false);
   // Remounts the template list after a template was created.
@@ -118,14 +123,15 @@ export default function StagingWorkspace({ generatedTemplate, kit }: { generated
     <WordPressConnection
       currentSource={source}
       onImportDesign={(_tokens, classes, palettes) => { invalidate(); setSiteClasses(classes); setSitePalettes(palettes); }}
-      onCredentials={setCredentials}
+      onCredentials={value => { setCredentials(value); setLastInstall(value ? loadLastInstall(value.endpoint) : null); }}
       onImportBaseline={(template, newSource) => {
         invalidate();
         setBaseline(JSON.stringify(template, null, 2));
         setSource(newSource);
       }}
     />
-    {credentials && kit && <WordPressDesignSystem key={`${credentials.endpoint}#${JSON.stringify(kit)}`} credentials={credentials} kit={kit}/>}
+    {credentials && kit && <WordPressDesignSystem key={`${credentials.endpoint}#${JSON.stringify(kit)}`} credentials={credentials} kit={kit} label={kitLabel} onInstalled={value => updateLastInstall(credentials.endpoint, value)}/>}
+    {credentials && <WordPressDesignSystemManage key={`${credentials.endpoint}#manage`} credentials={credentials} lastInstall={lastInstall} onLastInstallChange={value => updateLastInstall(credentials.endpoint, value)}/>}
     {credentials && <WordPressTemplates key={`${credentials.endpoint}#${templatesVersion}`} credentials={credentials} onLoad={loadIntoBaseline} currentId={source?.postId}/>}
     {designPalettes.length > 0 && credentials && <SiteDesignGenerator key={`${credentials.endpoint}#${source?.postId ?? ""}#${sitePalettes.length}`} palettes={designPalettes} fonts={loadedDesign.fonts} host={new URL(credentials.endpoint).host} onGenerate={json => { edit("candidate", json); if (mode === "compare") setMode("append"); }}/>}
     <div className="grid gap-5 lg:grid-cols-2">
@@ -174,7 +180,7 @@ export default function StagingWorkspace({ generatedTemplate, kit }: { generated
       credentials={credentials}
       proposal={review.template}
       onProposalChange={template => setReview(current => current && { ...current, version: current.version + 1, template, diff: diffTemplates(current.before, template) })}
-      knownClassIds={[...review.before.globalClasses.map(c => c.id), ...(siteClasses ?? []).map(c => c.id)]}
+      knownClassIds={knownClassIds(review.template, [...review.before.globalClasses, ...(siteClasses ?? [])])}
       classesMissing={classesMissing}
     />}
     {source?.documentDigest && credentials && credentials.endpoint === source.endpoint && <WordPressApply

@@ -47,7 +47,7 @@ export default function WordPressPrepare({ credentials, proposal, onProposalChan
   });
   const createClasses = () => run<WordPressClassesResult>("classes", result => {
     setClassResult(result);
-    if (result.created.length || result.reused.length) onProposalChange(result.template);
+    if (result.created.length || result.reused.length || result.remapped.length) onProposalChange(result.template);
   });
 
   if (!externalImages.length && !classesOpen && !mediaResult && !classResult && !error) return null;
@@ -64,6 +64,8 @@ export default function WordPressPrepare({ credentials, proposal, onProposalChan
     {classResult && <div role="status" className="rounded-lg border border-border bg-subtle p-3 text-xs space-y-1">
       <p>Global classes: {classResult.created.length} created{classResult.created.length ? ` (${classResult.created.map(c => c.name).join(", ")})` : ""}, {classResult.reused.length} identical site {classResult.reused.length === 1 ? "class" : "classes"} reused.</p>
       {classResult.conflicts.map(c => <p key={c.id} className="text-warning break-words">Not created: {c.name} {c.siteId ? "exists on the site with a different definition. Rename it in the staged JSON, or use the site's class." : "is defined twice in the change."}</p>)}
+      {classResult.remapped.map(c => <p key={c.id} className="break-words">New ID for {c.name}: the site already used {c.id} for {c.siteName}, so it was created as {c.newId}.</p>)}
+      {classResult.mismatched.map(c => <p key={c.id} className="text-warning break-words">Kept the site&apos;s {c.name}: it has a different definition on the site (for example from another BricksSnap design). The page shows the site&apos;s version.</p>)}
       {classResult.undefinedIds.length > 0 && <p className="text-warning break-words">No definition in the change for class IDs {classResult.undefinedIds.join(", ")}. Remove them from the elements or add their definitions.</p>}
     </div>}
     {classesOpen && <div className="rounded-lg border border-border bg-subtle p-3 space-y-2">

@@ -199,7 +199,7 @@ export default function Home() {
       </header>
 
       <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 md:py-10">
-        <div hidden={activeTab !== "staging"}><StagingWorkspace generatedTemplate={generatedTemplate} kit={kitSelection?.kit ?? null}/></div>
+        <div hidden={activeTab !== "staging"}><StagingWorkspace generatedTemplate={generatedTemplate} kit={kitSelection?.kit ?? null} kitLabel={kitSelection?.title}/></div>
 
         {activeTab === "studio" && (
           <div className="animate-fade-in space-y-8">
