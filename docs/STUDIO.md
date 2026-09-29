@@ -73,7 +73,18 @@ In **Staging**, after **Open in Staging** and connecting a site (see [WordPress]
 
 **Safeguards.** Every write is guarded by Bricks' ownership digests and re-checked after each step, and nothing is deleted. A variable that another palette or variable already defines is reported and left alone. The result is read back and marked verified.
 
-**Needed abilities.** Enable `list-global-variables`, `create-color-palette`, `create-color`, `update-color`, `set-global-variable-categories` and `set-global-variables` under Bricks → AI → Abilities.
+**Needed abilities.** Enable `list-global-variables`, `create-color-palette`, `create-color`, `update-color`, `set-global-variable-categories` and `set-global-variables` under Bricks → AI → Abilities. Undo and uninstall also need `delete-global-variable`, `delete-color` and `delete-color-palette`.
+
+### Manifest, undo and uninstall
+
+Since 0.10 an install is not a one-way street.
+
+- **Manifest.** Each install writes the variable `--bs-manifest` into the BricksSnap category, in the same step as the other variables. It names the design, the kit, the BricksSnap version, the time, and the palette, category, colors and variables the install owns. You can read it in Bricks' variable manager. It is only rewritten when the install actually changes.
+- **Snapshot.** Before the first write, BricksSnap records the value every color and variable had and the value it writes. Bricks keeps no revisions of palettes and variables, so this snapshot is the way back. It is also returned when a write fails halfway: the panel then offers to finish the install (check again) or to undo what was written.
+- **Undo this install.** In **Undo or uninstall the design system**, the last install from this browser can be undone, also after a reload. Replaced values are set back, added colors, variables, the palette and the category are removed. Values edited in Bricks after the install are listed and kept.
+- **Uninstall.** Removes the BricksSnap palette, its variables, the manifest and the category after a preview. Values that differ from what the manifest's kit installs count as edited: they are listed and kept unless you tick **Remove these too**. Without a manifest (installs before 0.10) everything in the BricksSnap palette and category counts as BricksSnap's.
+- **Classes stay.** `bs-` global classes are not removed: pages use them. Every value in them is `var(--bs-…, fallback)`, so pages keep their look without the variables.
+- **Guarded.** Undo and uninstall use the same ownership checks as the install, re-read after each step and verify the result.
 
 **Fonts.** Bricks loads web fonts it finds in its own typography settings, not fonts named only inside variables. After installing, add the kit's fonts under **Bricks → Settings → Custom fonts** or in a theme style. Otherwise visitors see the fallback system fonts.
 

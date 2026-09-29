@@ -13,8 +13,8 @@ export type SiteCategory = JsonRecord & { id: string; name: string };
 export function readSitePalettes(rows: unknown[]): SitePalette[] {
   return rows.filter(isRecord).map(p => ({
     id: text(p.id), name: text(p.name),
-    colors: (Array.isArray(p.colors) ? p.colors : []).filter(isRecord).map(c => ({ id: text(c.id), light: text(c.light) || text(c.hex), raw: text(c.raw), ...(isRecord(c.itemOwnership) ? { itemOwnership: c.itemOwnership } : {}) })),
-    ...(isRecord(p.itemOwnership) ? { itemOwnership: p.itemOwnership } : {}),
+    colors: (Array.isArray(p.colors) ? p.colors : []).filter(isRecord).map(c => ({ id: text(c.id), light: text(c.light) || text(c.hex), raw: text(c.raw), ...(isRecord(c.itemOwnership) ? { itemOwnership: c.itemOwnership } : text(c.colorDigest) ? { itemOwnership: { itemDigest: text(c.colorDigest) } } : {}) })),
+    ...(isRecord(p.itemOwnership) ? { itemOwnership: p.itemOwnership } : text(p.paletteDigest) ? { itemOwnership: { itemDigest: text(p.paletteDigest) } } : {}),
   }));
 }
 

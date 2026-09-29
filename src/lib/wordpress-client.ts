@@ -8,6 +8,8 @@ import {
   WP_WRITE_ABILITIES,
   type WordPressApplyResult,
   type WordPressClassesResult,
+  type WordPressDesignSystemRevertResult,
+  type WordPressDesignSystemUninstallResult,
   type WordPressConditionsResult,
   type WordPressCreateTemplateResult,
   type WordPressTemplatesResult,
@@ -25,6 +27,7 @@ import {
   type WordPressDesignSystemResult,
 } from "./wordpress-contract";
 import { designSystemInstalled, planDesignSystem, readSiteCategories, readSitePalettes, readSiteVariables } from "./design-system-install";
+import { buildManifest, manifestValue, MANIFEST_ID, MANIFEST_NAME, planRevert, planUninstall, readManifest, sameInstall, snapshotForInstall, type DesignManifest, type DesignSnapshot, type RevertPlan } from "./design-system-lifecycle";
 import { designSystemFor } from "./kit/generate";
 import { resolveKit, type BrandKit } from "./kit/tokens";
 import { diffTemplates, readStagingTemplate, stableJson } from "./template-staging";
@@ -935,67 +938,81 @@ const resourceOwnership = (value: unknown, fallback: JsonRecord): JsonRecord => 
 
 /**
  * Compare the Studio kit's design system with the site and, when confirmed, install it: a "BricksSnap"
- * color palette whose colors define the --bs-* variables, and global variables in a "BricksSnap"
- * category. Each write is guarded by the ownership digest from the read before it; nothing is deleted,
- * and colors or variables defined by anything else are reported, not changed.
+ * color palette whose colors define the --bs-* variables, global variables in a "BricksSnap" category,
+ * and a manifest (--bs-manifest) naming the design, kit, version and everything the install owns.
+ * Each write is guarded by the ownership digest from the read before it; colors or variables defined
+ * by anything else are reported, not changed. The result carries a snapshot of the replaced values,
+ * also when a write fails halfway, so the install can be undone.
  */
-export async function installWordPressDesignSystem(credentials: WordPressCredentials, request: { kit: Partial<BrandKit>; install: boolean }, signal: AbortSignal): Promise<WordPressDesignSystemResult> {
+export async function installWordPressDesignSystem(credentials: WordPressCredentials, request: { kit: Partial<BrandKit>; install: boolean; label?: string }, signal: AbortSignal): Promise<WordPressDesignSystemResult> {
   const resolved = resolveKit(request.kit);
   const ds = designSystemFor(resolved);
   const fontWarning = ds.fonts.length ? [`The variables name the fonts ${ds.fonts.join(" and ")}. Bricks does not load fonts referenced only in variables: add them under Bricks → Settings → Custom fonts or in a theme style, or the fallback system fonts are shown.`] : [];
   return withSession(credentials, signal, async session => {
     const stores = await readDesignStores(session);
     const plan = planDesignSystem(ds, stores.palettes, stores.variables, stores.categories);
-    const summary = (installed: boolean, verified?: boolean): WordPressDesignSystemResult => ({
+    const manifestRow = stores.variables.find(v => v.name === MANIFEST_NAME);
+    const current = readManifest(manifestRow?.value);
+    const manifestFor = (paletteId: string) => buildManifest({ app: packageJson.version, label: request.label, kit: resolved.kit, ds, paletteId, categoryId: plan.category.id, installedAt: new Date().toISOString() });
+    // The palette ID of a new palette is known only after it is created.
+    const writeManifest = !sameInstall(current, manifestFor(plan.palette.siteId ?? "new"));
+    const summary = (installed: boolean, extra: Partial<WordPressDesignSystemResult> = {}): WordPressDesignSystemResult => ({
       installed,
       palette: { name: plan.palette.name, exists: !!plan.palette.siteId, create: plan.palette.create.length, update: plan.palette.update.length, unchanged: plan.palette.unchanged },
       category: { name: plan.category.name, create: plan.category.create },
       variables: { create: plan.variables.create.length, update: plan.variables.update.length, unchanged: plan.variables.unchanged },
+      manifest: { current: current && manifestSummary(current), write: writeManifest },
       conflicts: plan.conflicts, changes: plan.changes, fonts: ds.fonts,
-      ...(verified === undefined ? {} : { verified }),
       warnings: [...(plan.conflicts.length ? [`${plan.conflicts.length} variables are already defined elsewhere on the site and were left unchanged: ${sample(plan.conflicts)}.`] : []), ...fontWarning],
+      ...extra,
     });
-    if (!request.install || !plan.changes.length && !plan.category.create) return summary(false);
+    if (!request.install || (!plan.changes.length && !plan.category.create && !writeManifest)) return summary(false);
 
-    // Palette colors.
-    let paletteOwnership = stores.paletteOwnership;
-    if (plan.palette.create.length || plan.palette.update.length) {
-      if (!plan.palette.siteId) {
-        await requireWriteAbility(session, "bricks/create-color-palette");
-        const created = await designWrite(session, "bricks/create-color-palette", [
-          { names: ["name"], value: plan.palette.name, required: true },
-          { names: ["colors"], value: plan.palette.create.map(c => ({ id: c.id, light: c.light, raw: c.raw })) },
-          { names: ["expectedOwnership"], value: paletteOwnership, required: true },
-        ]);
-        paletteOwnership = resourceOwnership(created.ownership, paletteOwnership);
-      } else {
-        const paletteId = plan.palette.siteId;
-        if (plan.palette.update.length) await requireWriteAbility(session, "bricks/update-color");
-        for (const { siteColor, light } of plan.palette.update) {
-          const digest = isRecord(siteColor.itemOwnership) ? siteColor.itemOwnership.itemDigest : undefined;
-          if (typeof digest !== "string") throw new RequestError("Bricks did not report a digest for an existing palette color; it cannot be updated safely.", 422);
-          const updated = await designWrite(session, "bricks/update-color", [
-            { names: ["colorId"], value: siteColor.id, required: true }, { names: ["paletteId"], value: paletteId },
-            { names: ["light"], value: light }, { names: ["expectedOwnership"], value: { ...paletteOwnership, itemDigest: digest }, required: true },
-          ]);
-          paletteOwnership = resourceOwnership(updated.ownership, paletteOwnership);
-        }
-        if (plan.palette.create.length) await requireWriteAbility(session, "bricks/create-color");
-        for (const color of plan.palette.create) {
-          const created = await designWrite(session, "bricks/create-color", [
-            { names: ["paletteId"], value: paletteId, required: true }, { names: ["light"], value: color.light },
-            { names: ["raw"], value: color.raw }, { names: ["expectedOwnership"], value: paletteOwnership, required: true },
+    // Errors before the first write leave the site untouched and are reported as they are.
+    let wrote = false;
+    const write = async (...args: Parameters<typeof designWrite>) => { const result = await designWrite(...args); wrote = true; return result; };
+    const snapshot = snapshotForInstall(plan, stores.variables, { prior: manifestRow?.value ?? null, installed: "" });
+    const manifestEntry = snapshot.variables.find(v => v.name === MANIFEST_NAME)!;
+    try {
+      // Palette colors.
+      let paletteOwnership = stores.paletteOwnership;
+      if (plan.palette.create.length || plan.palette.update.length) {
+        if (!plan.palette.siteId) {
+          await requireWriteAbility(session, "bricks/create-color-palette");
+          const created = await write(session, "bricks/create-color-palette", [
+            { names: ["name"], value: plan.palette.name, required: true },
+            { names: ["colors"], value: plan.palette.create.map(c => ({ id: c.id, light: c.light, raw: c.raw })) },
+            { names: ["expectedOwnership"], value: paletteOwnership, required: true },
           ]);
           paletteOwnership = resourceOwnership(created.ownership, paletteOwnership);
+        } else {
+          const paletteId = plan.palette.siteId;
+          if (plan.palette.update.length) await requireWriteAbility(session, "bricks/update-color");
+          for (const { siteColor, light } of plan.palette.update) {
+            const digest = isRecord(siteColor.itemOwnership) ? siteColor.itemOwnership.itemDigest : undefined;
+            if (typeof digest !== "string") throw new RequestError("Bricks did not report a digest for an existing palette color; it cannot be updated safely.", 422);
+            const updated = await write(session, "bricks/update-color", [
+              { names: ["colorId"], value: siteColor.id, required: true }, { names: ["paletteId"], value: paletteId },
+              { names: ["light"], value: light }, { names: ["expectedOwnership"], value: { ...paletteOwnership, itemDigest: digest }, required: true },
+            ]);
+            paletteOwnership = resourceOwnership(updated.ownership, paletteOwnership);
+          }
+          if (plan.palette.create.length) await requireWriteAbility(session, "bricks/create-color");
+          for (const color of plan.palette.create) {
+            const created = await write(session, "bricks/create-color", [
+              { names: ["paletteId"], value: paletteId, required: true }, { names: ["light"], value: color.light },
+              { names: ["raw"], value: color.raw }, { names: ["expectedOwnership"], value: paletteOwnership, required: true },
+            ]);
+            paletteOwnership = resourceOwnership(created.ownership, paletteOwnership);
+          }
         }
       }
-    }
 
-    // Variable category, then variables. Palettes, variables and categories share one design version
-    // that every write bumps, so each step reads fresh ownership after a previous write.
-    if (plan.category.create || plan.variables.create.length || plan.variables.update.length) {
+      // Variable category, then variables with the manifest. Palettes, variables and categories share
+      // one design version that every write bumps, so each step reads fresh ownership after a previous write.
       const wrotePalette = plan.palette.create.length > 0 || plan.palette.update.length > 0;
       let { variableOwnership, categoryOwnership } = stores;
+      let paletteId = plan.palette.siteId;
       if (wrotePalette) {
         const fresh = await readDesignStores(session);
         // Only the shared version may differ; changed contents would invalidate the plan.
@@ -1003,37 +1020,169 @@ export async function installWordPressDesignSystem(credentials: WordPressCredent
           throw new RequestError("Global variables changed on the site during the install. The palette was saved; check again and retry to add the variables.", 409);
         }
         ({ variableOwnership, categoryOwnership } = fresh);
+        paletteId = fresh.palettes.find(p => p.name === plan.palette.name)?.id ?? paletteId;
       }
       if (plan.category.create) {
         await requireWriteAbility(session, "bricks/set-global-variable-categories");
-        await designWrite(session, "bricks/set-global-variable-categories", [
+        await write(session, "bricks/set-global-variable-categories", [
           { names: ["categories"], value: [...stores.categories.map(withoutDigests), { id: plan.category.id, name: plan.category.name }], required: true },
           { names: ["expectedOwnership"], value: categoryOwnership, required: true },
           { names: ["expectedVariableOwnership"], value: variableOwnership, required: true },
         ]);
         ({ variableOwnership, categoryOwnership } = await readDesignStores(session));
       }
-      if (plan.variables.create.length || plan.variables.update.length) {
+      const manifest = manifestFor(paletteId ?? "");
+      snapshot.palette.id = paletteId;
+      manifestEntry.installed = manifestValue(manifest);
+      const manifestRows = !current || !sameInstall(current, manifest) ? [{ id: manifestRow?.id ?? MANIFEST_ID, name: MANIFEST_NAME, value: manifestValue(manifest), category: plan.category.id }] : [];
+      if (!manifestRows.length) manifestEntry.installed = manifestRow?.value ?? "";
+      if (plan.variables.create.length || plan.variables.update.length || manifestRows.length) {
         await requireWriteAbility(session, "bricks/set-global-variables");
-        await designWrite(session, "bricks/set-global-variables", [
-          { names: ["variables"], value: [...plan.variables.update, ...plan.variables.create].map(withoutDigests), required: true },
+        await write(session, "bricks/set-global-variables", [
+          { names: ["variables"], value: [...plan.variables.update, ...plan.variables.create].map(withoutDigests).concat(manifestRows), required: true },
           { names: ["expectedVariableOwnership"], value: variableOwnership, required: true },
           { names: ["expectedCategoryOwnership"], value: categoryOwnership, required: true },
         ]);
       }
+    } catch (error) {
+      if (!(error instanceof RequestError) || !wrote) throw error;
+      // Something may already be written: hand back the snapshot so the user can undo or retry.
+      return summary(false, { failed: error.message, snapshot });
     }
 
     // Read back: every color and variable BricksSnap owns must now carry the kit's value.
     const after = await readDesignStores(session);
     const check = designSystemInstalled(ds, after.palettes, after.variables);
-    return summary(true, check.missing.every(name => plan.conflicts.includes(name)));
+    const written = readManifest(after.variables.find(v => v.name === MANIFEST_NAME)?.value);
+    return summary(true, { verified: check.missing.every(name => plan.conflicts.includes(name)) && !!written, snapshot, manifest: { current: written && manifestSummary(written), write: writeManifest } });
+  });
+}
+
+const manifestSummary = (m: DesignManifest) => ({ app: m.app, installedAt: m.installedAt, ...(m.label ? { label: m.label } : {}), style: m.kit.style, primary: m.kit.primary });
+
+/**
+ * Revert a snapshot: variables back to their prior values (or deleted), then palette colors, then an
+ * emptied BricksSnap category. Only items that still hold the installed value are touched.
+ */
+async function revertDesignSystem(session: Session, snapshot: DesignSnapshot): Promise<{ plan: RevertPlan; verified: boolean }> {
+  let stores = await readDesignStores(session);
+  const plan = planRevert(snapshot, stores.palettes, stores.variables, stores.categories);
+
+  if (plan.variables.restore.length) {
+    await requireWriteAbility(session, "bricks/set-global-variables");
+    await designWrite(session, "bricks/set-global-variables", [
+      { names: ["variables"], value: plan.variables.restore.map(withoutDigests), required: true },
+      { names: ["expectedVariableOwnership"], value: stores.variableOwnership, required: true },
+      { names: ["expectedCategoryOwnership"], value: stores.categoryOwnership, required: true },
+    ]);
+    stores = await readDesignStores(session);
+  }
+  if (plan.variables.remove.length) {
+    await requireWriteAbility(session, "bricks/delete-global-variable");
+    const rows = new Map(stores.variables.map(v => [v.id, v]));
+    let ownership = stores.variableOwnership;
+    for (const variable of plan.variables.remove) {
+      const digest = isRecord(rows.get(variable.id)?.itemOwnership) ? (rows.get(variable.id)!.itemOwnership as JsonRecord).itemDigest : undefined;
+      if (typeof digest !== "string") throw new RequestError(`Bricks did not report a digest for --${variable.name}; it cannot be deleted safely.`, 422);
+      const deleted = await designWrite(session, "bricks/delete-global-variable", [
+        { names: ["variableId"], value: variable.id, required: true },
+        { names: ["expectedOwnership"], value: { ...ownership, itemDigest: digest }, required: true },
+        { names: ["allowOrphans"], value: true, required: true },
+      ]);
+      ownership = isRecord(deleted.variableOwnership) && typeof deleted.variableOwnership.resourceDigest === "string" ? deleted.variableOwnership : (await readDesignStores(session)).variableOwnership;
+    }
+    stores = await readDesignStores(session);
+  }
+
+  const paletteId = snapshot.palette.id ?? stores.palettes.find(p => p.name === snapshot.palette.name)?.id;
+  if (plan.removePalette) {
+    await requireWriteAbility(session, "bricks/delete-color-palette");
+    await designWrite(session, "bricks/delete-color-palette", [
+      { names: ["paletteId"], value: plan.removePalette.id, required: true },
+      { names: ["expectedOwnership"], value: { ...stores.paletteOwnership, itemDigest: plan.removePalette.digest }, required: true },
+      { names: ["allowOrphans"], value: true, required: true },
+    ]);
+    stores = await readDesignStores(session);
+  } else if (plan.colors.restore.length || plan.colors.remove.length) {
+    let ownership = stores.paletteOwnership;
+    if (plan.colors.restore.length) await requireWriteAbility(session, "bricks/update-color");
+    for (const color of plan.colors.restore) {
+      const updated = await designWrite(session, "bricks/update-color", [
+        { names: ["colorId"], value: color.id, required: true }, { names: ["paletteId"], value: paletteId },
+        { names: ["light"], value: color.light }, { names: ["expectedOwnership"], value: { ...ownership, itemDigest: color.digest }, required: true },
+      ]);
+      ownership = resourceOwnership(updated.ownership, ownership);
+    }
+    if (plan.colors.remove.length) await requireWriteAbility(session, "bricks/delete-color");
+    for (const color of plan.colors.remove) {
+      const deleted = await designWrite(session, "bricks/delete-color", [
+        { names: ["colorId"], value: color.id, required: true }, { names: ["paletteId"], value: paletteId },
+        { names: ["expectedOwnership"], value: { ...ownership, itemDigest: color.digest }, required: true },
+        { names: ["allowOrphans"], value: true, required: true },
+      ]);
+      ownership = resourceOwnership(deleted.ownership, ownership);
+    }
+    stores = await readDesignStores(session);
+  }
+
+  if (plan.removeCategory) {
+    await requireWriteAbility(session, "bricks/set-global-variable-categories");
+    await designWrite(session, "bricks/set-global-variable-categories", [
+      { names: ["categories"], value: stores.categories.filter(c => c.id !== plan.removeCategory).map(withoutDigests), required: true },
+      { names: ["expectedOwnership"], value: stores.categoryOwnership, required: true },
+      { names: ["expectedVariableOwnership"], value: stores.variableOwnership, required: true },
+    ]);
+    stores = await readDesignStores(session);
+  }
+
+  // Read back: restored items carry their prior value, removed ones are gone.
+  const colors = new Map(stores.palettes.flatMap(p => p.colors.map(c => [c.id, c.light] as const)));
+  const variables = new Map(stores.variables.map(v => [v.id, v.value]));
+  const verified = plan.colors.restore.every(c => colors.get(c.id)?.toLowerCase() === c.light.toLowerCase())
+    && (plan.removePalette ? !stores.palettes.some(p => p.id === plan.removePalette!.id) : plan.colors.remove.every(c => !colors.has(c.id)))
+    && plan.variables.restore.every(v => variables.get(v.id) === v.value) && plan.variables.remove.every(v => !variables.has(v.id))
+    && (!plan.removeCategory || !stores.categories.some(c => c.id === plan.removeCategory));
+  return { plan, verified };
+}
+
+const revertCounts = (plan: RevertPlan) => ({
+  restored: plan.colors.restore.length + plan.variables.restore.length,
+  removed: (plan.removePalette ? 0 : plan.colors.remove.length) + plan.variables.remove.length,
+  palette: !!plan.removePalette, category: !!plan.removeCategory,
+  skipped: plan.skipped,
+});
+
+/** Set everything an install changed back, as far as it was not edited since. */
+export async function undoWordPressDesignSystem(credentials: WordPressCredentials, snapshot: DesignSnapshot, signal: AbortSignal): Promise<WordPressDesignSystemRevertResult> {
+  return withSession(credentials, signal, async session => {
+    const { plan, verified } = await revertDesignSystem(session, snapshot);
+    return { done: true, verified, ...revertCounts(plan) };
+  });
+}
+
+/** What uninstalling BricksSnap's palette, variables and category would remove, and optionally remove it. */
+export async function uninstallWordPressDesignSystem(credentials: WordPressCredentials, request: { remove: boolean; includeModified: boolean }, signal: AbortSignal): Promise<WordPressDesignSystemUninstallResult> {
+  return withSession(credentials, signal, async session => {
+    const stores = await readDesignStores(session);
+    const classes = await listAll(session, "bricks/list-global-classes").then(rows => rows.filter(isRecord).map(c => String(c.name))).catch(() => [] as string[]);
+    const preview = planUninstall(stores.palettes, stores.variables, stores.categories, classes, request.includeModified);
+    const revert = planRevert(preview.snapshot, stores.palettes, stores.variables, stores.categories);
+    const summary = {
+      manifest: preview.manifest && manifestSummary(preview.manifest),
+      colors: preview.snapshot.colors.length, variables: preview.snapshot.variables.length,
+      palette: !!revert.removePalette, category: !!revert.removeCategory,
+      modified: preview.modified, classes: preview.classes,
+    };
+    if (!request.remove || (!summary.colors && !summary.variables)) return { ...summary, done: false };
+    const { plan, verified } = await revertDesignSystem(session, preview.snapshot);
+    return { ...summary, done: true, verified, removed: revertCounts(plan).removed, palette: !!plan.removePalette, category: !!plan.removeCategory, skipped: plan.skipped };
   });
 }
 
 export async function handleWordPressRequest(
   request: WordPressRequest,
   signal: AbortSignal
-): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult | WordPressClassesResult | WordPressTemplatesResult | WordPressConditionsResult | WordPressCreateTemplateResult | WordPressDesignSystemResult> {
+): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult | WordPressClassesResult | WordPressTemplatesResult | WordPressConditionsResult | WordPressCreateTemplateResult | WordPressDesignSystemResult | WordPressDesignSystemRevertResult | WordPressDesignSystemUninstallResult> {
   switch (request.action) {
     case "connect":
       return connectWordPress(request.credentials, signal);
@@ -1062,8 +1211,14 @@ export async function handleWordPressRequest(
     case "restore":
       return restoreWordPressRevision(request.credentials, request, signal);
     case "design-system-plan":
-      return installWordPressDesignSystem(request.credentials, { kit: request.kit, install: false }, signal);
+      return installWordPressDesignSystem(request.credentials, { kit: request.kit, install: false, label: request.label }, signal);
     case "design-system":
-      return installWordPressDesignSystem(request.credentials, { kit: request.kit, install: true }, signal);
+      return installWordPressDesignSystem(request.credentials, { kit: request.kit, install: true, label: request.label }, signal);
+    case "design-system-undo":
+      return undoWordPressDesignSystem(request.credentials, request.snapshot, signal);
+    case "design-system-uninstall-plan":
+      return uninstallWordPressDesignSystem(request.credentials, { remove: false, includeModified: request.includeModified }, signal);
+    case "design-system-uninstall":
+      return uninstallWordPressDesignSystem(request.credentials, { remove: true, includeModified: request.includeModified }, signal);
   }
 }

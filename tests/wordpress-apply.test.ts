@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { wpRequestSchema, type WordPressDesignSystemResult, type WordPressApplyResult, type WordPressClassesResult, type WordPressConditionsResult, type WordPressCreateTemplateResult, type WordPressCredentials, type WordPressRestoreResult, type WordPressTemplatesResult } from "../src/lib/wordpress-contract";
+import { wpRequestSchema, type WordPressDesignSystemResult, type WordPressDesignSystemRevertResult, type WordPressDesignSystemUninstallResult, type WordPressApplyResult, type WordPressClassesResult, type WordPressConditionsResult, type WordPressCreateTemplateResult, type WordPressCredentials, type WordPressRestoreResult, type WordPressTemplatesResult } from "../src/lib/wordpress-contract";
 import { stableJson } from "../src/lib/template-staging";
 import type { BricksElement } from "../src/lib/bricks-engine";
 
@@ -13,7 +13,10 @@ class FakeBricksSite {
   nextRevision = 100;
   locked = false;
   enabled = new Set(["bricks/set-page-elements", "bricks/restore-revision", "bricks/batch-create-global-classes", "bricks/create-template", "bricks/set-template-conditions",
-    "bricks/create-color-palette", "bricks/create-color", "bricks/update-color", "bricks/set-global-variable-categories", "bricks/set-global-variables"]);
+    "bricks/create-color-palette", "bricks/create-color", "bricks/update-color", "bricks/set-global-variable-categories", "bricks/set-global-variables",
+    "bricks/delete-color-palette", "bricks/delete-color", "bricks/delete-global-variable"]);
+  /** Simulates a variable write that fails after the palette was saved. */
+  failVariableWrite = false;
   palettes: Array<{ id: string; name: string; colors: Array<{ id: string; light: string; raw: string }> }> = [{ id: "449b69", name: "Default", colors: [{ id: "047244", light: "#f5f5f5", raw: "var(--bricks-color-grey-100)" }] }];
   variables: Array<{ id: string; name: string; value: string; category: string }> = [];
   categories: Array<{ id: string; name: string }> = [];
@@ -79,7 +82,7 @@ class FakeBricksSite {
       }
       case "bricks/list-color-palettes": {
         const ownership = this.own("colorPalettes", this.palettes);
-        return { items: this.palettes.map(p => ({ ...p, colors: p.colors.map(c => ({ ...c, colorDigest: this.sha(c), itemOwnership: { ...ownership, itemDigest: this.sha(c) } })) })), total: this.palettes.length, page: 1, perPage: 200, hasMore: false, ownership };
+        return { items: this.palettes.map(p => ({ ...p, paletteDigest: this.sha(p), colors: p.colors.map(c => ({ ...c, colorDigest: this.sha(c), itemOwnership: { ...ownership, itemDigest: this.sha(c) } })) })), total: this.palettes.length, page: 1, perPage: 200, hasMore: false, ownership };
       }
       case "bricks/create-color-palette": {
         if (this.paletteEditBeforeWrite) this.palettes[0].colors.push({ id: "zzz111", light: "#000000", raw: "var(--other)" });
@@ -106,6 +109,34 @@ class FakeBricksSite {
         this.designWrites++; this.designVersion++;
         return { color, ownership: this.own("colorPalettes", this.palettes), changed: true };
       }
+      case "bricks/delete-color-palette": {
+        this.checkOwnership(params.expectedOwnership, "colorPalettes", this.palettes);
+        const palette = this.palettes.find(p => p.id === params.paletteId)!;
+        if ((params.expectedOwnership as Record<string, unknown>).itemDigest !== this.sha(palette)) throw new Error("Palette digest mismatch.");
+        if (params.allowOrphans !== true) throw new Error("allowOrphans must be true.");
+        this.palettes = this.palettes.filter(p => p !== palette);
+        this.designWrites++; this.designVersion++;
+        return { deleted: true, ownership: this.own("colorPalettes", this.palettes) };
+      }
+      case "bricks/delete-color": {
+        this.checkOwnership(params.expectedOwnership, "colorPalettes", this.palettes);
+        const palette = this.palettes.find(p => p.colors.some(c => c.id === params.colorId))!;
+        const color = palette.colors.find(c => c.id === params.colorId)!;
+        if ((params.expectedOwnership as Record<string, unknown>).itemDigest !== this.sha(color)) throw new Error("Color digest mismatch.");
+        if (params.allowOrphans !== true) throw new Error("allowOrphans must be true.");
+        palette.colors = palette.colors.filter(c => c !== color);
+        this.designWrites++; this.designVersion++;
+        return { deleted: true, ownership: this.own("colorPalettes", this.palettes) };
+      }
+      case "bricks/delete-global-variable": {
+        const row = this.variables.find(v => v.id === params.variableId)!;
+        const expected = { ...this.own("globalVariables", this.variables), itemDigest: this.sha(row) };
+        if (stableJson(params.expectedOwnership) !== stableJson(expected)) throw new Error("globalVariables changed since they were read (bricks_conflict_ownership_mismatch).");
+        if (params.allowOrphans !== true) throw new Error("allowOrphans must be true.");
+        this.variables = this.variables.filter(v => v !== row);
+        this.designWrites++; this.designVersion++;
+        return { deleted: true, variableId: row.id, beforeDelete: row, variableOwnership: this.own("globalVariables", this.variables), changed: true };
+      }
       case "bricks/list-global-variables":
         return {
           items: this.variables.map(v => ({ ...v, itemOwnership: { ...this.own("globalVariables", this.variables), itemDigest: this.sha(v) } })), total: this.variables.length, page: 1, perPage: 200, hasMore: false,
@@ -120,6 +151,7 @@ class FakeBricksSite {
         return { categories: this.categories, categoryOwnership: this.own("globalVariableCategories", this.categories), changed: true };
       }
       case "bricks/set-global-variables": {
+        if (this.failVariableWrite) throw new Error("Internal error while saving variables.");
         this.checkOwnership(params.expectedVariableOwnership, "globalVariables", this.variables);
         this.checkOwnership(params.expectedCategoryOwnership, "globalVariableCategories", this.categories);
         for (const row of params.variables as Array<{ id: string; name: string; value: string; category: string }>) {
@@ -549,6 +581,89 @@ describe("guarded apply and restore", () => {
       site.enabled.delete("bricks/create-color-palette");
       await expect(request({ action: "design-system", kit: {}, confirm: true })).rejects.toMatchObject({ status: 403 });
       expect(site.designWrites).toBe(0);
+    });
+
+    it("records a manifest with the design, kit and version, and rewrites it only when the install changes", async () => {
+      const site = new FakeBricksSite(section("hero01", "Hero"));
+      const { request } = await connectTo(site);
+      const kit = { style: "soft", primary: "#c8472d" };
+      const plan = await request<WordPressDesignSystemResult>({ action: "design-system-plan", kit });
+      expect(plan.manifest).toEqual({ current: null, write: true });
+      const installed = await request<WordPressDesignSystemResult>({ action: "design-system", kit, label: "Lachfalte <script>", confirm: true });
+      expect(installed).toMatchObject({ installed: true, verified: true, manifest: { current: { label: "Lachfalte script", style: "soft", primary: "#c8472d" } } });
+      const row = site.variables.find(v => v.name === "bs-manifest")!;
+      expect(row.category).toBe(site.categories[0].id);
+      const manifest = JSON.parse(row.value.slice(1, -1));
+      expect(manifest).toMatchObject({ v: 1, app: expect.stringMatching(/^\d+\.\d+\.\d+$/), label: "Lachfalte script", palette: site.palettes.find(p => p.name === "BricksSnap")!.id, category: site.categories[0].id });
+      expect(manifest.colors).toContain("--bs-primary");
+      expect(manifest.variables).toContain("bs-font-heading");
+
+      const writes = site.designWrites;
+      const again = await request<WordPressDesignSystemResult>({ action: "design-system", kit, label: "Lachfalte <script>", confirm: true });
+      expect(again).toMatchObject({ installed: false, manifest: { write: false } });
+      expect(site.designWrites).toBe(writes);
+    });
+
+    it("undoes an install: restores replaced values, removes what it added, keeps later edits", async () => {
+      const site = new FakeBricksSite(section("hero01", "Hero"));
+      const { request } = await connectTo(site);
+      await request({ action: "design-system", kit: { style: "clean", primary: "#2563eb" }, confirm: true });
+      const before = structuredClone({ palettes: site.palettes, variables: site.variables });
+
+      const second = await request<WordPressDesignSystemResult>({ action: "design-system", kit: { style: "clean", primary: "#dc2626", spacing: "airy" }, confirm: true });
+      expect(second.snapshot!.colors.find(c => c.raw === "--bs-primary")).toEqual({ raw: "--bs-primary", prior: "#2563eb", installed: "#dc2626" });
+      // Someone edits one variable in Bricks after the install.
+      site.variables.find(v => v.name === "bs-space-section")!.value = "99px";
+
+      const undo = await request<WordPressDesignSystemRevertResult>({ action: "design-system-undo", snapshot: second.snapshot, confirm: true });
+      expect(undo).toMatchObject({ done: true, verified: true, palette: false, category: false, skipped: [{ name: "--bs-space-section", reason: "changed" }] });
+      expect(site.palettes).toEqual(before.palettes);
+      expect(site.variables.find(v => v.name === "bs-space-section")!.value).toBe("99px");
+      expect(site.variables.filter(v => v.name !== "bs-space-section")).toEqual(before.variables.filter(v => v.name !== "bs-space-section"));
+    });
+
+    it("undoes a first install completely, and hands back a snapshot when a write fails halfway", async () => {
+      const site = new FakeBricksSite(section("hero01", "Hero"));
+      site.failVariableWrite = true;
+      const { request } = await connectTo(site);
+      const initial = structuredClone({ palettes: site.palettes, variables: site.variables, categories: site.categories });
+      const failed = await request<WordPressDesignSystemResult>({ action: "design-system", kit: {}, confirm: true });
+      expect(failed).toMatchObject({ installed: false, failed: expect.stringMatching(/Internal error/) });
+      // The palette and category were saved before the variable write failed.
+      expect(site.palettes.some(p => p.name === "BricksSnap")).toBe(true);
+      expect(site.categories).toHaveLength(1);
+
+      const undo = await request<WordPressDesignSystemRevertResult>({ action: "design-system-undo", snapshot: failed.snapshot, confirm: true });
+      expect(undo).toMatchObject({ done: true, verified: true, palette: true, category: true });
+      expect({ palettes: site.palettes, variables: site.variables, categories: site.categories }).toEqual(initial);
+    });
+
+    it("uninstalls BricksSnap's palette, variables, manifest and category, keeping edited values unless asked", async () => {
+      const site = new FakeBricksSite(section("hero01", "Hero"));
+      site.classes.push({ id: "bst001", name: "bs-title", settings: {} });
+      const { request } = await connectTo(site);
+      await request({ action: "design-system", kit: { style: "warm", primary: "#0f766e" }, label: "Nord", confirm: true });
+      const total = site.variables.length;
+      site.variables.find(v => v.name === "bs-radius-m")!.value = "3px";
+      site.palettes.find(p => p.name === "BricksSnap")!.colors.find(c => c.raw === "var(--bs-accent)")!.light = "#ff00ff";
+
+      const preview = await request<WordPressDesignSystemUninstallResult>({ action: "design-system-uninstall-plan" });
+      expect(preview).toMatchObject({ done: false, manifest: { label: "Nord", style: "warm" }, modified: ["--bs-accent", "--bs-radius-m"], classes: 1, palette: false, category: false });
+      expect(preview.variables).toBe(total - 1);
+      expect(site.designWrites).toBeGreaterThan(0);
+
+      const kept = await request<WordPressDesignSystemUninstallResult>({ action: "design-system-uninstall", confirm: true });
+      expect(kept).toMatchObject({ done: true, verified: true, palette: false, category: false });
+      expect(site.variables.map(v => v.name)).toEqual(["bs-radius-m"]);
+      expect(site.palettes.find(p => p.name === "BricksSnap")!.colors.map(c => c.raw)).toEqual(["var(--bs-accent)"]);
+
+      const all = await request<WordPressDesignSystemUninstallResult>({ action: "design-system-uninstall", includeModified: true, confirm: true });
+      expect(all).toMatchObject({ done: true, verified: true, palette: true, category: true });
+      expect(site.palettes.map(p => p.name)).toEqual(["Default"]);
+      expect(site.variables).toEqual([]);
+      expect(site.categories).toEqual([]);
+      // Global classes are kept: pages use them, and their var() fallbacks keep the look.
+      expect(site.classes.some(c => c.name === "bs-title")).toBe(true);
     });
 
     it("requires confirmation and known kit choices", () => {

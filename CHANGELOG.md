@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.0 — 2026-09-29
+
+Installs you can undo. See the [release notes](docs/RELEASE-0.10.0.md).
+
+- **Class IDs are checked with name and definition.** Before, an existing class ID was trusted as is.
+  - An ID the site uses for another class gets the staged class a new ID. Saving a page or template is refused until then.
+  - The same ID and name with another definition (for example a `bs-` class from another BricksSnap design) is kept and reported instead of silently taking over.
+- **Manifest.** Each design-system install writes `--bs-manifest`: design, kit, BricksSnap version, time, and the palette, category, colors and variables it owns.
+- **Uninstall.** Removes the BricksSnap palette, variables, manifest and category after a preview. Values edited in Bricks are kept unless included. `bs-` classes stay.
+- **Snapshot and undo.** Every install records the values it replaces, also when a write fails halfway. **Undo this install** sets them back and removes what the install added, except values edited since. It works for the last install from this browser, also after a reload.
+- **Abilities.** Undo and uninstall also need `delete-global-variable`, `delete-color` and `delete-color-palette`.
+
 ## 0.9.2 — 2026-09-29
 
 Feedback from the first Reddit users.

@@ -11,7 +11,7 @@ BricksSnap can read a live Bricks page and the site's global classes through the
   - required: `get-page-elements` and `get-design-context`;
   - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version`, `list-ability-status`, `render-elements` (for the rendered preview), `list-templates` and `get-template-settings` (for site templates), and `list-global-variables` (for the Studio design system).
 
-  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, importing images needs `upload-media` and `find-media`, creating missing classes needs `batch-create-global-classes`, creating templates needs `create-template`, changing template conditions needs `set-template-conditions`, and installing the Studio design system needs `create-color-palette`, `create-color`, `update-color`, `set-global-variable-categories` and `set-global-variables`. Keep them disabled if you only want to read.
+  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, importing images needs `upload-media` and `find-media`, creating missing classes needs `batch-create-global-classes`, creating templates needs `create-template`, changing template conditions needs `set-template-conditions`, installing the Studio design system needs `create-color-palette`, `create-color`, `update-color`, `set-global-variable-categories` and `set-global-variables`, and undoing or uninstalling it also needs `delete-global-variable`, `delete-color` and `delete-color-palette`. Keep them disabled if you only want to read.
 
 ## Connect
 
@@ -41,7 +41,7 @@ Deleting templates and changing their status are left to WordPress and Bricks.
 
 ## Install the Studio design system
 
-After **Open in Staging** from the [Studio](STUDIO.md), the **Design system** panel compares the kit's palette and variables with the connected site (**Check what changes**, read-only) and installs them after confirmation: a "BricksSnap" color palette whose colors define the `--bs-*` variables, and global variables in a "BricksSnap" category. Each step is guarded by Bricks' ownership digests, nothing is deleted, variables defined elsewhere are reported, and the result is read back. Fonts named in the variables still need to be added under Bricks → Settings → Custom fonts or in a theme style.
+After **Open in Staging** from the [Studio](STUDIO.md), the **Design system** panel compares the kit's palette and variables with the connected site (**Check what changes**, read-only) and installs them after confirmation: a "BricksSnap" color palette whose colors define the `--bs-*` variables, and global variables in a "BricksSnap" category. Each step is guarded by Bricks' ownership digests, nothing is deleted, variables defined elsewhere are reported, and the result is read back. Since 0.10 every install records a manifest and a snapshot, so it can be undone or uninstalled; see [Studio](STUDIO.md#manifest-undo-and-uninstall). Fonts named in the variables still need to be added under Bricks → Settings → Custom fonts or in a theme style.
 
 ## Generate in the site's design
 
@@ -102,6 +102,9 @@ Sections from the catalog or another site can use global classes the connected s
   - A name that exists with a different definition is reported and nothing is created for it. Rename the class in the staged JSON, or use the site's class.
 - **One atomic write.** All missing classes are created together, guarded by the class store's ownership digest from the same read. If classes change on the site in between, Bricks refuses and nothing is saved.
 - **Kept as staged.** Class IDs stay as staged, so element references remain valid. Categories from another site are dropped.
+- **An ID alone proves nothing (0.10).** BricksSnap compares ID, name and definition:
+  - If the site uses a staged class's ID for a class with another name, the staged class is created under a new ID and the elements follow it. Saving the page or a template is refused until then, so an element never silently picks up a foreign class.
+  - If the site has the same ID and name with another definition (for example the same `bs-` class from another BricksSnap design), the site's class is kept and reported: the page shows the site's version.
 - **Undefined references.** Referenced IDs without a definition in the change are listed; remove them or add their definitions.
 - **Removing a class later.** Created classes stay when a page is restored. Remove unused ones in Bricks → Global classes.
 
