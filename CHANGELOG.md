@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0 — 2026-09-29
+
+Studio feedback from the Bricks forum.
+
+- **Collapsible brand kit.** On wide screens the sidebar shrinks to a narrow rail with the kit's colors, and the choice is remembered.
+- **Add sections in a window.** **Add sections** on your page opens the gallery as a modal, so you can add several sections without leaving the page. The new **+** next to each section inserts right after it.
+- **Sticky lists.** The page's section list stays in view while you scroll the preview, and the gallery filters stick below the header.
+- **Fix: the Studio remembers your session.** A reload used to save the default kit and page over the stored ones before reading them. Kit, business profile, page and sidebar state now survive a reload.
+
 ## 0.10.0 — 2026-09-29
 
 Installs you can undo. See the [release notes](docs/RELEASE-0.10.0.md).

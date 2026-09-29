@@ -8,7 +8,7 @@ The **Library** tab shows 13 ready-made designs: a brand kit, an industry and a 
 
 ## 1. Brand kit
 
-The panel on the left sets how every layout looks. All previews update live.
+The panel on the left sets how every layout looks. All previews update live. On wide screens, **‹ Hide** shrinks it to a narrow rail with the kit's colors, so the preview gets the room; **›** brings it back. The browser remembers the choice.
 
 - **Style direction.** Choose one of five directions. The choice sets fonts, corners, spacing, eyebrow style, cards and neutrals; everything stays adjustable afterwards.
 
@@ -31,7 +31,7 @@ The panel on the left sets how every layout looks. All previews update live.
 - **Sample text language.** German or English.
 - **Your details.** Name, city, phone, email, address and up to six services are written into the copy. Phone numbers become `tel:` links, and your services replace the sample services in order.
 
-The texts are templates: read and adjust them before publishing. Nothing leaves the browser; the Studio runs locally in the page. The browser remembers the last kit, profile and page.
+The texts are templates: read and adjust them before publishing. Nothing leaves the browser; the Studio runs locally in the page. The browser remembers the last kit, profile and page (since 0.11 this also works after a reload; before, the defaults could overwrite it).
 
 ## 3. Sections
 
@@ -39,10 +39,12 @@ The **Sections** view shows all 40 layouts in 22 section types, grouped by type 
 
 - **Copy.** Copies a single section. Paste it in the Bricks editor with Ctrl+V.
 - **Add to page.** Adds the section to your page. A header goes first, a footer last, and anything else goes before the footer.
+- **Filters stay in reach.** The section-type filters stick below the header while you scroll the gallery.
 
 ## 4. Your page
 
-- **Build the page.** Each industry starts with a sensible page. You can change each section's layout, move sections up or down, remove them, or reset to the starter page. A page holds up to 16 sections.
+- **Build the page.** Each industry starts with a sensible page. You can change each section's layout, move sections up or down, remove them, or reset to the starter page. A page holds up to 16 sections. The section list stays in view while you scroll a long preview.
+- **Add sections without leaving the page.** **Add sections** opens the gallery in a window over your page. Add as many sections as you like, then close it with **Done** or Escape. The **+** next to a section opens the same window to insert right after that section; several additions keep their order.
 - **Preview.** See the whole page at desktop (1280 px), tablet (820 px) and phone (390 px) widths. The preview uses the same breakpoints as Bricks.
 - **Quality checks.** The Studio checks contrast, the number of main headings, skipped heading levels, alt texts and links that still point to `#`, and it notes sample photos.
 - **Export.**

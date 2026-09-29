@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { BricksTemplate } from "@/lib/bricks-engine";
 import { buildBricksImportJson } from "@/lib/bricks-export";
 import { copyToClipboard, downloadText } from "@/lib/clipboard";
@@ -9,7 +9,7 @@ import { INDUSTRIES, normalizeProfile, type BusinessProfile } from "@/lib/kit/co
 import { kitTemplateType, type DesignSystem, type SectionPick } from "@/lib/kit/generate";
 import { findVariant, isSectionType, SECTION_TYPES, VARIANTS, variantsFor, type SectionType } from "@/lib/kit/sections";
 import { insertSection, kitPreview, SECTION_LABELS, STARTER_PAGES } from "@/lib/kit/studio";
-import { DEFAULT_KIT, normalizeKit, type BrandKit } from "@/lib/kit/tokens";
+import { DEFAULT_KIT, normalizeKit, resolveKit, type BrandKit } from "@/lib/kit/tokens";
 import KitControls from "./KitControls";
 import KitPreviewFrame from "./KitPreviewFrame";
 
@@ -27,7 +27,7 @@ const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").
 
 export type KitSelection = { template: BricksTemplate; designSystem: DesignSystem; kit: BrandKit; title: string };
 
-export type Saved = { kit: BrandKit; profile: BusinessProfile; page: SectionPick[] };
+export type Saved = { kit: BrandKit; profile: BusinessProfile; page: SectionPick[]; ui?: { kitCollapsed?: boolean } };
 const DEFAULTS: Saved = { kit: DEFAULT_KIT, profile: { industry: "kfz", language: "de" }, page: STARTER_PAGES.kfz };
 
 // Read once per page load; a stable snapshot for useSyncExternalStore.
@@ -39,22 +39,27 @@ function readSaved(): Saved | null {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
     if (saved && typeof saved === "object") {
       const page = Array.isArray(saved.page) ? saved.page.filter((s: SectionPick) => isSectionType(s?.type)).slice(0, MAX_SECTIONS).map((s: SectionPick) => ({ type: s.type, variant: findVariant(s.type, s.variant).id })) : DEFAULTS.page;
-      savedCache = { kit: normalizeKit(saved.kit), profile: normalizeProfile(saved.profile), page };
+      savedCache = { kit: normalizeKit(saved.kit), profile: normalizeProfile(saved.profile), page, ui: { kitCollapsed: saved.ui?.kitCollapsed === true } };
     }
   } catch { /* Storage can be unavailable or hold an old shape; start fresh. */ }
   return savedCache;
 }
 const noSubscription = () => () => {};
+const onClient = () => true;
+const onServer = () => false;
 
 /** Restores the last session in this browser (after hydration) by remounting the studio with it. */
 export default function KitStudio({ preset, ...props }: { onOpenInStaging: (selection: KitSelection) => void; preset?: (Saved & { nonce: number }) | null }) {
   const saved = useSyncExternalStore(noSubscription, readSaved, () => null);
+  // The hydration render shows the defaults; it must not save them over the stored session before
+  // the stored session is read (a child's effect runs before React re-reads the store).
+  const hydrated = useSyncExternalStore(noSubscription, onClient, onServer);
   // A design chosen in the library replaces the current kit, profile and page.
-  if (preset) return <Studio key={`preset:${preset.nonce}`} initial={preset} {...props}/>;
-  return <Studio key={saved ? "saved" : "default"} initial={saved ?? DEFAULTS} {...props}/>;
+  if (preset) return <Studio key={`preset:${preset.nonce}`} initial={preset} persist {...props}/>;
+  return <Studio key={saved ? "saved" : "default"} initial={saved ?? DEFAULTS} persist={hydrated} {...props}/>;
 }
 
-function Studio({ initial, onOpenInStaging }: { initial: Saved; onOpenInStaging: (selection: KitSelection) => void }) {
+function Studio({ initial, persist, onOpenInStaging }: { initial: Saved; persist: boolean; onOpenInStaging: (selection: KitSelection) => void }) {
   const [kit, setKit] = useState<BrandKit>(initial.kit);
   const [profile, setProfile] = useState<BusinessProfile>(initial.profile);
   const [page, setPage] = useState<SectionPick[]>(initial.page);
@@ -62,12 +67,26 @@ function Studio({ initial, onOpenInStaging }: { initial: Saved; onOpenInStaging:
   const [filter, setFilter] = useState<SectionType | "all">("all");
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [panelOpen, setPanelOpen] = useState(false);
+  // Desktop: the brand kit sidebar can shrink to a narrow rail to give the preview room.
+  const [kitCollapsed, setKitCollapsed] = useState(initial.ui?.kitCollapsed === true);
+  // The "add sections" modal; `at` inserts at a position instead of the smart placement.
+  const [picker, setPicker] = useState<{ at?: number } | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
   const [status, setStatus] = useState("");
 
-  // Per-browser convenience: remember the last kit, profile and page.
+  // Per-browser convenience: remember the last kit, profile, page and sidebar state.
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ kit, profile, page })); } catch { /* Not essential. */ }
-  }, [kit, profile, page]);
+    if (!persist) return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ kit, profile, page, ui: { kitCollapsed } })); } catch { /* Not essential. */ }
+  }, [persist, kit, profile, page, kitCollapsed]);
+
+  // The native dialog traps focus, closes on Escape and restores focus to the opener.
+  useEffect(() => {
+    const el = dialog.current;
+    if (!el) return;
+    if (picker && !el.open) el.showModal();
+    if (!picker && el.open) el.close();
+  }, [picker]);
 
   const updateProfile = (next: BusinessProfile) => {
     // An untouched starter page follows the industry.
@@ -79,9 +98,10 @@ function Studio({ initial, onOpenInStaging }: { initial: Saved; onOpenInStaging:
   const shownKit = useDeferredValue(kit);
   const shownProfile = useDeferredValue(profile);
   const variants = useMemo(() => VARIANTS.filter(v => filter === "all" || v.type === filter), [filter]);
-  const gallery = useMemo(() => view === "sections"
+  const pickerOpen = picker !== null;
+  const gallery = useMemo(() => view === "sections" || pickerOpen
     ? variants.map(v => ({ variant: v, preview: kitPreview(shownKit, shownProfile, [{ type: v.type, variant: v.id }], { fonts: KIT_FONT_VARS, imageWidth: 800 }) }))
-    : [], [variants, shownKit, shownProfile, view]);
+    : [], [variants, shownKit, shownProfile, view, pickerOpen]);
   const pagePreview = useMemo(() => {
     if (!page.length) return null;
     try { return kitPreview(shownKit, shownProfile, page, { fonts: KIT_FONT_VARS }); } catch { return null; }
@@ -95,7 +115,10 @@ function Studio({ initial, onOpenInStaging }: { initial: Saved; onOpenInStaging:
   };
   const add = (pick: SectionPick) => {
     if (page.length >= MAX_SECTIONS) { flash(`A page holds up to ${MAX_SECTIONS} sections.`); return; }
-    setPage(current => insertSection(current, pick));
+    const at = picker?.at;
+    setPage(current => insertSection(current, pick, at));
+    // Several additions at one position keep their order.
+    if (at !== undefined) setPicker({ at: at + 1 });
     flash(`${SECTION_LABELS[pick.type]} added to the page.`);
   };
   const move = (index: number, by: number) => setPage(current => {
@@ -105,12 +128,49 @@ function Studio({ initial, onOpenInStaging }: { initial: Saved; onOpenInStaging:
     return next;
   });
 
-  return <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-8">
+  const swatches = resolveKit(shownKit).colors;
+  const chips = (sticky: string) => <div className={`${sticky} -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0`}>
+    <div className="flex gap-1.5 sm:flex-wrap" role="group" aria-label="Filter by section type">
+      {(["all", ...SECTION_TYPES] as const).map(type => <button key={type} type="button" aria-pressed={filter === type} onClick={() => setFilter(type)}
+        className={`h-8 shrink-0 rounded-full border px-3 text-xs transition-colors ${filter === type ? "border-primary bg-primary-soft font-medium text-primary-hover" : "border-border bg-card text-text hover:border-border-hover"}`}>
+        {type === "all" ? "All" : SECTION_LABELS[type]}
+      </button>)}
+    </div>
+  </div>;
+  const galleryGrid = (inModal: boolean) => SECTION_TYPES.filter(type => gallery.some(g => g.variant.type === type)).map(type => {
+    const items = gallery.filter(g => g.variant.type === type);
+    const headingId = `${inModal ? "picker" : "gallery"}-${type}`;
+    return <section key={type} aria-labelledby={headingId} className="space-y-3">
+      <h3 id={headingId} className="label-mono">{SECTION_LABELS[type]} · {items.length}</h3>
+      <div className={`grid items-start gap-5 ${inModal ? "md:grid-cols-2 2xl:grid-cols-3" : "xl:grid-cols-2"}`}>
+        {items.map(({ variant, preview }) => <article key={variant.id} className="min-w-0 overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-border-hover">
+          <div className="border-b border-border bg-white"><KitPreviewFrame html={preview.html} css={preview.css} width={1280} maxHeight={inModal ? 260 : 340} title={`${SECTION_LABELS[variant.type]}: ${variant.name.en}`}/></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+            <h4 className="min-w-0 truncate text-sm font-medium">{variant.name.en}</h4>
+            <div className="flex gap-2">
+              {!inModal && <button type="button" className={secondary} aria-label={`Copy ${variant.name.en} for Bricks`} onClick={() => copyTemplate(preview.result.template, variant.name.en)}>Copy</button>}
+              <button type="button" className={inModal ? primary : secondary} aria-label={`Add ${variant.name.en} to the page`} onClick={() => add({ type: variant.type, variant: variant.id })}>{inModal ? "Add" : "Add to page"}</button>
+            </div>
+          </div>
+        </article>)}
+      </div>
+    </section>;
+  });
+
+  return <div className={`grid gap-6 lg:gap-8 ${kitCollapsed ? "lg:grid-cols-[56px_minmax(0,1fr)]" : "lg:grid-cols-[300px_minmax(0,1fr)]"}`}>
     <aside className="lg:sticky lg:top-[88px] lg:max-h-[calc(100vh-104px)] lg:overflow-y-auto lg:pr-2">
       <button type="button" className="flex h-10 w-full items-center justify-between rounded-lg border border-border bg-card px-4 text-sm font-medium lg:hidden" aria-expanded={panelOpen} aria-controls="kit-panel" onClick={() => setPanelOpen(o => !o)}>
         <span>Brand kit and business</span><span aria-hidden>{panelOpen ? "−" : "+"}</span>
       </button>
-      <div id="kit-panel" className={`${panelOpen ? "mt-4 block" : "hidden"} rounded-xl border border-border bg-card p-5 lg:mt-0 lg:block`}>
+      {kitCollapsed && <div className="hidden flex-col items-center gap-3 rounded-xl border border-border bg-card py-3 lg:flex">
+        <button type="button" className={iconButton} aria-label="Show brand kit" title="Show brand kit" aria-expanded={false} aria-controls="kit-panel" onClick={() => setKitCollapsed(false)}>›</button>
+        <span className="flex flex-col gap-1.5" aria-hidden>{(["primary", "accent", "bg", "heading"] as const).map(t => <span key={t} className="h-5 w-5 rounded-full border border-black/10" style={{ background: swatches[t] }}/>)}</span>
+      </div>}
+      <div id="kit-panel" className={`${panelOpen ? "mt-4 block" : "hidden"} rounded-xl border border-border bg-card p-5 lg:mt-0 ${kitCollapsed ? "lg:hidden" : "lg:block"}`}>
+        <div className="mb-4 hidden items-center justify-between lg:flex">
+          <p className="label-mono">Brand kit</p>
+          <button type="button" className="text-xs text-muted hover:text-foreground" aria-expanded={true} aria-controls="kit-panel" onClick={() => setKitCollapsed(true)}>‹ Hide</button>
+        </div>
         <KitControls kit={kit} onKit={setKit} profile={profile} onProfile={updateProfile}/>
       </div>
     </aside>
@@ -127,36 +187,12 @@ function Studio({ initial, onOpenInStaging }: { initial: Saved; onOpenInStaging:
       </div>
 
       {view === "sections" && <div className="space-y-8">
-        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <div className="flex gap-1.5 sm:flex-wrap" role="group" aria-label="Filter by section type">
-            {(["all", ...SECTION_TYPES] as const).map(type => <button key={type} type="button" aria-pressed={filter === type} onClick={() => setFilter(type)}
-              className={`h-8 shrink-0 rounded-full border px-3 text-xs transition-colors ${filter === type ? "border-primary bg-primary-soft font-medium text-primary-hover" : "border-border bg-card text-text hover:border-border-hover"}`}>
-              {type === "all" ? "All" : SECTION_LABELS[type]}
-            </button>)}
-          </div>
-        </div>
-        {SECTION_TYPES.filter(type => gallery.some(g => g.variant.type === type)).map(type => {
-          const items = gallery.filter(g => g.variant.type === type);
-          return <section key={type} aria-labelledby={`gallery-${type}`} className="space-y-3">
-            <h3 id={`gallery-${type}`} className="label-mono">{SECTION_LABELS[type]} · {items.length}</h3>
-            <div className="grid items-start gap-5 xl:grid-cols-2">
-              {items.map(({ variant, preview }) => <article key={variant.id} className="min-w-0 overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-border-hover">
-                <div className="border-b border-border bg-white"><KitPreviewFrame html={preview.html} css={preview.css} width={1280} maxHeight={340} title={`${SECTION_LABELS[variant.type]}: ${variant.name.en}`}/></div>
-                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                  <h4 className="min-w-0 truncate text-sm font-medium">{variant.name.en}</h4>
-                  <div className="flex gap-2">
-                    <button type="button" className={secondary} aria-label={`Copy ${variant.name.en} for Bricks`} onClick={() => copyTemplate(preview.result.template, variant.name.en)}>Copy</button>
-                    <button type="button" className={secondary} aria-label={`Add ${variant.name.en} to the page`} onClick={() => add({ type: variant.type, variant: variant.id })}>Add to page</button>
-                  </div>
-                </div>
-              </article>)}
-            </div>
-          </section>;
-        })}
+        {chips("sticky top-[96px] z-10 bg-background/95 py-2 backdrop-blur-sm md:top-16")}
+        {galleryGrid(false)}
       </div>}
 
       {view === "page" && <div className="grid gap-6 xl:grid-cols-[288px_minmax(0,1fr)]">
-        <div className="space-y-3">
+        <div className="space-y-3 xl:sticky xl:top-[88px] xl:max-h-[calc(100vh-104px)] xl:self-start xl:overflow-y-auto">
           <ol className="divide-y divide-border rounded-xl border border-border bg-card">
             {page.map((pick, i) => <li key={`${i}:${pick.type}`} className="flex items-center gap-1 py-2 pl-3 pr-2">
               <span className="mr-1 w-5 shrink-0 font-mono text-[11px] text-muted">{String(i + 1).padStart(2, "0")}</span>
@@ -168,14 +204,15 @@ function Studio({ initial, onOpenInStaging }: { initial: Saved; onOpenInStaging:
                   {variantsFor(pick.type).map(v => <option key={v.id} value={v.id}>{v.name.en}</option>)}
                 </select>
               </div>
+              <button type="button" className={iconButton} aria-label={`Add a section after ${SECTION_LABELS[pick.type]}`} title="Add a section after this one" onClick={() => setPicker({ at: i + 1 })}>+</button>
               <button type="button" className={iconButton} aria-label={`Move ${SECTION_LABELS[pick.type]} up`} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
               <button type="button" className={iconButton} aria-label={`Move ${SECTION_LABELS[pick.type]} down`} disabled={i === page.length - 1} onClick={() => move(i, 1)}>↓</button>
               <button type="button" className={iconButton} aria-label={`Remove ${SECTION_LABELS[pick.type]}`} onClick={() => setPage(current => current.filter((_, j) => j !== i))}>×</button>
             </li>)}
-            {!page.length && <li className="px-3 py-6 text-center text-xs text-muted">Add sections from the gallery.</li>}
+            {!page.length && <li className="px-3 py-6 text-center text-xs text-muted">Add sections to start your page.</li>}
           </ol>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={secondary} onClick={() => setView("sections")}>Add sections</button>
+            <button type="button" className={primary} onClick={() => setPicker({})}>Add sections</button>
             <button type="button" className={secondary} disabled={samePage(page, STARTER_PAGES[profile.industry])} onClick={() => setPage(STARTER_PAGES[profile.industry])}>Starter page</button>
           </div>
         </div>
@@ -229,5 +266,25 @@ function Studio({ initial, onOpenInStaging }: { initial: Saved; onOpenInStaging:
         </div>
       </div>}
     </div>
+
+    <dialog ref={dialog} aria-labelledby="picker-title" onClose={() => setPicker(null)}
+      className="m-auto h-[min(92vh,960px)] w-[min(96vw,1280px)] max-w-none overflow-hidden rounded-2xl border border-border bg-background p-0 text-foreground shadow-2xl backdrop:bg-black/40">
+      {picker && <div className="flex h-full flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+          <div>
+            <h2 id="picker-title" className="text-base font-semibold">{picker.at !== undefined && picker.at > 0 && page[picker.at - 1] ? `Add after ${SECTION_LABELS[page[picker.at - 1].type]}` : "Add sections"}</h2>
+            <p className="text-xs text-muted">Your page · {page.length} of {MAX_SECTIONS} sections. Add as many as you like; the page updates behind this window.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted" role="status" aria-live="polite">{status}</p>
+            <button type="button" className={primary} onClick={() => setPicker(null)}>Done</button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 space-y-8 overflow-y-auto px-5 pb-8">
+          {chips("sticky top-0 z-10 bg-background/95 py-3 backdrop-blur-sm")}
+          {galleryGrid(true)}
+        </div>
+      </div>}
+    </dialog>
   </div>;
 }
