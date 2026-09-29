@@ -15,7 +15,10 @@ import KitStudio, { type KitSelection, type Saved } from "@/components/kit/KitSt
 import KitLibrary, { type StudioPreset } from "@/components/kit/KitLibrary";
 import { DESIGNS } from "@/lib/kit/library";
 import { VARIANTS } from "@/lib/kit/sections";
-import { version } from "../../package.json";
+import packageJson from "../../package.json";
+
+// Default import: webpack no longer supports named exports from JSON modules.
+const { version } = packageJson;
 
 type Tab = "studio" | "generator" | "library" | "staging";
 const TABS: Array<{ id: Tab; label: string }> = [

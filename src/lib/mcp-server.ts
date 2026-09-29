@@ -9,11 +9,14 @@ import schema from "../data/bricks-schema.json";
 import { generateMcpPage } from "./mcp-generation";
 import { COLOR_PALETTES, SECTION_TYPES, STYLE_PRESETS } from "./presets";
 import { diffTemplates, mergeTemplates } from "./template-staging";
-import { version } from "../../package.json";
+import packageJson from "../../package.json";
 import { generateKitTemplate, kitCatalog, kitTemplateType } from "./kit/generate";
 import { SECTION_TYPES as KIT_SECTION_TYPES } from "./kit/sections";
 import { FONT_PAIR_IDS, RADIUS_IDS, SPACING_IDS, STYLE_IDS } from "./kit/tokens";
 import { INDUSTRY_IDS } from "./kit/content";
+
+// Default import: webpack no longer supports named exports from JSON modules.
+const { version } = packageJson;
 
 /** Stateless local computation only. No provider keys, files, WordPress access or saved user data. */
 export function createMcpServer() {
