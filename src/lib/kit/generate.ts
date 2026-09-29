@@ -1,9 +1,10 @@
 import type { BricksElement, BricksTemplate } from "../bricks-engine";
+import type { TemplateType } from "../bricks-export";
 import { flatten, globalClassesFor, classId } from "./build";
-import { contentFor, type BusinessProfile, type Content } from "./content";
-import { findVariant, isSectionType, classLibrary, type SectionType } from "./sections";
+import { contentFor, INDUSTRIES, INDUSTRY_IDS, type BusinessProfile, type Content } from "./content";
+import { findVariant, isSectionType, classLibrary, SECTION_TYPES, variantsFor, type SectionType } from "./sections";
 import { sx } from "./styles";
-import { COLOR_TOKENS, contrastChecks, resolveKit, type BrandKit, type ResolvedKit } from "./tokens";
+import { COLOR_TOKENS, contrastChecks, FONT_PAIR_IDS, FONT_PAIRS, RADIUS_IDS, resolveKit, SPACING_IDS, STYLE_IDS, STYLES, type BrandKit, type ResolvedKit } from "./tokens";
 
 export type SectionPick = { type: SectionType; variant?: string };
 
@@ -56,6 +57,25 @@ export function qualityChecks(r: ResolvedKit, elements: BricksElement[], lang: "
   if (photos) out.push({ level: "ok", message: de ? `${photos} Beispielfotos (Unsplash) – ersetzen Sie sie durch eigene Bilder oder übernehmen Sie sie vor dem Speichern in die Mediathek.` : `${photos} sample photos (Unsplash) – replace them with your own or import them into the media library before saving.` });
   if (!out.some(q => q.level === "warning")) out.unshift({ level: "ok", message: de ? "Kontrast, Überschriften und Alternativtexte sind in Ordnung." : "Contrast, headings and alt texts are fine." });
   return out;
+}
+
+/** Everything a client can choose, with display names in both languages. */
+export function kitCatalog() {
+  return {
+    styles: STYLE_IDS.map(id => ({ id, name: STYLES[id].label, description: STYLES[id].description, fonts: STYLES[id].fonts, samplePrimary: STYLES[id].samplePrimary })),
+    fontPairs: FONT_PAIR_IDS.map(id => ({ id, name: FONT_PAIRS[id].label })),
+    radius: [...RADIUS_IDS], spacing: [...SPACING_IDS], modes: ["light", "dark"], languages: ["de", "en"],
+    industries: INDUSTRY_IDS.map(id => ({ id, name: INDUSTRIES[id].label, description: INDUSTRIES[id].description })),
+    sections: SECTION_TYPES.map(type => ({ type, variants: variantsFor(type).map(v => ({ id: v.id, name: v.name })) })),
+  };
+}
+
+/** Bricks template type for a pick list: a lone navbar is a header, a lone footer a footer. */
+export function kitTemplateType(sections: Array<SectionPick | SectionType>): TemplateType {
+  const types = sections.map(s => (typeof s === "string" ? s : s.type));
+  if (types.length === 1 && types[0] === "navbar") return "header";
+  if (types.length === 1 && types[0] === "footer") return "footer";
+  return types.length > 1 ? "content" : "section";
 }
 
 export type KitResult = { template: BricksTemplate; resolved: ResolvedKit; content: Content; designSystem: DesignSystem; quality: Quality[] };

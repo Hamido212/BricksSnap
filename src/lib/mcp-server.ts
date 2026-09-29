@@ -10,6 +10,10 @@ import { generateMcpPage } from "./mcp-generation";
 import { COLOR_PALETTES, SECTION_TYPES, STYLE_PRESETS } from "./presets";
 import { diffTemplates, mergeTemplates } from "./template-staging";
 import { version } from "../../package.json";
+import { generateKitTemplate, kitCatalog, kitTemplateType } from "./kit/generate";
+import { SECTION_TYPES as KIT_SECTION_TYPES } from "./kit/sections";
+import { FONT_PAIR_IDS, RADIUS_IDS, SPACING_IDS, STYLE_IDS } from "./kit/tokens";
+import { INDUSTRY_IDS } from "./kit/content";
 
 /** Stateless local computation only. No provider keys, files, WordPress access or saved user data. */
 export function createMcpServer() {
@@ -67,6 +71,23 @@ export function createMcpServer() {
     description: "Generate an ordered page of 1–12 built-in section types with shared preset/palette. Returns a template and content warnings. No files or WordPress writes.",
     inputSchema: { ...generationSchema, sections: z.array(z.string().max(100)).min(1).max(12) }, annotations: { ...annotations, idempotentHint: false },
   }, async input => safely(() => generateMcpPage(input)));
+  server.registerTool("bricks_kit_options", {
+    description: "List the template kit's choices: style directions, font pairs, radius, spacing, industries with ready-made German and English copy, and every section type with its layout variants. Use the IDs with bricks_kit_page.",
+    inputSchema: {}, annotations,
+  }, async () => reply(kitCatalog()));
+  server.registerTool("bricks_kit_page", {
+    description: "Build modern sections or a whole page from the template kit, without an AI call: pick section types and layout variants, a brand kit (style, primary color, fonts, radius, spacing, light/dark) and a business profile (industry, language de/en, name, city, phone, services). Returns a Bricks import object whose styling lives in bs- global classes with var(--bs-*, fallback) values, the design system (palette colors and global variables) for central editing in Bricks, and quality checks (contrast, headings, alt texts). Sample photos come from Unsplash; nothing is saved or published.",
+    inputSchema: {
+      sections: z.array(z.object({ type: z.enum(KIT_SECTION_TYPES), variant: z.string().max(40).optional() })).min(1).max(16),
+      kit: z.object({ style: z.enum(STYLE_IDS), primary: hex, accent: hex, fonts: z.enum(FONT_PAIR_IDS), radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]) }).partial().strict().optional(),
+      profile: z.object({ industry: z.enum(INDUSTRY_IDS), language: z.enum(["de", "en"]), name: z.string().max(120), city: z.string().max(60), phone: z.string().max(40), email: z.string().max(120), address: z.string().max(160), tagline: z.string().max(160), services: z.array(z.string().max(60)).max(6) }).partial().strict().optional(),
+      title: z.string().max(120).default("BricksSnap Kit"),
+    }, annotations,
+  }, async ({ sections, kit, profile, title }) => safely(() => {
+    const result = generateKitTemplate({ kit: kit ?? {}, profile: profile ?? {}, sections });
+    const { palette, variables, category, css } = result.designSystem;
+    return { template: buildBricksImportJson(result.template, title, kitTemplateType(sections)), designSystem: { palette, variables, category, css, fonts: result.designSystem.fonts }, quality: result.quality };
+  }));
   server.registerTool("bricks_merge_templates", {
     description: "Stage an additive merge of two strict Bricks JSON templates: prepend, append, or after a top-level element. Preserves existing elements, remaps incoming ID collisions, rejects ambiguous references and dependency conflicts. Returns template, structural diff and warnings. Review in Bricks before publishing; never writes to WordPress.",
     inputSchema: { baseline: z.string().max(1_000_000), addition: z.string().max(1_000_000), position: z.enum(["prepend", "append", "after"]).default("append"), afterId: z.string().regex(/^[a-z0-9]{6}$/).optional() }, annotations,
