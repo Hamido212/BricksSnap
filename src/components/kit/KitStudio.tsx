@@ -166,11 +166,9 @@ function Studio({ initial, persist, onOpenInStaging }: { initial: Saved; persist
         <button type="button" className={iconButton} aria-label="Show brand kit" title="Show brand kit" aria-expanded={false} aria-controls="kit-panel" onClick={() => setKitCollapsed(false)}>›</button>
         <span className="flex flex-col gap-1.5" aria-hidden>{(["primary", "accent", "bg", "heading"] as const).map(t => <span key={t} className="h-5 w-5 rounded-full border border-black/10" style={{ background: swatches[t] }}/>)}</span>
       </div>}
-      <div id="kit-panel" className={`${panelOpen ? "mt-4 block" : "hidden"} rounded-xl border border-border bg-card p-5 lg:mt-0 ${kitCollapsed ? "lg:hidden" : "lg:block"}`}>
-        <div className="mb-4 hidden items-center justify-between lg:flex">
-          <p className="label-mono">Brand kit</p>
-          <button type="button" className="text-xs text-muted hover:text-foreground" aria-expanded={true} aria-controls="kit-panel" onClick={() => setKitCollapsed(true)}>‹ Hide</button>
-        </div>
+      <div id="kit-panel" className={`${panelOpen ? "mt-4 block" : "hidden"} relative rounded-xl border border-border bg-card p-5 lg:mt-0 ${kitCollapsed ? "lg:hidden" : "lg:block"}`}>
+        {/* Sits on the line of the panel's own "Brand kit" heading. */}
+        <button type="button" className="absolute right-5 top-5 hidden text-xs text-muted hover:text-foreground lg:block" aria-label="Hide brand kit" aria-expanded={true} aria-controls="kit-panel" onClick={() => setKitCollapsed(true)}>‹ Hide</button>
         <KitControls kit={kit} onKit={setKit} profile={profile} onProfile={updateProfile}/>
       </div>
     </aside>
