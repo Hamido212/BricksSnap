@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { BricksElement } from "../src/lib/bricks-engine";
 import { classId } from "../src/lib/kit/build";
 import { contentFor, INDUSTRY_IDS } from "../src/lib/kit/content";
 import { designSystemFor, generateKitTemplate } from "../src/lib/kit/generate";
@@ -179,5 +180,26 @@ describe("studio helpers", () => {
     expect(kitTemplateType([{ type: "footer" }])).toBe("footer");
     expect(kitTemplateType(["hero"])).toBe("section");
     expect(kitTemplateType(["navbar", "hero"])).toBe("content");
+  });
+});
+
+describe("preview sanitizing", () => {
+  const el = (id: string, name: string, settings: Record<string, unknown>): BricksElement => ({ id, name, parent: 0, children: [], settings });
+  it("keeps only attribute-free inline tags in text and safe URLs in links and backgrounds", () => {
+    const { html, css } = renderPreview({ content: [
+      el("aaaaaa", "text-basic", { tag: "p", text: 'A &amp; B<br/><strong class="x">bold</strong><script>alert(1)</script><img src=x onerror=alert(1)><scr<script>ipt>' }),
+      el("bbbbbb", "text-link", { text: "Go", link: { url: "javascript:alert(1)" } }),
+      el("cccccc", "button", { text: "Up", link: { url: "//evil.example/x" } }),
+      el("dddddd", "text-link", { text: "Call", link: { url: "tel:+49421" } }),
+      el("eeeeee", "div", { _background: { image: { url: 'https://images.example/a.jpg")} body{color:red' } } }),
+    ], globalClasses: [] });
+    expect(html).toContain('A &amp; B<br>&lt;strong class="x"&gt;bold</strong>&lt;script&gt;alert(1)&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;&lt;scr&lt;script&gt;ipt&gt;');
+    expect(html).not.toMatch(/<script|<img|<strong class/);
+    expect(html).toContain('href="#"');
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain("//evil.example");
+    expect(html).toContain('href="tel:+49421"');
+    expect(css).toContain('url("https://images.example/a.jpg%22%29} body{color:red")');
+    expect(css).not.toContain('a.jpg")');
   });
 });

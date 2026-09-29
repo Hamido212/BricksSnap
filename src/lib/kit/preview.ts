@@ -13,9 +13,23 @@ const BREAKPOINTS: Record<string, number> = { tablet_portrait: 991, mobile_lands
 const PSEUDO = /^(hover|focus|focus-visible|active|before|after|focus-within|visited)$/;
 
 const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-/** Text controls hold trusted markup the kit generated; strip anything executable for the preview. */
-const safeHtml = (value: string) => value.replace(/<\s*(script|style|iframe|object|embed)[\s\S]*?<\/\s*\1\s*>/gi, "").replace(/<\s*(script|style|iframe|object|embed)[^>]*>/gi, "").replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "").replace(/javascript:/gi, "");
-const safeUrl = (value: unknown) => (typeof value === "string" && /^(https?:|mailto:|tel:|#|\/)/i.test(value.trim()) ? value.trim() : "#");
+/** Inline tags a text control may keep in the preview; they are rebuilt without attributes. */
+const INLINE_TAGS = new Set(["br", "strong", "em", "b", "i", "span", "small"]);
+/**
+ * Text controls hold HTML. Allowlist, not blacklist: every tag outside INLINE_TAGS and every attribute
+ * is shown as text, so nothing executable reaches the preview. Existing entities (&amp;) stay intact.
+ */
+function safeHtml(value: string): string {
+  return value.split(/(<[^<>]*>)/g).map(part => {
+    const tag = part.match(/^<(\/?)([a-z]+)\s*\/?>$/i);
+    if (tag && INLINE_TAGS.has(tag[2].toLowerCase())) return `<${tag[1]}${tag[2].toLowerCase()}>`;
+    return part.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }).join("");
+}
+/** Only web, mail, phone and same-page or site-relative links; anything else becomes "#". */
+const safeUrl = (value: unknown) => (typeof value === "string" && /^(https?:\/\/|mailto:|tel:|#|\/(?!\/))/i.test(value.trim()) ? value.trim() : "#");
+/** A URL inside CSS url("…"). */
+const cssUrl = (value: unknown) => safeUrl(value).replace(/["\\\n\r()]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
 
 const LENGTH = /^(-?\d+(\.\d+)?)$/;
 const len = (value: unknown) => { const s = String(value ?? "").trim(); return LENGTH.test(s) ? `${s}px` : s; };
@@ -73,7 +87,7 @@ function declarations(control: string, value: unknown): string[] {
       const c = color(b.color);
       if (c) out.push(`background-color: ${c}`);
       const img = b.image as { url?: string } | undefined;
-      if (img?.url) out.push(`background-image: url("${safeUrl(img.url)}")`, `background-size: ${b.size ?? "cover"}`, `background-position: ${b.position ?? "center center"}`, `background-repeat: ${b.repeat ?? "no-repeat"}`);
+      if (img?.url) out.push(`background-image: url("${cssUrl(img.url)}")`, `background-size: ${b.size ?? "cover"}`, `background-position: ${b.position ?? "center center"}`, `background-repeat: ${b.repeat ?? "no-repeat"}`);
       return out;
     }
     case "_border": {
