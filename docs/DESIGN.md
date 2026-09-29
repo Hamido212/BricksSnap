@@ -76,7 +76,7 @@ Every generated section is built from **tokens → Bricks variables and palette 
 
 | Group | Bricks storage | Names |
 |---|---|---|
-| Colors | Color palette "BricksSnap" (each color defines its CSS variable) | `--bs-primary`, `--bs-primary-hover`, `--bs-on-primary`, `--bs-primary-soft`, `--bs-accent`, `--bs-bg`, `--bs-surface`, `--bs-surface-alt`, `--bs-text`, `--bs-heading`, `--bs-muted`, `--bs-border`, `--bs-inverse`, `--bs-on-inverse` |
+| Colors | Color palette "BricksSnap" (each color defines its CSS variable) | `--bs-primary`, `--bs-primary-hover`, `--bs-on-primary`, `--bs-primary-soft`, `--bs-primary-edge`, `--bs-link`, `--bs-accent`, `--bs-bg`, `--bs-surface`, `--bs-surface-alt`, `--bs-text`, `--bs-heading`, `--bs-muted`, `--bs-border`, `--bs-inverse`, `--bs-on-inverse` |
 | Type | Global variables | `--bs-font-heading`, `--bs-font-body`, `--bs-heading-weight`, `--bs-heading-tracking`, `--bs-text-xs` … `--bs-text-display` |
 | Space | Global variables | `--bs-space-xs` … `--bs-space-xl`, `--bs-space-section`, `--bs-container` |
 | Shape | Global variables | `--bs-radius-s`, `--bs-radius-m`, `--bs-radius-l`, `--bs-radius-btn`, `--bs-shadow` |
