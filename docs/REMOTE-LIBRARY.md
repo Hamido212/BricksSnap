@@ -2,9 +2,9 @@
 
 A BricksSnap deployment can act as a **Remote Library** source in Bricks. Bricks users browse the design library in the builder and insert pages and sections like templates from any other Bricks site. No JSON download is needed.
 
-Since 0.9.0 the library serves the Studio's designs instead of the older classic catalog, in German and English (104 templates):
+Since 0.9.0 the library serves the Studio's designs instead of the older classic catalog, in German and English (106 templates):
 
-- **Pages.** Each of the 12 designs (for example "Nord", "Trattoria", "Kontur") as a complete page.
+- **Pages.** Each of the 13 designs (for example "Nord", "Trattoria", "Lachfalte") as a complete page.
 - **Sections.** All 40 layouts as single sections, in the "Fundament" design.
 
 Styling travels as `bs-` global classes. Class IDs are the same in every design, so sections inserted later take on the look of the first design the site received. To change the look everywhere, install the design system from the Studio (see [Studio](STUDIO.md)).

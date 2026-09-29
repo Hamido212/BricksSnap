@@ -60,7 +60,7 @@ export function baseClasses(r: ResolvedKit): ClassLibrary {
   const x = sx(r);
   const { v } = x;
   const style = r.style;
-  const headingBase = (className: string) => merge(x.type({ weight: "heading-weight", ls: "heading-tracking", color: "heading" }), { _margin: { top: "0", bottom: "0" } }, x.font(className, "heading", " text-wrap: balance;"));
+  const headingBase = (className: string) => merge(x.type({ weight: "heading-weight", ls: "heading-tracking", color: "heading" }), { _margin: { top: "0", bottom: "0" } }, x.font(className, "heading", " text-wrap: balance; overflow-wrap: anywhere; hyphens: auto;"));
 
   const eyebrow: Record<typeof style.eyebrow, Settings> = {
     text: x.type({ size: "text-xs", weight: "600", ls: "0.12em", transform: "uppercase", color: "link" }),
@@ -115,11 +115,12 @@ export function baseClasses(r: ResolvedKit): ClassLibrary {
     "bs-text": merge(x.type({ color: "text" }), { _margin: { top: "0", bottom: "0" } }),
     "bs-small": merge(x.type({ size: "text-s", lh: "1.55", color: "muted" }), { _margin: { top: "0", bottom: "0" } }),
 
-    "bs-btn-row": { _display: "flex", _direction: "row", _flexWrap: "wrap", _alignItems: "center", _columnGap: "12px", _rowGap: "12px" },
+    // On phones, buttons stack at full width instead of squeezing side by side.
+    "bs-btn-row": { _display: "flex", _direction: "row", _flexWrap: "wrap", _alignItems: "center", _columnGap: "12px", _rowGap: "12px", "_direction:mobile_portrait": "column", "_alignItems:mobile_portrait": "stretch", "_width:mobile_portrait": "100%", _cssCustom: ".bs-btn-row > .bs-btn { justify-content: center; }" },
     // Buttons: bs-btn (shape and type), exactly one size and exactly one variant (colors and border line).
     "bs-btn-size--m": merge(x.pad("14px", "24px"), x.type({ size: "16px" })),
     "bs-btn-size--s": merge(x.pad("10px", "18px"), x.type({ size: "15px" })),
-    "bs-btn": merge(x.round("radius-btn"), x.type({ weight: btnWeight, lh: "1.2", ls: "0", decoration: "none" }), {
+    "bs-btn": merge(x.round("radius-btn"), x.type({ weight: btnWeight, lh: "1.2", ls: "0", decoration: "none", align: "center" }), {
       _cssTransition: "background-color .2s ease, border-color .2s ease, color .2s ease, transform .2s ease",
       "_transform:hover": { translateY: "-1px" },
     }),

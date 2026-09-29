@@ -2,7 +2,7 @@ import type { IconKey } from "../icons";
 import type { PhotoKey } from "../images";
 import type { Language } from "../tokens";
 
-export const INDUSTRY_IDS = ["kfz", "handwerk", "praxis", "restaurant", "agentur", "business"] as const;
+export const INDUSTRY_IDS = ["kfz", "handwerk", "praxis", "zahnarzt", "restaurant", "agentur", "business"] as const;
 export type IndustryId = typeof INDUSTRY_IDS[number];
 
 /** What the user tells BricksSnap about the business; everything is optional except the industry. */

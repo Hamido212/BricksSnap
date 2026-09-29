@@ -4,7 +4,7 @@ The Studio is BricksSnap's first tab. It builds modern sections and pages withou
 
 ## Library
 
-The **Library** tab shows 12 ready-made designs: a brand kit, an industry and a page, chosen to work as they are. Filter them by industry and style and switch the sample text between German and English. Open a design to see the whole page at desktop and phone width and all of its sections. Download or copy the page or single sections, or **Customize in Studio** to continue from it. The same designs are available in Bricks through the [remote library](REMOTE-LIBRARY.md).
+The **Library** tab shows 13 ready-made designs: a brand kit, an industry and a page, chosen to work as they are. Filter them by industry and style and switch the sample text between German and English. Open a design to see the whole page at desktop, tablet and phone width and all of its sections. Download or copy the page or single sections, or **Customize in Studio** to continue from it. The same designs are available in Bricks through the [remote library](REMOTE-LIBRARY.md).
 
 ## 1. Brand kit
 
@@ -27,7 +27,7 @@ The panel on the left sets how every layout looks. All previews update live.
 
 ## 2. Business
 
-- **Industry.** Kfz-Zulassungsdienst, trades, medical practice, restaurant, agency or general business. Each industry comes with complete sample copy for every section type.
+- **Industry.** Kfz-Zulassungsdienst, trades, medical practice, dental practice, restaurant, agency or general business. Each industry comes with complete sample copy for every section type.
 - **Sample text language.** German or English.
 - **Your details.** Name, city, phone, email, address and up to six services are written into the copy. Phone numbers become `tel:` links, and your services replace the sample services in order.
 

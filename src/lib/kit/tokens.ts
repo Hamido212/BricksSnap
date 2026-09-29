@@ -219,7 +219,7 @@ export function resolveKit(input: Partial<BrandKit>): ResolvedKit {
     "space-xl": "clamp(48px, 32px + 4vw, 80px)",
     "space-card": "clamp(22px, 18px + 1vw, 32px)",
     "space-section": SECTION_SPACE[kit.spacing],
-    gutter: "clamp(20px, 4vw, 40px)",
+    gutter: "clamp(24px, 5vw, 40px)",
     container: `${style.container}px`,
     "radius-s": `${radius.s}px`,
     "radius-m": `${radius.m}px`,

@@ -219,3 +219,16 @@ describe("design library", () => {
     }
   });
 });
+
+describe("phone layout", () => {
+  it("stacks button rows on phones, lets headings wrap and previews in the page language", () => {
+    const preview = kitPreview(normalizeKit({ style: "warm" }), { industry: "zahnarzt", language: "de" }, [{ type: "hero", variant: "cover" }]);
+    const phone = preview.css.slice(preview.css.indexOf("@container bsp (max-width: 478px)"));
+    expect(phone).toContain(".bs-btn-row { flex-direction: column; }");
+    expect(phone).toContain(".bs-btn-row { align-items: stretch; }");
+    expect(preview.css).toContain(".bs-hero .bs-btn-row { margin-top: 8px; }");
+    expect(preview.css).toMatch(/\.bs-title \{[^}]*overflow-wrap: anywhere; hyphens: auto;/);
+    expect(preview.html.startsWith('<div lang="de">')).toBe(true);
+    expect(preview.html).toContain("Zahnarztpraxis in");
+  });
+});

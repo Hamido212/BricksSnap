@@ -19,7 +19,7 @@ export type StudioPreset = { kit: BrandKit; profile: { industry: IndustryId; lan
 const secondary = "inline-flex h-9 items-center justify-center rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground hover:border-border-hover hover:bg-subtle";
 const primary = "inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-white hover:bg-primary-hover";
 const chip = (active: boolean) => `h-8 shrink-0 rounded-full border px-3 text-xs transition-colors ${active ? "border-primary bg-primary-soft font-medium text-primary-hover" : "border-border bg-card text-text hover:border-border-hover"}`;
-const VIEWPORTS = { desktop: 1280, phone: 390 } as const;
+const VIEWPORTS = { desktop: 1280, tablet: 820, phone: 390 } as const;
 const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "brickssnap";
 
 function Swatches({ kit }: { kit: BrandKit }) {
@@ -82,7 +82,7 @@ export default function KitLibrary({ onCustomize, onOpenInStaging }: { onCustomi
       </div>
       <div className="flex rounded-lg border border-border bg-subtle p-0.5 w-fit" role="group" aria-label="Preview width">
         {(Object.keys(VIEWPORTS) as Array<keyof typeof VIEWPORTS>).map(v => <button key={v} type="button" aria-pressed={viewport === v} onClick={() => setViewport(v)}
-          className={`h-8 rounded-md px-3 text-xs ${viewport === v ? "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(28,25,23,.08)]" : "text-muted hover:text-foreground"}`}>{v === "desktop" ? "Desktop" : "Phone"} <span className="font-mono text-[11px] text-muted">{VIEWPORTS[v]}</span></button>)}
+          className={`h-8 rounded-md px-3 text-xs ${viewport === v ? "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(28,25,23,.08)]" : "text-muted hover:text-foreground"}`}>{v[0].toUpperCase() + v.slice(1)} <span className="font-mono text-[11px] text-muted">{VIEWPORTS[v]}</span></button>)}
       </div>
       <div className="overflow-hidden rounded-xl border border-border bg-subtle">
         <div className="mx-auto bg-white" style={{ maxWidth: VIEWPORTS[viewport] }}><KitPreviewFrame html={detail.page.html} css={detail.page.css} width={VIEWPORTS[viewport]} title={`Preview of ${title}`}/></div>
