@@ -316,6 +316,41 @@ describe("guarded apply and restore", () => {
     expect(site.classes).toHaveLength(1);
   });
 
+  it("gives a staged class a new ID when the site uses its ID for another class, then applies", async () => {
+    const site = new FakeBricksSite(section("hero01", "Hero"));
+    // A foreign class that happens to have the staged class's ID.
+    site.classes.push({ id: "bsx123", name: "footer-grid", settings: { _gap: "4px" } });
+    const { apply, createClasses } = await connectTo(site);
+    const proposal = { content: section("feat01", "Features", { _cssGlobalClasses: ["bsx123"] }), globalClasses: [{ id: "bsx123", name: "bs-title", settings: { _margin: { top: "0" } } }] };
+
+    // Saving first is refused instead of pointing the element at the foreign class.
+    await expect(apply(proposal, site.digest())).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/uses the ID of bs-title \(bsx123\) for another class \(footer-grid\)/) });
+    expect(site.writes).toBe(0);
+
+    const result = await createClasses(proposal);
+    expect(result.remapped).toHaveLength(1);
+    const newId = result.remapped[0].newId;
+    expect(result.remapped[0]).toMatchObject({ id: "bsx123", name: "bs-title", siteName: "footer-grid" });
+    expect(newId).toMatch(/^[a-z0-9]{6}$/);
+    expect(newId).not.toBe("bsx123");
+    expect(result.created).toEqual([{ id: newId, name: "bs-title" }]);
+    expect(site.classes.find(c => c.id === "bsx123")).toEqual({ id: "bsx123", name: "footer-grid", settings: { _gap: "4px" } });
+    expect(result.template.content[0].settings._cssGlobalClasses).toEqual([newId]);
+    expect(result.template.globalClasses.map(c => c.id)).toEqual([newId]);
+    await expect(apply(result.template, site.digest())).resolves.toMatchObject({ applied: true });
+  });
+
+  it("reports a class the site defines differently under the same ID and name, and keeps it", async () => {
+    const site = new FakeBricksSite(section("hero01", "Hero"));
+    site.classes.push({ id: "bst001", name: "bs-title", settings: { _typography: { "font-weight": "700" } } });
+    const { createClasses } = await connectTo(site);
+    const proposal = { content: section("feat01", "Features", { _cssGlobalClasses: ["bst001"] }), globalClasses: [{ id: "bst001", name: "bs-title", settings: { _typography: { "font-weight": "500" } } }] };
+    const result = await createClasses(proposal);
+    expect(result).toMatchObject({ created: [], remapped: [], mismatched: [{ id: "bst001", name: "bs-title" }] });
+    expect(site.classWrites).toBe(0);
+    expect(site.classes.find(c => c.id === "bst001")!.settings).toEqual({ _typography: { "font-weight": "700" } });
+  });
+
   it("refuses class creation when classes changed after the read, or when disabled", async () => {
     const site = new FakeBricksSite(section("hero01", "Hero"));
     site.classEditBeforeWrite = true;

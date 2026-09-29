@@ -108,8 +108,15 @@ describe("site class checks", () => {
     };
     expect(siteClassWarnings(template, site)).toEqual([
       "Global class name btn already exists on the site with ID cls001; importing would create a second class.",
-      "Global class card (cls002) differs from the site's definition of card.",
+      "Global class card already exists on the site with a different definition (for example from another BricksSnap design). The page will use the site's version; it is never overwritten.",
       "Global classes not defined in the template or on the site: ghost1.",
+    ]);
+  });
+
+  it("reports a site class that uses a staged class's ID under another name", () => {
+    const template = { ...wrapTemplate([el("aaa001", ["cls001"])]), globalClasses: [{ id: "cls001", name: "bs-title", settings: {} }] };
+    expect(siteClassWarnings(template, site)).toEqual([
+      "The site uses the ID cls001 of global class bs-title for another class (btn). \"Create missing global classes\" gives bs-title a new ID before saving.",
     ]);
   });
 });

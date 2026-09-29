@@ -31,7 +31,7 @@ import { diffTemplates, readStagingTemplate, stableJson } from "./template-stagi
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 import packageJson from "../../package.json";
 import { downloadImage, findExternalImages, MAX_IMAGES, replaceImages, uploadName, type SiteImage } from "./wordpress-media";
-import { planGlobalClasses, referencedClassIds, remapGlobalClasses } from "./template-classes";
+import { foreignClassIds, planGlobalClasses, referencedClassIds, remapGlobalClasses } from "./template-classes";
 import { readTemplateConditions, type TemplateCondition, type TemplateType } from "./template-conditions";
 
 type JsonRecord = Record<string, unknown>;
@@ -547,6 +547,8 @@ export async function applyWordPressPage(
         const names = missing.map(id => proposal.globalClasses?.find(c => c.id === id)?.name ?? id);
         throw new RequestError(`The change uses global classes that do not exist on the site: ${names.join(", ")}. Create the missing global classes first, or remove them from the section.`, 422);
       }
+      const foreign = foreignClassIds(proposal, [...site.values()].map(c => ({ id: String(c.id), name: String(c.name) })));
+      if (foreign.length) throw new RequestError(`The site uses the ID of ${foreign.map(f => `${f.name} (${f.id})`).join(", ")} for another class (${foreign.map(f => f.siteName).join(", ")}). Run "Create missing global classes" first; it gives these classes new IDs.`, 422);
       for (const cls of proposal.globalClasses ?? []) {
         const existing = site.get(cls.id);
         if (referenced.has(cls.id) && existing && stableJson(isRecord(existing.settings) ? existing.settings : {}) !== stableJson(cls.settings ?? {})) warnings.push(`Global class ${cls.name} keeps the site's definition; staged settings for it are not saved.`);
@@ -724,12 +726,14 @@ export async function createWordPressTemplate(
     await requireWriteAbility(session, "bricks/create-template");
     const referenced = referencedClassIds(proposal);
     if (referenced.length) {
-      const site = new Set((await listAll(session, "bricks/list-global-classes")).filter(isRecord).map(c => String(c.id)));
+      const site = new Map((await listAll(session, "bricks/list-global-classes")).filter(isRecord).map(c => [String(c.id), c]));
       const missing = referenced.filter(id => !site.has(id));
       if (missing.length) {
         const names = missing.map(id => proposal.globalClasses?.find(c => c.id === id)?.name ?? id);
         throw new RequestError(`The template uses global classes that do not exist on the site: ${names.join(", ")}. Create the missing global classes first, or remove them from the section.`, 422);
       }
+      const foreign = foreignClassIds(proposal, [...site.values()].map(c => ({ id: String(c.id), name: String(c.name) })));
+      if (foreign.length) throw new RequestError(`The site uses the ID of ${foreign.map(f => `${f.name} (${f.id})`).join(", ")} for another class (${foreign.map(f => f.siteName).join(", ")}). Run "Create missing global classes" first; it gives these classes new IDs.`, 422);
     }
     let created: unknown;
     try {
@@ -780,12 +784,14 @@ export async function createWordPressClasses(
   signal: AbortSignal
 ): Promise<WordPressClassesResult> {
   const proposal = readStagingTemplate(request.template);
-  if (!referencedClassIds(proposal).length) return { template: proposal, created: [], reused: [], conflicts: [], undefinedIds: [] };
+  if (!referencedClassIds(proposal).length) return { template: proposal, created: [], reused: [], conflicts: [], undefinedIds: [], remapped: [], mismatched: [] };
 
   return withSession(credentials, signal, async session => {
     const { classes: siteClasses, ownership } = await listGlobalClasses(session);
     const plan = planGlobalClasses(proposal, siteClasses);
-    const ids = new Map(plan.reuse.map(r => [r.id, r.siteId]));
+    const ids = new Map([...plan.reuse.map(r => [r.id, r.siteId] as const), ...plan.remapped.map(r => [r.id, r.newId] as const)]);
+    // A class created under a new ID (the site used its ID for another class) still answers for the staged ID.
+    const stagedId = new Map(plan.remapped.map(r => [r.newId, r.id]));
     const definitions = siteClasses.filter(c => plan.reuse.some(r => r.siteId === c.id));
     const created: WordPressClassesResult["created"] = [];
 
@@ -808,14 +814,15 @@ export async function createWordPressClasses(
       const returned = Array.isArray(saved.classes) ? saved.classes.filter(isRecord) : [];
       for (const cls of plan.create) {
         const siteId = typeof byName[cls.name] === "string" ? String(byName[cls.name]) : cls.id;
-        if (siteId !== cls.id) ids.set(cls.id, siteId);
+        const referenced = stagedId.get(cls.id) ?? cls.id;
+        if (siteId !== referenced) ids.set(referenced, siteId);
         const stored = returned.find(r => r.id === siteId);
         definitions.push(stored ? siteClass(stored) : { ...cls, id: siteId });
         created.push({ id: siteId, name: cls.name });
       }
     }
 
-    return { template: remapGlobalClasses(proposal, ids, definitions), created, reused: plan.reuse, conflicts: plan.conflicts, undefinedIds: plan.undefinedIds };
+    return { template: remapGlobalClasses(proposal, ids, definitions), created, reused: plan.reuse, conflicts: plan.conflicts, undefinedIds: plan.undefinedIds, remapped: plan.remapped, mismatched: plan.mismatched };
   });
 }
 

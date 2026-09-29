@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BricksElement } from "../src/lib/bricks-engine";
-import { planGlobalClasses, referencedClassIds, remapGlobalClasses } from "../src/lib/template-classes";
+import { foreignClassIds, planGlobalClasses, referencedClassIds, remapGlobalClasses } from "../src/lib/template-classes";
 
 const el = (id: string, classes?: unknown[]): BricksElement => ({ id, name: "div", parent: 0, children: [], settings: classes ? { _cssGlobalClasses: classes } : {} });
 const site = [{ id: "site01", name: "btn", settings: { _padding: { top: "1rem" } } }];
@@ -25,7 +25,23 @@ describe("global class planning", () => {
       reuse: [{ id: "new002", siteId: "site01", name: "btn" }],
       conflicts: [{ id: "new003", siteId: "site01", name: "btn" }, { id: "new004", siteId: "", name: "card" }],
       undefinedIds: ["new005"],
+      remapped: [],
+      mismatched: [],
     });
+  });
+
+  it("never trusts a class ID alone", () => {
+    const siteClasses = [...site, { id: "abc123", name: "footer-grid", settings: {} }, { id: "tit001", name: "bs-title", settings: { _gap: "1px" } }];
+    const plan = planGlobalClasses({
+      content: [el("a", ["abc123", "tit001"])],
+      globalClasses: [{ id: "abc123", name: "bs-card", settings: {} }, { id: "tit001", name: "bs-title", settings: { _gap: "2px" } }],
+    } as never, siteClasses);
+    expect(plan.remapped).toEqual([{ id: "abc123", newId: plan.create[0].id, name: "bs-card", siteName: "footer-grid" }]);
+    expect(plan.create).toEqual([{ id: plan.remapped[0].newId, name: "bs-card", settings: {} }]);
+    expect(siteClasses.map(c => c.id)).not.toContain(plan.remapped[0].newId);
+    expect(plan.mismatched).toEqual([{ id: "tit001", name: "bs-title" }]);
+    expect(foreignClassIds({ content: [el("a", ["abc123", "tit001"])], globalClasses: [{ id: "abc123", name: "bs-card", settings: {} }, { id: "tit001", name: "bs-title", settings: {} }] } as never, siteClasses))
+      .toEqual([{ id: "abc123", name: "bs-card", siteName: "footer-grid" }]);
   });
 
   it("switches references and replaces definitions without duplicates", () => {

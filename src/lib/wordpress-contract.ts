@@ -205,6 +205,10 @@ export type WordPressClassesResult = {
   conflicts: Array<{ id: string; siteId: string; name: string }>;
   /** Referenced class IDs without a definition in the proposal. */
   undefinedIds: string[];
+  /** Staged classes whose ID the site uses for another class; created under a new ID. */
+  remapped: Array<{ id: string; newId: string; name: string; siteName: string }>;
+  /** Same ID and name on the site with another definition; the site's class is kept. */
+  mismatched: Array<{ id: string; name: string }>;
 };
 
 export type RenderedMarkup = { html: string; css: string };

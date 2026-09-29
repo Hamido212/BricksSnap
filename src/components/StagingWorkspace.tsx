@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { BricksGlobalClass, BricksTemplate } from "@/lib/bricks-engine";
 import { diffTemplates, mergeTemplates, readStagingTemplate, siteClassWarnings } from "@/lib/template-staging";
+import { knownClassIds } from "@/lib/template-classes";
 import { generateMcpPage } from "@/lib/mcp-generation";
 import JsonPreview from "./JsonPreview";
 import StructurePreview from "./StructurePreview";
@@ -174,7 +175,7 @@ export default function StagingWorkspace({ generatedTemplate, kit }: { generated
       credentials={credentials}
       proposal={review.template}
       onProposalChange={template => setReview(current => current && { ...current, version: current.version + 1, template, diff: diffTemplates(current.before, template) })}
-      knownClassIds={[...review.before.globalClasses.map(c => c.id), ...(siteClasses ?? []).map(c => c.id)]}
+      knownClassIds={knownClassIds(review.template, [...review.before.globalClasses, ...(siteClasses ?? [])])}
       classesMissing={classesMissing}
     />}
     {source?.documentDigest && credentials && credentials.endpoint === source.endpoint && <WordPressApply
