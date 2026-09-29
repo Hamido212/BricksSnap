@@ -16,14 +16,15 @@ import BricksRenderPreview from "./BricksRenderPreview";
 import SiteDesignGenerator from "./SiteDesignGenerator";
 import { pageDesign, type SitePalette } from "@/lib/site-design";
 import type { WordPressCredentials, WordPressPageResult, WordPressSource } from "@/lib/wordpress-contract";
-import type { DesignSystem } from "@/lib/kit/generate";
+import type { BrandKit } from "@/lib/kit/tokens";
+import WordPressDesignSystem from "./WordPressDesignSystem";
 
 // `version` counts changes to the reviewed template after review (imported images, created classes).
 type Review = { id: number; version: number; before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
 const control = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
 const button = "rounded-lg border border-border px-3 py-2 text-sm hover:bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed";
 
-export default function StagingWorkspace({ generatedTemplate }: { generatedTemplate: BricksTemplate | null; designSystem?: DesignSystem | null }) {
+export default function StagingWorkspace({ generatedTemplate, kit }: { generatedTemplate: BricksTemplate | null; kit?: BrandKit | null }) {
   const [baseline, setBaseline] = useState("");
   const [candidate, setCandidate] = useState("");
   const [mode, setMode] = useState<"append" | "prepend" | "after" | "compare">("append");
@@ -124,13 +125,14 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         setSource(newSource);
       }}
     />
+    {credentials && kit && <WordPressDesignSystem key={`${credentials.endpoint}#${JSON.stringify(kit)}`} credentials={credentials} kit={kit}/>}
     {credentials && <WordPressTemplates key={`${credentials.endpoint}#${templatesVersion}`} credentials={credentials} onLoad={loadIntoBaseline} currentId={source?.postId}/>}
     {designPalettes.length > 0 && credentials && <SiteDesignGenerator key={`${credentials.endpoint}#${source?.postId ?? ""}#${sitePalettes.length}`} palettes={designPalettes} fonts={loadedDesign.fonts} host={new URL(credentials.endpoint).host} onGenerate={json => { edit("candidate", json); if (mode === "compare") setMode("append"); }}/>}
     <div className="grid gap-5 lg:grid-cols-2">
       {(["baseline", "candidate"] as const).map((side, i) => <div key={side} className="min-w-0 rounded-xl border border-border bg-card p-5 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-medium">{i + 1}. {side === "baseline" ? "Existing page" : "New section or version"}</h3>
-          {side === "candidate" && <button className={button} disabled={!generatedTemplate} onClick={() => edit(side, JSON.stringify(generatedTemplate, null, 2))}>Use generator result</button>}
+          {side === "candidate" && <button className={button} disabled={!generatedTemplate} onClick={() => edit(side, JSON.stringify(generatedTemplate, null, 2))}>Use latest result</button>}
         </div>
         <p className="text-xs text-muted">{side === "baseline" ? "Paste a Bricks JSON export. Leave empty to start a new page." : "Add a section, or supply a complete version when comparing."}</p>
         <label className="block text-xs text-muted" htmlFor={`staging-${side}-file`}>Import JSON file</label>

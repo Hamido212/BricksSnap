@@ -25,7 +25,7 @@ const iconButton = "inline-flex h-7 w-7 shrink-0 items-center justify-center rou
 const samePage = (a: SectionPick[], b: SectionPick[]) => a.length === b.length && a.every((s, i) => s.type === b[i].type && s.variant === b[i].variant);
 const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "brickssnap";
 
-export type KitSelection = { template: BricksTemplate; designSystem: DesignSystem; title: string };
+export type KitSelection = { template: BricksTemplate; designSystem: DesignSystem; kit: BrandKit; title: string };
 
 type Saved = { kit: BrandKit; profile: BusinessProfile; page: SectionPick[] };
 const DEFAULTS: Saved = { kit: DEFAULT_KIT, profile: { industry: "kfz", language: "de" }, page: STARTER_PAGES.kfz };
@@ -212,7 +212,7 @@ function Studio({ initial, onOpenInStaging }: { initial: Saved; onOpenInStaging:
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={primary} onClick={() => downloadText(`${slug(title)}.json`, JSON.stringify(buildBricksImportJson(pagePreview.result.template, title, kitTemplateType(page)), null, 2))}>Download for Bricks import</button>
                 <button type="button" className={secondary} onClick={() => copyTemplate(pagePreview.result.template, "Page")}>Copy for Bricks (Ctrl+V)</button>
-                <button type="button" className={secondary} onClick={() => onOpenInStaging({ template: pagePreview.result.template, designSystem: pagePreview.result.designSystem, title })}>Open in Staging</button>
+                <button type="button" className={secondary} onClick={() => onOpenInStaging({ template: pagePreview.result.template, designSystem: pagePreview.result.designSystem, kit: pagePreview.result.resolved.kit, title })}>Open in Staging</button>
               </div>
               <div className="border-t border-border pt-4">
                 <p className="text-sm font-medium">Design system</p>
