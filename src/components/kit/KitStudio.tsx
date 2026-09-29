@@ -27,7 +27,7 @@ const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").
 
 export type KitSelection = { template: BricksTemplate; designSystem: DesignSystem; kit: BrandKit; title: string };
 
-type Saved = { kit: BrandKit; profile: BusinessProfile; page: SectionPick[] };
+export type Saved = { kit: BrandKit; profile: BusinessProfile; page: SectionPick[] };
 const DEFAULTS: Saved = { kit: DEFAULT_KIT, profile: { industry: "kfz", language: "de" }, page: STARTER_PAGES.kfz };
 
 // Read once per page load; a stable snapshot for useSyncExternalStore.
@@ -47,8 +47,10 @@ function readSaved(): Saved | null {
 const noSubscription = () => () => {};
 
 /** Restores the last session in this browser (after hydration) by remounting the studio with it. */
-export default function KitStudio(props: { onOpenInStaging: (selection: KitSelection) => void }) {
+export default function KitStudio({ preset, ...props }: { onOpenInStaging: (selection: KitSelection) => void; preset?: (Saved & { nonce: number }) | null }) {
   const saved = useSyncExternalStore(noSubscription, readSaved, () => null);
+  // A design chosen in the library replaces the current kit, profile and page.
+  if (preset) return <Studio key={`preset:${preset.nonce}`} initial={preset} {...props}/>;
   return <Studio key={saved ? "saved" : "default"} initial={saved ?? DEFAULTS} {...props}/>;
 }
 

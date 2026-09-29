@@ -3,6 +3,7 @@ import type { TemplateType } from "../bricks-export";
 import { flatten, globalClassesFor, classId } from "./build";
 import { contentFor, INDUSTRIES, INDUSTRY_IDS, type BusinessProfile, type Content } from "./content";
 import { findVariant, isSectionType, classLibrary, SECTION_TYPES, variantsFor, type SectionType } from "./sections";
+import { DESIGNS } from "./library";
 import { sx } from "./styles";
 import { COLOR_TOKENS, contrastChecks, FONT_PAIR_IDS, FONT_PAIRS, RADIUS_IDS, resolveKit, SPACING_IDS, STYLE_IDS, STYLES, type BrandKit, type ResolvedKit } from "./tokens";
 
@@ -67,6 +68,8 @@ export function kitCatalog() {
     radius: [...RADIUS_IDS], spacing: [...SPACING_IDS], modes: ["light", "dark"], languages: ["de", "en"],
     industries: INDUSTRY_IDS.map(id => ({ id, name: INDUSTRIES[id].label, description: INDUSTRIES[id].description })),
     sections: SECTION_TYPES.map(type => ({ type, variants: variantsFor(type).map(v => ({ id: v.id, name: v.name })) })),
+    // Ready-made designs: pass their kit and page to bricks_kit_page to rebuild one.
+    designs: DESIGNS.map(d => ({ id: d.id, name: d.name, industry: d.industry, description: d.description, kit: d.kit, sections: d.page })),
   };
 }
 

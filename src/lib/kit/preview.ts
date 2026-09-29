@@ -13,8 +13,8 @@ const BREAKPOINTS: Record<string, number> = { tablet_portrait: 991, mobile_lands
 const PSEUDO = /^(hover|focus|focus-visible|active|before|after|focus-within|visited)$/;
 
 const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-/** Inline tags a text control may keep in the preview; they are rebuilt without attributes. */
-const INLINE_TAGS = new Set(["br", "strong", "em", "b", "i", "span", "small"]);
+/** Tags a text control may keep in the preview (rich text); they are rebuilt without attributes. */
+const INLINE_TAGS = new Set(["br", "strong", "em", "b", "i", "span", "small", "p", "ul", "ol", "li"]);
 /**
  * Text controls hold HTML. Allowlist, not blacklist: every tag outside INLINE_TAGS and every attribute
  * is shown as text, so nothing executable reaches the preview. Existing entities (&amp;) stay intact.

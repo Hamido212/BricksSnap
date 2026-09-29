@@ -9,6 +9,8 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Build mo
 
 Free for your own and your clients' websites. You may not offer BricksSnap itself to others as a hosted app or sell it; see [licensing](LICENSING.md).
 
+**v0.9: Library of ready-made designs.** 12 complete designs for different industries and styles, as pages and sections, in the app and in Bricks' remote library ([release notes](docs/RELEASE-0.9.0.md)).
+
 **v0.8: [Studio](docs/STUDIO.md)** ([release notes](docs/RELEASE-0.8.0.md)). Pick from 40 layouts in five style directions, set your brand color, fonts, corners and spacing, and get copy written for your industry in German or English. Export native Bricks JSON whose global classes follow one design system, and install that system's palette and variables on a connected site.
 
 **v0.5: [review, render and apply changes to a live Bricks page](docs/WORDPRESS.md)** ([release notes](docs/RELEASE-0.5.0.md)).
@@ -90,7 +92,8 @@ Request fields:
 - `src/app/api/generate/route.ts` – Generation API
 - `src/lib/bricks-engine.ts` – Bricks JSON engine + section generators
 - `src/lib/wordpress-client.ts` – MCP Adapter client for Bricks abilities (`/api/wordpress`, local only)
-- `src/lib/templates.ts` – Template catalog
+- `src/lib/kit/*` – Studio: tokens, classes, layouts, industry copy, designs (`library.ts`), preview
+- `src/lib/templates.ts` – Classic catalog (MCP `bricks_list_templates`)
 - `src/components/*` – UI components (form, preview, cards)
 
 ## Notes
