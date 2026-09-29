@@ -12,6 +12,7 @@ import {
   type WordPressCreateTemplateResult,
   type WordPressTemplatesResult,
   type WordPressMediaResult,
+  type RenderedMarkup,
   type WordPressRenderResult,
   type WordPressRestoreResult,
   type WordPressCredentials,
@@ -478,6 +479,33 @@ export function externalUrls(template: BricksTemplate, siteHost: string): string
   return [...found];
 }
 
+/** Email addresses in element settings (text, links, placeholders). */
+export function emailAddresses(template: BricksTemplate): string[] {
+  const found = new Set<string>();
+  const visit = (value: unknown) => {
+    if (typeof value === "string") for (const match of value.matchAll(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g)) found.add(match[0]);
+    else if (Array.isArray(value)) value.forEach(visit);
+    else if (isRecord(value)) Object.values(value).forEach(visit);
+  };
+  template.content.forEach(el => visit(el.settings));
+  return [...found];
+}
+
+const sample = (values: string[]) => `${values.slice(0, 3).join(", ")}${values.length > 3 ? ", …" : ""}`;
+
+/**
+ * Observed live: a host firewall answered MCP requests carrying external URLs or email addresses with an
+ * HTML error page. Name what in the request may have triggered it.
+ */
+function explainHostBlock(error: unknown, template: BricksTemplate, siteHost: string): unknown {
+  if (!(error instanceof RequestError) || !error.message.startsWith("The web host answered")) return error;
+  const urls = externalUrls(template, siteHost), emails = emailAddresses(template);
+  if (!urls.length && !emails.length) return error;
+  const parts = [...(urls.length ? [`external URLs (${sample(urls)})`] : []), ...(emails.length ? [`email addresses (${sample(emails)})`] : [])];
+  const advice = [...(urls.length ? ["import the images into the media library first"] : []), ...(emails.length ? ["ask your host to allow requests to /wp-json/mcp/ or remove the addresses for now"] : [])].join("; ");
+  return new RequestError(`${error.message} The change contains ${parts.join(" and ")}; some host firewalls block these. ${advice[0].toUpperCase()}${advice.slice(1)}, then retry.`, error.status);
+}
+
 export async function applyWordPressPage(
   credentials: WordPressCredentials,
   request: { postId: number; expectedDocumentDigest: string; template: unknown; allowLocked: boolean },
@@ -529,12 +557,7 @@ export async function applyWordPressPage(
         { names: ["expectedDocumentDigest"], value: expectedDocumentDigest, required: true },
       ]);
     } catch (error) {
-      // Observed live: a host firewall answered writes containing external image URLs with an HTML page.
-      const external = externalUrls(proposal, new URL(credentials.endpoint).hostname);
-      if (error instanceof RequestError && error.message.startsWith("The web host answered") && external.length) {
-        throw new RequestError(`${error.message} The change contains external URLs (${external.slice(0, 3).join(", ")}${external.length > 3 ? ", …" : ""}); some host firewalls block these. Replace them with media from this site and retry.`, error.status);
-      }
-      throw error;
+      throw explainHostBlock(error, proposal, new URL(credentials.endpoint).hostname);
     }
     const saved = isRecord(written) ? written : {};
 
@@ -713,11 +736,7 @@ export async function createWordPressTemplate(
         { names: ["elements"], value: proposal.content },
       ]);
     } catch (error) {
-      const external = externalUrls(proposal, new URL(credentials.endpoint).hostname);
-      if (error instanceof RequestError && error.message.startsWith("The web host answered") && external.length) {
-        throw new RequestError(`${error.message} The template contains external URLs (${external.slice(0, 3).join(", ")}${external.length > 3 ? ", …" : ""}); some host firewalls block these. Import the images first and retry.`, error.status);
-      }
-      throw error;
+      throw explainHostBlock(error, proposal, new URL(credentials.endpoint).hostname);
     }
     const templateId = isRecord(created) ? Number(created.templateId ?? created.id) : NaN;
     if (!Number.isInteger(templateId) || templateId <= 0) throw new RequestError("WordPress did not return the new template.", 502);
@@ -819,7 +838,12 @@ export async function renderWordPressPreview(
   return withSession(credentials, signal, async session => {
     const format: Argument = { names: ["responseFormat"], value: "detailed" };
     const before = readMarkup(await callAbility(session, "bricks/render-elements", [postArgument(postId), format]));
-    const after = readMarkup(await callAbility(session, "bricks/render-elements", [postArgument(postId), { names: ["elements"], value: proposal.content, required: true }, format]));
+    let after: RenderedMarkup;
+    try {
+      after = readMarkup(await callAbility(session, "bricks/render-elements", [postArgument(postId), { names: ["elements"], value: proposal.content, required: true }, format]));
+    } catch (error) {
+      throw explainHostBlock(error, proposal, new URL(credentials.endpoint).hostname);
+    }
     const siteUrl = siteRoot(credentials.endpoint);
     // Standard location of Bricks' frontend styles; theme styles and global class CSS are not included.
     return { postId, before, after, stylesheets: [`${siteUrl}wp-content/themes/bricks/assets/css/frontend-layer.min.css`], siteUrl };

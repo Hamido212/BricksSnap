@@ -13,6 +13,8 @@
 - **Template conditions.** View and edit where a template applies: entire website, front page, post types, archives, search, 404, terms and specific posts, with exclusions and hooks for section templates. Saving re-reads the stored conditions first and refuses if they changed; conditions with unknown settings stay read-only.
 - **Save as a new Bricks template.** A reviewed change becomes a new header, footer, section or other template, as a draft unless publishing is chosen, and then serves as the baseline. Missing global classes are refused as for apply; nested header/footer landmarks are flagged.
 - **Before saving.** Image import and class creation form their own step, used by both apply and template creation.
+- **Host firewall hints.** When the web host answers with its own error page, apply, template creation and "Render with Bricks" now name external URLs and email addresses in the change. The test host's firewall blocked requests containing either.
+- **Form placeholders (engine).** Email fields use "Your email address" instead of sample addresses, so the coming-soon and contact forms no longer trip such firewalls.
 - **Font stacks (engine).** Font stacks are written as Bricks' font family plus its native `fallback` (`font-family: "Segoe UI", Arial, sans-serif`), including breakpoint and state typography. Previously the stack went into scoped custom CSS, which Bricks' abilities convert into a single quoted font name that browsers cannot match.
 
 ## 0.6.0 — 2026-09-29

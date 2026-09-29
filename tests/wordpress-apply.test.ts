@@ -30,7 +30,7 @@ class FakeBricksSite {
   editBeforeWrite = false;
   /** Simulates Bricks normalizing a setting on save. */
   normalize = false;
-  /** Simulates the live host firewall that answered writes with external image URLs with an HTML page. */
+  /** Simulates the live host firewall that answered requests with external image URLs or email addresses with an HTML page. */
   firewall = false;
 
   constructor(elements: BricksElement[]) { this.elements = structuredClone(elements); }
@@ -127,7 +127,7 @@ async function connectTo(site: FakeBricksSite) {
   vi.spyOn(Client.prototype, "listTools").mockResolvedValue({ tools: [{ name: "mcp-adapter-execute-ability", inputSchema: { type: "object" as const } }] });
   vi.spyOn(Client.prototype, "callTool").mockImplementation(async params => {
     const { ability_name: ability, parameters } = params.arguments as { ability_name: string; parameters: Record<string, unknown> };
-    if (site.firewall && ability === "bricks/set-page-elements" && JSON.stringify(parameters).includes("https://images.")) {
+    if (site.firewall && ["bricks/set-page-elements", "bricks/render-elements", "bricks/create-template"].includes(ability) && /https:\/\/images\.|@example\.com/.test(JSON.stringify(parameters))) {
       const { RequestError } = await import("../src/lib/api-request");
       throw new RequestError('The web host answered with a page ("503 Service Unavailable") instead of WordPress. A firewall, rate limit or maintenance mode may have blocked the request; a write was not confirmed. Wait, reload the page and retry.', 502);
     }
@@ -274,7 +274,17 @@ describe("guarded apply and restore", () => {
     site.firewall = true;
     const { apply } = await connectTo(site);
     const proposal = { content: section("feat01", "Features", { _background: { image: { url: "https://images.unsplash.com/photo-1?w=1200" } } }) };
-    await expect(apply(proposal, site.digest())).rejects.toMatchObject({ status: 502, message: expect.stringMatching(/external URLs \(https:\/\/images\.unsplash\.com\)/) });
+    await expect(apply(proposal, site.digest())).rejects.toMatchObject({ status: 502, message: expect.stringMatching(/external URLs \(https:\/\/images\.unsplash\.com\).*Import the images/) });
+    expect(site.writes).toBe(0);
+  });
+
+  it("names email addresses when a host firewall blocks a render or template creation", async () => {
+    const site = new FakeBricksSite(section("hero01", "Hero"));
+    site.firewall = true;
+    const { request } = await connectTo(site);
+    const proposal = { content: section("cont01", "Contact", { text: "Write to hello@example.com" }) };
+    await expect(request({ action: "render", postId: 7, template: proposal })).rejects.toMatchObject({ status: 502, message: expect.stringMatching(/email addresses \(hello@example\.com\).*allow requests to \/wp-json\/mcp\//) });
+    await expect(request({ action: "create-template", title: "Contact", type: "section", template: proposal, confirm: true })).rejects.toMatchObject({ message: expect.stringMatching(/email addresses/) });
     expect(site.writes).toBe(0);
   });
 

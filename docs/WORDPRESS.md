@@ -76,7 +76,7 @@ After **Review changes**, section **5. Apply to WordPress** shows the target pag
 What to expect:
 
 - **Read-back differences** are usually normalization: Bricks 2.4 converts custom CSS rules into native style controls, for example `transition` → `_cssTransition` and a hover background → `_background:hover`. Check the page in Bricks when differences are reported.
-- **"The web host answered with a page … instead of WordPress"** means a host firewall, rate limit or maintenance mode blocked the request, and nothing was confirmed as saved. On the test site, the host's firewall blocked writes containing external image URLs, such as the sample images in BricksSnap's built-in sections. Import the images first (below), or ask your host to allow requests to `/wp-json/mcp/`.
+- **"The web host answered with a page … instead of WordPress"** means a host firewall, rate limit or maintenance mode blocked the request, and nothing was confirmed as saved. On the test site, the host's firewall blocked any request (save, render or new template) that contained external image URLs or email addresses, such as the sample images and the sample contact address in BricksSnap's built-in sections. BricksSnap names these in the message. Import the images first (below); for email addresses, ask your host to allow requests to `/wp-json/mcp/`.
 
 ### Import external images into the media library
 
