@@ -9,9 +9,9 @@ BricksSnap can read a live Bricks page and the site's global classes through the
 - An application password for a dedicated WordPress user. Give that user only the Bricks builder access it needs rather than using an administrator. Revoke the password when you are done.
 - These abilities enabled under **Bricks → AI → Abilities**:
   - required: `get-page-elements` and `get-design-context`;
-  - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version`, `list-ability-status`, `render-elements` (for the rendered preview), and `list-templates` and `get-template-settings` (for site templates).
+  - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version`, `list-ability-status`, `render-elements` (for the rendered preview), `list-templates` and `get-template-settings` (for site templates), and `list-global-variables` (for the Studio design system).
 
-  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, importing images needs `upload-media` and `find-media`, creating missing classes needs `batch-create-global-classes`, creating templates needs `create-template`, and changing template conditions needs `set-template-conditions`. Keep them disabled if you only want to read.
+  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, importing images needs `upload-media` and `find-media`, creating missing classes needs `batch-create-global-classes`, creating templates needs `create-template`, changing template conditions needs `set-template-conditions`, and installing the Studio design system needs `create-color-palette`, `create-color`, `update-color`, `set-global-variable-categories` and `set-global-variables`. Keep them disabled if you only want to read.
 
 ## Connect
 
@@ -38,6 +38,10 @@ The password is kept only in the open browser tab and sent to the local BricksSn
 - **Save as a new Bricks template.** After **Review changes**, this creates a template (header, footer, section, content, popup, archive, search or error) from the reviewed elements with `create-template`. It is a draft unless you choose to publish it, and then becomes the baseline so you can set its conditions or keep editing it. As with applying, the global classes it uses must exist on the site. For header and footer templates BricksSnap warns when a root element also uses the `header` or `footer` tag, because Bricks already wraps these templates in that landmark.
 
 Deleting templates and changing their status are left to WordPress and Bricks.
+
+## Install the Studio design system
+
+After **Open in Staging** from the [Studio](STUDIO.md), the **Design system** panel compares the kit's palette and variables with the connected site (**Check what changes**, read-only) and installs them after confirmation: a "BricksSnap" color palette whose colors define the `--bs-*` variables, and global variables in a "BricksSnap" category. Each step is guarded by Bricks' ownership digests, nothing is deleted, variables defined elsewhere are reported, and the result is read back. Fonts named in the variables still need to be added under Bricks → Settings → Custom fonts or in a theme style.
 
 ## Generate in the site's design
 
@@ -124,7 +128,8 @@ This allows private and loopback addresses and custom ports; HTTPS stays mandato
 | WordPress must resolve to public internet addresses | The site is local or private; use the opt-in above. |
 | WordPress redirected the request | Use the final HTTPS URL. BricksSnap does not follow redirects with credentials. |
 | The page changed since it was loaded | Someone saved the page after you loaded it. Load it into the baseline again and review. |
-| Saving is disabled on this site | Enable the named ability (`set-page-elements`, `restore-revision`, `upload-media` or `batch-create-global-classes`) under Bricks → AI → Abilities. |
+| Saving is disabled on this site | Enable the named ability (`set-page-elements`, `restore-revision`, `upload-media`, `batch-create-global-classes`, or a palette or variable ability for the design system) under Bricks → AI → Abilities. |
+| The site's palettes or variables changed during the install | Someone edited palettes or variables in the meantime. Click **Check what changes** again and install; completed steps are kept and not repeated. |
 | … is open in the Bricks builder | Close the builder or confirm applying anyway; the builder's next save would overwrite the change. |
 
 ## Limits

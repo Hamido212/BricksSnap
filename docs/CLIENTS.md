@@ -52,7 +52,7 @@ Other clients use the same command and environment in their JSON format.
 ## Tool discovery
 
 - **Bricks tools.** The site exposes a few Bricks abilities as direct tools, for example `bricks-get-design-context`. Others are called through `mcp-adapter-execute-ability` with `{ "ability_name": "bricks/…", "parameters": {…} }`. Use `mcp-adapter-get-ability-info` for exact parameters: Bricks rejects unknown keys.
-- **BricksSnap tools.** BricksSnap's eight tools start with `bricks_` (underscores), for example `bricks_merge_templates`.
+- **BricksSnap tools.** BricksSnap's ten tools start with `bricks_` (underscores), for example `bricks_kit_page` or `bricks_merge_templates`.
 
 ## Workflows that combine both
 

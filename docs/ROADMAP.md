@@ -60,6 +60,14 @@ Delivered in 0.7.0 (see [release notes](RELEASE-0.7.0.md)):
 - **Engine.** Native font fallbacks.
 - **Not included.** Theme styles and global variables as design sources, template settings beyond conditions, and deleting templates.
 
+## v0.8 — Studio: layouts, brand kit and design system
+
+Delivered in 0.8.0 (see [release notes](RELEASE-0.8.0.md)):
+- **Studio.** 40 layouts in 22 section types and five style directions, customized with a brand kit and an industry profile with German or English copy, previewed live and exported without AI.
+- **Design system.** Global `bs-` classes with `var(--bs-*, fallback)` values; the palette and variables installed on a connected site with ownership guards and read-back.
+- **App.** Light workbench redesign; Claude through MCP with current models.
+- **Not included.** Loading the kit's web fonts in Bricks, theme styles, and Studio layouts in the remote library.
+
 ## 2.0 milestone
 
 Use the 2.0 name when a connected site can be read, a change reviewed, applied, verified and recovered through a tested workflow. Intermediate releases should deliver useful complete workflows without implying that later phases are already available.

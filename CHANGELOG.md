@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.8.0 — 2026-09-29
+
+The Studio: modern layouts customized with a brand kit and industry copy, exported with a central design system, plus a light redesign of the app. See the [release notes](docs/RELEASE-0.8.0.md) and the [Studio guide](docs/STUDIO.md).
+
+- **Studio tab (default).**
+  - 40 layouts in 22 section types, grouped in a live gallery; copy a section or add it to the page.
+  - Five style directions (Clean, Soft, Bold, Editorial, Warm) and a brand kit: brand and second color, eight font pairs or system fonts, corners, spacing, light or dark. Derived colors meet WCAG contrast; remaining problems are named.
+  - Industry profiles (Kfz-Zulassungsdienst, trades, medical practice, restaurant, agency, business) with complete German and English copy, filled with name, city, phone, email, address and own services.
+  - Page builder with starter pages per industry, layout switching, reordering and a 1280/820/390 px preview in shadow DOM with Bricks' breakpoints.
+  - Quality checks for contrast, headings, alt texts and placeholder links.
+  - Export as a Bricks import file, a Ctrl+V copy, to Staging, or the design system as JSON or CSS.
+- **Template kit engine.**
+  - Tokens → Bricks palette and global variables → BEM global classes (`bs-` prefix, stable IDs) → elements.
+  - Every value is `var(--bs-token, fallback)`, and each CSS property is set by one class per element.
+  - Font families come from class custom CSS because Bricks quotes its font control. Grid gaps use `_gridGap`, and shadows use Bricks' object format.
+- **Install the design system.** Staging compares the kit's palette and variables with a connected site and installs them after confirmation:
+  - a "BricksSnap" palette defining `--bs-*` and 26 variables in a "BricksSnap" category, with values derived on the server;
+  - every step guarded by ownership digests, re-read between steps because Bricks shares one design version, and read back afterwards;
+  - nothing deleted, and variables defined elsewhere reported.
+- **MCP.** New tools `bricks_kit_options` and `bricks_kit_page` (ten tools in total).
+- **Claude.** The settings explain connecting Claude through MCP (Claude Code, Claude Desktop, claude.ai connector), because third-party Claude sign-in is not allowed. The Anthropic models are now Claude Sonnet 5.5 (default), Opus 5.5 and Haiku 4.5, and the OpenRouter suggestions are updated.
+- **Redesign.** A light workbench replaces the dark gradient interface in every tab and panel: near-white canvas, hairline borders, Geist and Geist Mono, one brick-red accent ([DESIGN.md](docs/DESIGN.md)). App and template fonts are self-hosted with `next/font`.
+
 ## 0.7.0 — 2026-09-29
 
 Work in the connected site's design, media, global classes and templates; fix font stacks in the engine. See the [release notes](docs/RELEASE-0.7.0.md).
