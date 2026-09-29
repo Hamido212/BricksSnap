@@ -19,7 +19,12 @@ function headerClasses(r: ResolvedKit) {
     "bs-header": merge({ _border: { width: { top: "0", right: "0", bottom: "1px", left: "0" }, style: "solid", color: x.color("border") } }),
     "bs-header-group": { _display: "flex", _direction: "column", _width: "100%" },
     "bs-header__bar": { _direction: "row", _justifyContent: "space-between", _alignItems: "center", _columnGap: x.v("space-m"), _flexWrap: "nowrap" },
-    "bs-brand": merge(x.type({ size: "text-xl", weight: "heading-weight", ls: "heading-tracking", color: "heading", decoration: "none" }), x.font("bs-brand", "heading", " white-space: nowrap;")),
+    // A long business name wraps on narrow screens instead of pushing the header button out.
+    "bs-brand": merge(
+      x.type({ size: "text-xl", weight: "heading-weight", ls: "heading-tracking", color: "heading", decoration: "none", lh: "1.15" }),
+      x.font("bs-brand", "heading", " text-wrap: balance; overflow-wrap: break-word;"),
+      { _flexShrink: "1", _widthMin: "0", "_typography:mobile_portrait": { "font-size": x.v("text-m") } },
+    ),
     "bs-nav": { _display: "flex", _direction: "row", _columnGap: "clamp(18px, 2.4vw, 36px)", _alignItems: "center", "_display:tablet_portrait": "none" },
     "bs-nav__link": merge(x.type({ size: "15px", weight: "500", color: "text", decoration: "none" }), { _cssTransition: "color .2s ease", "_typography:hover": { color: x.color("link") } }),
     "bs-header__actions": { _display: "flex", _direction: "row", _columnGap: x.v("space-s"), _alignItems: "center", _flexShrink: "0" },

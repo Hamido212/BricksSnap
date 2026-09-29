@@ -8,6 +8,7 @@
   - Offering BricksSnap or a modified version to others as a product, or redistributing its layouts as a template pack, is not allowed without permission.
   - Versions up to and including 0.8.0 remain available under MIT.
   - See [licensing](LICENSING.md).
+- **Studio headers on phones.** A long business name now wraps and uses a smaller size at phone width instead of pushing the header button past the edge.
 - **Notices.** New [third-party notices](THIRD_PARTY_NOTICES.md) (Ionicons MIT, fonts under the SIL Open Font License). The app footer links the license and states that BricksSnap is not affiliated with Bricks.
 
 ## 0.8.0 — 2026-09-29
