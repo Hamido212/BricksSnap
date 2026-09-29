@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import type { BricksTemplate } from "@/lib/bricks-engine";
-import type { WordPressApplyResult, WordPressCredentials, WordPressMediaResult, WordPressRestoreResult, WordPressSource } from "@/lib/wordpress-contract";
+import type { WordPressApplyResult, WordPressClassesResult, WordPressCredentials, WordPressMediaResult, WordPressRestoreResult, WordPressSource } from "@/lib/wordpress-contract";
 import { findExternalImages } from "@/lib/template-images";
+import { referencedClassIds } from "@/lib/template-classes";
 
 interface WordPressApplyProps {
   source: WordPressSource;
@@ -12,8 +13,10 @@ interface WordPressApplyProps {
   proposal: BricksTemplate | null;
   /** The page was saved or restored; the read-back becomes the new baseline. */
   onUpdated: (template: BricksTemplate, source: WordPressSource) => void;
-  /** Images were imported; the reviewed template now points at the media library. */
+  /** Images were imported or classes created; the reviewed template now points at the site's items. */
   onProposalChange?: (template: BricksTemplate) => void;
+  /** Global class IDs known to exist on the site (loaded page and imported design context). */
+  knownClassIds?: string[];
 }
 
 const button = "rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed";
@@ -25,9 +28,11 @@ async function post<T>(body: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
-export default function WordPressApply({ source, credentials, proposal, onUpdated, onProposalChange }: WordPressApplyProps) {
+export default function WordPressApply({ source, credentials, proposal, onUpdated, onProposalChange, knownClassIds = [] }: WordPressApplyProps) {
   const [confirmed, setConfirmed] = useState(false);
   const [mediaResult, setMediaResult] = useState<WordPressMediaResult | null>(null);
+  const [classResult, setClassResult] = useState<WordPressClassesResult | null>(null);
+  const [classesMissing, setClassesMissing] = useState(false);
   const [lockedPage, setLockedPage] = useState(false);
   const [allowLocked, setAllowLocked] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,6 +44,21 @@ export default function WordPressApply({ source, credentials, proposal, onUpdate
   const host = new URL(source.endpoint).host;
   const externalImages = proposal ? findExternalImages(proposal, new URL(source.endpoint).hostname) : [];
   const imageHosts = [...new Set(externalImages.map(image => new URL(image.url).hostname))];
+  // Classes the change uses that the loaded page and design context do not show on the site.
+  const known = new Set([...knownClassIds, ...(classResult?.created.map(c => c.id) ?? []), ...(classResult?.reused.map(c => c.siteId) ?? [])]);
+  const newClasses = proposal ? referencedClassIds(proposal).filter(id => !known.has(id)).map(id => proposal.globalClasses?.find(c => c.id === id)?.name ?? id) : [];
+
+  async function createClasses() {
+    if (!proposal) return;
+    setBusy(true); setError("");
+    try {
+      const result = await post<WordPressClassesResult>({ action: "classes", credentials, template: proposal, confirm: true });
+      setClassResult(result); setClassesMissing(false);
+      if (result.created.length || result.reused.length) onProposalChange?.(result.template);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not create the classes.");
+    } finally { setBusy(false); }
+  }
 
   async function importImages() {
     if (!proposal) return;
@@ -62,6 +82,7 @@ export default function WordPressApply({ source, credentials, proposal, onUpdate
     } catch (e) {
       const message = e instanceof Error ? e.message : "Could not apply the change.";
       if (/open in the Bricks builder/.test(message)) setLockedPage(true);
+      if (/global classes that do not exist/.test(message)) setClassesMissing(true);
       setError(message);
     } finally { setBusy(false); }
   }
@@ -91,6 +112,17 @@ export default function WordPressApply({ source, credentials, proposal, onUpdate
     {proposal && !applied && externalImages.length > 0 && <div className="rounded-lg border border-border bg-background p-3 space-y-2">
       <p className="text-sm">This change uses {externalImages.length} external {externalImages.length === 1 ? "image" : "images"} ({imageHosts.join(", ")}). Some host firewalls block saving such URLs, and the page would depend on another server.</p>
       <button className={`${button} border border-border`} disabled={busy} onClick={importImages}>{busy ? "Importing…" : `Import ${externalImages.length === 1 ? "image" : `${externalImages.length} images`} into the media library`}</button>
+    </div>}
+    {classResult && <div role="status" className="rounded-lg border border-border bg-background p-3 text-xs space-y-1">
+      <p>Global classes: {classResult.created.length} created{classResult.created.length ? ` (${classResult.created.map(c => c.name).join(", ")})` : ""}, {classResult.reused.length} identical site {classResult.reused.length === 1 ? "class" : "classes"} reused.</p>
+      {classResult.conflicts.map(c => <p key={c.id} className="text-amber-300 break-words">Not created: {c.name} {c.siteId ? "exists on the site with a different definition. Rename it in the staged JSON, or use the site's class." : "is defined twice in the change."}</p>)}
+      {classResult.undefinedIds.length > 0 && <p className="text-amber-300 break-words">No definition in the change for class IDs {classResult.undefinedIds.join(", ")}. Remove them from the elements or add their definitions.</p>}
+    </div>}
+    {proposal && !applied && (newClasses.length > 0 || classesMissing) && <div className="rounded-lg border border-border bg-background p-3 space-y-2">
+      <p className="text-sm break-words">{newClasses.length > 0
+        ? `This change uses global classes that may not exist on the site yet: ${newClasses.join(", ")}.`
+        : "The site lacks global classes this change uses."} Missing classes are created from the change&apos;s definitions in one step. Existing classes are never changed.</p>
+      <button className={`${button} border border-border`} disabled={busy} onClick={createClasses}>{busy ? "Creating…" : "Create missing global classes"}</button>
     </div>}
     {proposal && !applied && <div className="space-y-3">
       <p className="text-sm">Saving replaces all elements of this page with the reviewed version. Bricks refuses the save if the page changed since it was loaded, and keeps a revision of the current state first.</p>

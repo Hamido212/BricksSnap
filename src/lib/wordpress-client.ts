@@ -7,6 +7,7 @@ import {
   WP_READ_ABILITIES,
   WP_WRITE_ABILITIES,
   type WordPressApplyResult,
+  type WordPressClassesResult,
   type WordPressMediaResult,
   type WordPressRenderResult,
   type WordPressRestoreResult,
@@ -22,6 +23,7 @@ import { diffTemplates, readStagingTemplate, stableJson } from "./template-stagi
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 import packageJson from "../../package.json";
 import { downloadImage, findExternalImages, MAX_IMAGES, replaceImages, uploadName, type SiteImage } from "./wordpress-media";
+import { planGlobalClasses, referencedClassIds, remapGlobalClasses } from "./template-classes";
 
 type JsonRecord = Record<string, unknown>;
 type InputSchema = { properties?: JsonRecord } | undefined;
@@ -501,11 +503,14 @@ export async function applyWordPressPage(
 
     // set-page-elements saves elements only; class definitions must already exist on the site.
     const warnings: string[] = [];
-    const referenced = new Set(proposal.content.flatMap(el => Array.isArray(el.settings._cssGlobalClasses) ? el.settings._cssGlobalClasses.filter((id): id is string => typeof id === "string") : []));
+    const referenced = new Set(referencedClassIds(proposal));
     if (referenced.size) {
       const site = new Map((await listAll(session, "bricks/list-global-classes")).filter(isRecord).map(c => [String(c.id), c]));
       const missing = [...referenced].filter(id => !site.has(id));
-      if (missing.length) throw new RequestError(`The change uses global classes that do not exist on the site: ${missing.join(", ")}. Create them in Bricks first or remove them from the section.`, 422);
+      if (missing.length) {
+        const names = missing.map(id => proposal.globalClasses?.find(c => c.id === id)?.name ?? id);
+        throw new RequestError(`The change uses global classes that do not exist on the site: ${names.join(", ")}. Create the missing global classes first, or remove them from the section.`, 422);
+      }
       for (const cls of proposal.globalClasses ?? []) {
         const existing = site.get(cls.id);
         if (referenced.has(cls.id) && existing && stableJson(isRecord(existing.settings) ? existing.settings : {}) !== stableJson(cls.settings ?? {})) warnings.push(`Global class ${cls.name} keeps the site's definition; staged settings for it are not saved.`);
@@ -619,6 +624,72 @@ export async function importWordPressMedia(
   });
 }
 
+/** Every global class with the ownership envelope Bricks requires for writes, from one consistent read. */
+async function listGlobalClasses(session: Session): Promise<{ classes: BricksGlobalClass[]; ownership: JsonRecord }> {
+  const classes: BricksGlobalClass[] = [];
+  let ownership: JsonRecord | undefined;
+  for (let page = 1; page <= 20; page++) {
+    const result = await callAbility(session, "bricks/list-global-classes", [{ names: ["page"], value: page }, { names: ["perPage"], value: 100 }]);
+    if (!isRecord(result) || !isRecord(result.ownership)) throw new RequestError("This Bricks version does not report class ownership; classes cannot be created safely.", 422);
+    if (ownership && stableJson(ownership) !== stableJson(result.ownership)) throw new RequestError("Global classes changed on the site while they were read. Try again.", 409);
+    ownership = result.ownership;
+    const rows = Array.isArray(result.items) ? result.items : [];
+    for (const row of rows) if (isRecord(row) && typeof row.id === "string" && typeof row.name === "string") classes.push(siteClass(row));
+    if (result.hasMore !== true || !rows.length) break;
+  }
+  return { classes, ownership: ownership ?? {} };
+}
+
+/**
+ * Create the global classes a proposal uses but the site lacks, in one atomic batch guarded by the
+ * class store's ownership digest. Existing classes are never changed: a staged class whose name
+ * exists with the same definition reuses the site's class, one with another definition is reported.
+ */
+export async function createWordPressClasses(
+  credentials: WordPressCredentials,
+  request: { template: unknown },
+  signal: AbortSignal
+): Promise<WordPressClassesResult> {
+  const proposal = readStagingTemplate(request.template);
+  if (!referencedClassIds(proposal).length) return { template: proposal, created: [], reused: [], conflicts: [], undefinedIds: [] };
+
+  return withSession(credentials, signal, async session => {
+    const { classes: siteClasses, ownership } = await listGlobalClasses(session);
+    const plan = planGlobalClasses(proposal, siteClasses);
+    const ids = new Map(plan.reuse.map(r => [r.id, r.siteId]));
+    const definitions = siteClasses.filter(c => plan.reuse.some(r => r.siteId === c.id));
+    const created: WordPressClassesResult["created"] = [];
+
+    if (plan.create.length) {
+      await requireWriteAbility(session, "bricks/batch-create-global-classes");
+      let result: unknown;
+      try {
+        result = await callAbility(session, "bricks/batch-create-global-classes", [
+          { names: ["classes"], value: plan.create, required: true },
+          { names: ["expectedOwnership"], value: ownership, required: true },
+          { names: ["returnClasses"], value: true },
+        ]);
+      } catch (error) {
+        if (error instanceof RequestError && /ownership|digest|conflict|stale|changed/i.test(error.message)) throw new RequestError(`Global classes changed on the site before they could be created; nothing was saved. Try again. (${error.message})`, 409);
+        throw error;
+      }
+      const saved = isRecord(result) ? result : {};
+      // Bricks keeps the given six-character IDs; follow its name → ID map in case it assigned others.
+      const byName = isRecord(saved.classNameToId) ? saved.classNameToId : {};
+      const returned = Array.isArray(saved.classes) ? saved.classes.filter(isRecord) : [];
+      for (const cls of plan.create) {
+        const siteId = typeof byName[cls.name] === "string" ? String(byName[cls.name]) : cls.id;
+        if (siteId !== cls.id) ids.set(cls.id, siteId);
+        const stored = returned.find(r => r.id === siteId);
+        definitions.push(stored ? siteClass(stored) : { ...cls, id: siteId });
+        created.push({ id: siteId, name: cls.name });
+      }
+    }
+
+    return { template: remapGlobalClasses(proposal, ids, definitions), created, reused: plan.reuse, conflicts: plan.conflicts, undefinedIds: plan.undefinedIds };
+  });
+}
+
 /** Site root for an MCP endpoint (/wp-json/mcp/… or /?rest_route=/mcp/…). */
 export function siteRoot(endpoint: string): string {
   const url = new URL(endpoint);
@@ -684,7 +755,7 @@ export async function restoreWordPressRevision(
 export async function handleWordPressRequest(
   request: WordPressRequest,
   signal: AbortSignal
-): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult> {
+): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult | WordPressClassesResult> {
   switch (request.action) {
     case "connect":
       return connectWordPress(request.credentials, signal);
@@ -698,6 +769,8 @@ export async function handleWordPressRequest(
       return renderWordPressPreview(request.credentials, request, signal);
     case "media":
       return importWordPressMedia(request.credentials, request, signal);
+    case "classes":
+      return createWordPressClasses(request.credentials, request, signal);
     case "apply":
       return applyWordPressPage(request.credentials, request, signal);
     case "restore":

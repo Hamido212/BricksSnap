@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { wpRequestSchema, type WordPressApplyResult, type WordPressCredentials, type WordPressRestoreResult } from "../src/lib/wordpress-contract";
+import { wpRequestSchema, type WordPressApplyResult, type WordPressClassesResult, type WordPressCredentials, type WordPressRestoreResult } from "../src/lib/wordpress-contract";
 import { stableJson } from "../src/lib/template-staging";
 import type { BricksElement } from "../src/lib/bricks-engine";
 
@@ -12,8 +12,12 @@ class FakeBricksSite {
   revisions = new Map<number, BricksElement[]>();
   nextRevision = 100;
   locked = false;
-  enabled = new Set(["bricks/set-page-elements", "bricks/restore-revision"]);
-  classes = [{ id: "cls001", name: "btn", settings: { _padding: { top: "1rem" } } }];
+  enabled = new Set(["bricks/set-page-elements", "bricks/restore-revision", "bricks/batch-create-global-classes"]);
+  classes: Array<{ id: string; name: string; settings: Record<string, unknown>; selectors?: unknown[] }> = [{ id: "cls001", name: "btn", settings: { _padding: { top: "1rem" } } }];
+  classVersion = 0;
+  classWrites = 0;
+  /** Simulates another editor changing classes between BricksSnap's read and its write. */
+  classEditBeforeWrite = false;
   writes = 0;
   /** Simulates another editor saving between BricksSnap's check and its write. */
   editBeforeWrite = false;
@@ -24,6 +28,7 @@ class FakeBricksSite {
 
   constructor(elements: BricksElement[]) { this.elements = structuredClone(elements); }
   digest() { return createHash("sha256").update(stableJson(this.elements)).digest("hex"); }
+  classOwnership() { return { resource: "globalClasses", siteId: 1, version: this.classVersion, resourceDigest: createHash("sha256").update(stableJson(this.classes)).digest("hex") }; }
   otherEdit() { this.elements = this.elements.map(el => el.parent === 0 ? { ...el, label: `${el.label ?? el.name} (edited)` } : el); }
 
   handle(ability: string, params: Record<string, unknown>): unknown {
@@ -35,8 +40,21 @@ class FakeBricksSite {
       case "bricks/get-page-elements":
         // Like PHP's json_encode, empty settings arrive as [] (observed live on Bricks 2.4.2).
         return { elements: structuredClone(this.elements).map(el => Object.keys(el.settings).length ? el : { ...el, settings: [] }), postId: 7, documentDigest: this.digest() };
-      case "bricks/list-global-classes":
-        return { items: this.classes, hasMore: false };
+      case "bricks/list-global-classes": {
+        // Paginated like Bricks 2.4.2, with an ownership envelope per read.
+        const perPage = Number(params.perPage ?? 25), page = Number(params.page ?? 1);
+        const items = this.classes.slice((page - 1) * perPage, page * perPage).map(c => ({ ...c, itemDigest: "0".repeat(64), itemOwnership: this.classOwnership() }));
+        return { items, total: this.classes.length, page, perPage, hasMore: page * perPage < this.classes.length, categories: [], locked: [], ownership: this.classOwnership() };
+      }
+      case "bricks/batch-create-global-classes": {
+        if (this.classEditBeforeWrite) { this.classes = [...this.classes, { id: "oth001", name: "other", settings: {} }]; this.classVersion++; }
+        if (stableJson(params.expectedOwnership) !== stableJson(this.classOwnership())) throw new Error("Global classes changed since they were read (bricks_conflict_ownership_mismatch).");
+        const incoming = params.classes as Array<{ id?: string; name: string; settings?: Record<string, unknown>; category?: string }>;
+        if (incoming.some(c => this.classes.some(e => e.name === c.name) || c.category !== undefined)) throw new Error("Invalid class batch.");
+        const created = incoming.map(c => ({ id: c.id ?? "gen001", name: c.name, settings: c.settings ?? {} }));
+        this.classes = [...this.classes, ...created]; this.classVersion++; this.classWrites++;
+        return { createdClassIds: created.map(c => c.id), classNameToId: Object.fromEntries(created.map(c => [c.name, c.id])), classCount: this.classes.length, dryRun: false, valid: true, ownership: this.classOwnership(), ...(params.returnClasses ? { classes: created } : {}) };
+      }
       case "bricks/set-page-elements": {
         if (this.editBeforeWrite) this.otherEdit();
         // Error text as returned live by Bricks 2.4.2 for a stale digest.
@@ -95,6 +113,8 @@ async function connectTo(site: FakeBricksSite) {
       handleWordPressRequest({ action: "apply", credentials: creds, postId: 7, template, expectedDocumentDigest, confirm: true, allowLocked }, signal) as Promise<WordPressApplyResult>,
     restore: (revisionId: number, expectedDocumentDigest: string) =>
       handleWordPressRequest({ action: "restore", credentials: creds, postId: 7, revisionId, expectedDocumentDigest, confirm: true }, signal) as Promise<WordPressRestoreResult>,
+    createClasses: (template: unknown) =>
+      handleWordPressRequest({ action: "classes", credentials: creds, template, confirm: true }, signal) as Promise<WordPressClassesResult>,
   };
 }
 
@@ -157,8 +177,56 @@ describe("guarded apply and restore", () => {
     const site = new FakeBricksSite(section("hero01", "Hero"));
     const { apply } = await connectTo(site);
     const proposal = { content: section("feat01", "Features", { _cssGlobalClasses: ["cls001", "new999"] }), globalClasses: [{ id: "new999", name: "fresh", settings: {} }] };
-    await expect(apply(proposal, site.digest())).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/new999/) });
+    await expect(apply(proposal, site.digest())).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/do not exist on the site: fresh\. Create the missing global classes/) });
     expect(site.writes).toBe(0);
+  });
+
+  it("creates missing classes in one guarded batch, then applies", async () => {
+    const site = new FakeBricksSite(section("hero01", "Hero"));
+    // Enough site classes to need two pages of the listing.
+    site.classes.push(...Array.from({ length: 120 }, (_, i) => ({ id: `s${String(i).padStart(5, "0")}`, name: `site-${i}`, settings: {} })));
+    const { apply, createClasses } = await connectTo(site);
+    const card = { id: "new001", name: "card", settings: { _padding: { top: "2rem" } }, selectors: [{ id: "sel001", selector: "&:hover", settings: { _opacity: "0.9" } }], category: "cat-from-other-site", modified: 1 };
+    const btn = { id: "new002", name: "btn", settings: { _padding: { top: "1rem" } } };
+    const proposal = { content: section("feat01", "Features", { _cssGlobalClasses: ["cls001", "new001", "new002"] }), globalClasses: [card, btn] };
+
+    const result = await createClasses(proposal);
+    expect(result.created).toEqual([{ id: "new001", name: "card" }]);
+    expect(result.reused).toEqual([{ id: "new002", siteId: "cls001", name: "btn" }]);
+    expect(site.classWrites).toBe(1);
+    // Created with its ID, without the foreign category or bookkeeping fields.
+    expect(site.classes.find(c => c.id === "new001")).toEqual({ id: "new001", name: "card", settings: card.settings });
+    expect(result.template.content[0].settings._cssGlobalClasses).toEqual(["cls001", "new001"]);
+    expect(result.template.globalClasses.map(c => c.id).sort()).toEqual(["cls001", "new001"]);
+
+    const applied = await apply(result.template, site.digest());
+    expect(applied.applied).toBe(true);
+    // Nothing left to create.
+    expect((await createClasses(result.template)).created).toEqual([]);
+    expect(site.classWrites).toBe(1);
+  });
+
+  it("never overwrites a site class and reports conflicts and undefined references", async () => {
+    const site = new FakeBricksSite(section("hero01", "Hero"));
+    const { createClasses } = await connectTo(site);
+    const proposal = { content: section("feat01", "Features", { _cssGlobalClasses: ["new002", "zzz999"] }), globalClasses: [{ id: "new002", name: "btn", settings: { _padding: { top: "3rem" } } }] };
+    const result = await createClasses(proposal);
+    expect(result).toMatchObject({ created: [], reused: [], conflicts: [{ id: "new002", siteId: "cls001", name: "btn" }], undefinedIds: ["zzz999"] });
+    expect(site.classWrites).toBe(0);
+    expect(site.classes).toHaveLength(1);
+  });
+
+  it("refuses class creation when classes changed after the read, or when disabled", async () => {
+    const site = new FakeBricksSite(section("hero01", "Hero"));
+    site.classEditBeforeWrite = true;
+    const { createClasses } = await connectTo(site);
+    const proposal = { content: section("feat01", "Features", { _cssGlobalClasses: ["new001"] }), globalClasses: [{ id: "new001", name: "card", settings: {} }] };
+    await expect(createClasses(proposal)).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/nothing was saved/) });
+    expect(site.classes.some(c => c.id === "new001")).toBe(false);
+
+    site.classEditBeforeWrite = false;
+    site.enabled.delete("bricks/batch-create-global-classes");
+    await expect(createClasses(proposal)).rejects.toMatchObject({ status: 403, message: expect.stringMatching(/batch-create-global-classes/) });
   });
 
   it("reports Bricks normalization in the read-back verification", async () => {

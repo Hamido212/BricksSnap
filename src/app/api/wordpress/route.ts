@@ -12,7 +12,8 @@ export async function POST(request: Request) {
     const body = wpRequestSchema.parse(await readJson(request, 2_200_000));
     const result = await handleWordPressRequest(
       body,
-      AbortSignal.any([request.signal, AbortSignal.timeout(body.action === "apply" || body.action === "restore" ? 60_000 : 30_000)])
+      // Writes read back afterwards; image imports download up to 30 files.
+      AbortSignal.any([request.signal, AbortSignal.timeout(body.action === "media" ? 180_000 : ["apply", "restore", "classes"].includes(body.action) ? 60_000 : 30_000)])
     );
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

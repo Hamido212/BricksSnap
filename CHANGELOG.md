@@ -8,6 +8,7 @@
   - Palette colors can be linked to their CSS variables with the hex as fallback.
   - The page's font stack, the site's typography or BricksSnap's default font can be chosen.
   - The MCP tools `bricks_generate_section` and `bricks_assemble_page` accept role `colors`.
+- **Create missing global classes.** Before applying, global classes a change uses but the site lacks can be created from the change's definitions in one atomic `batch-create-global-classes` write, guarded by the class store's ownership digest. Existing classes are never changed: an identical class under the same name is reused, a different one is reported. Apply now names missing classes instead of IDs.
 - **Font stacks (engine).** Font stacks are written as Bricks' font family plus its native `fallback` (`font-family: "Segoe UI", Arial, sans-serif`), including breakpoint and state typography. Previously the stack went into scoped custom CSS, which Bricks' abilities convert into a single quoted font name that browsers cannot match.
 
 ## 0.6.0 — 2026-09-29

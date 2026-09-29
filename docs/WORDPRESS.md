@@ -11,7 +11,7 @@ BricksSnap can read a live Bricks page and the site's global classes through the
   - required: `get-page-elements` and `get-design-context`;
   - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version`, `list-ability-status` and `render-elements` (for the rendered preview).
 
-  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, and importing images needs `upload-media` and `find-media`. Keep them disabled if you only want to read.
+  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, importing images needs `upload-media` and `find-media`, and creating missing classes needs `batch-create-global-classes`. Keep them disabled if you only want to read.
 
 ## Connect
 
@@ -72,8 +72,20 @@ When a reviewed change uses images from other servers, **Apply to WordPress** li
 - **Rewriting.** The image settings are rewritten to the media item's ID and URL. Links and other URLs are left alone.
 - **Re-imports.** Uploads are named `brickssnap-<hash>.<ext>`, so importing the same image again reuses the earlier upload (`find-media`).
 - **Failures.** Images that fail are listed and stay external.
-- **Scope of a save.** Only elements are saved. Page settings are not changed, and global class definitions are never created; classes must already exist.
+- **Scope of a save.** Only elements are saved. Page settings are not changed. Global classes the change uses must exist on the site; create missing ones first (below).
 - **Empty pages.** A page that was empty has no previous version to restore.
+
+### Create missing global classes
+
+Sections from the catalog or another site can use global classes the connected site lacks. Apply refuses such changes. **Create missing global classes** (under Apply, shown when the change uses classes the loaded page and design context do not contain, or after that refusal) adds them from the change's definitions (`batch-create-global-classes` must be enabled).
+
+- **Additive only.** Existing classes are never changed or overwritten.
+  - A staged class whose name already exists on the site with the same definition reuses the site's class: the elements switch to its ID.
+  - A name that exists with a different definition is reported and nothing is created for it. Rename the class in the staged JSON, or use the site's class.
+- **One atomic write.** All missing classes are created together, guarded by the class store's ownership digest from the same read. If classes change on the site in between, Bricks refuses and nothing is saved.
+- **Kept as staged.** Class IDs stay as staged, so element references remain valid. Categories from another site are dropped.
+- **Undefined references.** Referenced IDs without a definition in the change are listed; remove them or add their definitions.
+- **Removing a class later.** Created classes stay when a page is restored. Remove unused ones in Bricks → Global classes.
 
 ## Local and staging sites
 
@@ -98,7 +110,7 @@ This allows private and loopback addresses and custom ports; HTTPS stays mandato
 | WordPress must resolve to public internet addresses | The site is local or private; use the opt-in above. |
 | WordPress redirected the request | Use the final HTTPS URL. BricksSnap does not follow redirects with credentials. |
 | The page changed since it was loaded | Someone saved the page after you loaded it. Load it into the baseline again and review. |
-| Saving is disabled on this site | Enable `set-page-elements` (or `restore-revision`) under Bricks → AI → Abilities. |
+| Saving is disabled on this site | Enable the named ability (`set-page-elements`, `restore-revision`, `upload-media` or `batch-create-global-classes`) under Bricks → AI → Abilities. |
 | … is open in the Bricks builder | Close the builder or confirm applying anyway; the builder's next save would overwrite the change. |
 
 ## Limits
