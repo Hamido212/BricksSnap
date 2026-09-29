@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
+import { TEMPLATE_TYPES, templateConditionsSchema, type TemplateCondition } from "./template-conditions";
 
 // Only these fixed abilities are called; no arbitrary tool names or endpoints per call.
 export const WP_READ_ABILITIES = [
@@ -11,12 +12,17 @@ export const WP_READ_ABILITIES = [
   "bricks/get-design-context",
   "bricks/list-color-palettes",
   "bricks/list-global-classes",
+  "bricks/list-templates",
+  "bricks/get-template-settings",
 ] as const;
 
 export type ReadAbility = typeof WP_READ_ABILITIES[number];
 
-/** Writes: guarded whole-page replacement, restoring the revision it created, importing images, creating classes. */
-export const WP_WRITE_ABILITIES = ["bricks/set-page-elements", "bricks/restore-revision", "bricks/upload-media", "bricks/batch-create-global-classes"] as const;
+/** Writes: guarded element replacement, restoring its revision, images, classes, templates and their conditions. */
+export const WP_WRITE_ABILITIES = [
+  "bricks/set-page-elements", "bricks/restore-revision", "bricks/upload-media", "bricks/batch-create-global-classes",
+  "bricks/create-template", "bricks/set-template-conditions",
+] as const;
 
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/, "Reload the page into the baseline: Bricks' document digest is missing.");
 
@@ -61,6 +67,19 @@ export const wpRequestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("media"), credentials: wpCredentialsSchema, template: z.unknown(), confirm: z.literal(true) }).strict(),
   // Create the global classes a proposal uses but the site lacks (additive; existing classes are never changed).
   z.object({ action: z.literal("classes"), credentials: wpCredentialsSchema, template: z.unknown(), confirm: z.literal(true) }).strict(),
+  // The site's Bricks templates (header, footer, section, …), optionally of one type.
+  z.object({ action: z.literal("templates"), credentials: wpCredentialsSchema, type: z.enum(TEMPLATE_TYPES).optional() }).strict(),
+  z.object({ action: z.literal("template-conditions"), credentials: wpCredentialsSchema, templateId: z.number().int().positive() }).strict(),
+  // Replace a template's conditions only while the stored ones still equal those the user edited.
+  z.object({
+    action: z.literal("set-conditions"), credentials: wpCredentialsSchema, templateId: z.number().int().positive(),
+    conditions: templateConditionsSchema, expectedConditions: templateConditionsSchema, confirm: z.literal(true),
+  }).strict(),
+  // Create a template from a reviewed proposal (draft unless publishing is chosen).
+  z.object({
+    action: z.literal("create-template"), credentials: wpCredentialsSchema, title: z.string().trim().min(1).max(200),
+    type: z.enum(TEMPLATE_TYPES), status: z.enum(["draft", "publish"]).default("draft"), template: z.unknown(), confirm: z.literal(true),
+  }).strict(),
   // Replace the page's elements only if Bricks' stored document still has the reviewed baseline digest.
   z.object({
     action: z.literal("apply"), credentials: wpCredentialsSchema, postId: z.number().int().positive(),
@@ -151,6 +170,18 @@ export type WordPressMediaResult = {
   imported: Array<{ source: string; id: number; url: string; reused: boolean }>;
   skipped: Array<{ source: string; reason: string }>;
 };
+
+export type WordPressTemplateSummary = { id: number; title: string; type: string; status: string; conditionCount: number };
+export type WordPressTemplatesResult = { templates: WordPressTemplateSummary[] };
+
+export type WordPressConditionsResult = {
+  templateId: number;
+  conditions: TemplateCondition[];
+  /** Stored condition fields BricksSnap cannot edit; when present the conditions are read-only here. */
+  unsupported: string[];
+};
+
+export type WordPressCreateTemplateResult = { templateId: number; status: string; editUrl?: string; warnings: string[] };
 
 export type WordPressClassesResult = {
   /** The proposal with references to reused site classes switched and definitions as the site stores them. */

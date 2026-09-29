@@ -33,6 +33,7 @@ v0.5 builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [
 - Bricks-rendered before/after preview (1280/390 px), guarded apply with read-back verification and revision restore
 - Import of external images into the site's media library and guarded creation of missing global classes before applying
 - Built-in sections in a connected site's colors (palettes and the loaded page) and fonts
+- Site templates: load headers, footers and sections, save them back guarded, edit their display conditions, and save reviewed changes as new templates
 - Bricks remote template library (`/wp-json/bricks/v1/get-templates-data`) with optional whitelist/password
 
 ## Prerequisites

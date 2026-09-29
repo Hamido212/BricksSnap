@@ -8,6 +8,9 @@ import {
   WP_WRITE_ABILITIES,
   type WordPressApplyResult,
   type WordPressClassesResult,
+  type WordPressConditionsResult,
+  type WordPressCreateTemplateResult,
+  type WordPressTemplatesResult,
   type WordPressMediaResult,
   type WordPressRenderResult,
   type WordPressRestoreResult,
@@ -24,6 +27,7 @@ import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-e
 import packageJson from "../../package.json";
 import { downloadImage, findExternalImages, MAX_IMAGES, replaceImages, uploadName, type SiteImage } from "./wordpress-media";
 import { planGlobalClasses, referencedClassIds, remapGlobalClasses } from "./template-classes";
+import { readTemplateConditions, type TemplateCondition, type TemplateType } from "./template-conditions";
 
 type JsonRecord = Record<string, unknown>;
 type InputSchema = { properties?: JsonRecord } | undefined;
@@ -361,10 +365,10 @@ function siteClass(cls: JsonRecord): BricksGlobalClass {
 }
 
 /** Read every page of a paginated Bricks list ability ({ items, hasMore }). */
-async function listAll(session: Session, abilityName: string): Promise<unknown[]> {
+async function listAll(session: Session, abilityName: string, filters: Argument[] = []): Promise<unknown[]> {
   const items: unknown[] = [];
   for (let page = 1; page <= 20; page++) {
-    const result = await callAbility(session, abilityName, [{ names: ["page"], value: page }, { names: ["perPage"], value: 100 }]);
+    const result = await callAbility(session, abilityName, [...filters, { names: ["page"], value: page }, { names: ["perPage"], value: 100 }]);
     const rows = isRecord(result) && Array.isArray(result.items) ? result.items : Array.isArray(result) ? result : [];
     items.push(...rows);
     if (!isRecord(result) || result.hasMore !== true || !rows.length) break;
@@ -624,6 +628,108 @@ export async function importWordPressMedia(
   });
 }
 
+/** The site's Bricks templates, optionally of one type. */
+export async function listWordPressTemplates(credentials: WordPressCredentials, type: TemplateType | undefined, signal: AbortSignal): Promise<WordPressTemplatesResult> {
+  return withSession(credentials, signal, async session => {
+    const rows = await listAll(session, "bricks/list-templates", type ? [{ names: ["type"], value: type }] : []);
+    const templates = rows.filter(isRecord).filter(row => Number.isInteger(row.id)).map(row => ({
+      id: Number(row.id),
+      title: typeof row.title === "string" && row.title.trim() ? row.title.trim() : `Template #${row.id}`,
+      type: typeof row.type === "string" ? row.type : "unknown",
+      status: typeof row.status === "string" ? row.status : "unknown",
+      conditionCount: typeof row.conditionCount === "number" ? row.conditionCount : 0,
+    }));
+    return { templates };
+  });
+}
+
+const templateArgument = (templateId: number): Argument => ({ names: ["templateId"], value: templateId, required: true });
+
+async function readConditions(session: Session, templateId: number): Promise<WordPressConditionsResult> {
+  const result = await callAbility(session, "bricks/get-template-settings", [templateArgument(templateId)]);
+  // PHP encodes empty settings as [].
+  const settings = isRecord(result) && "settings" in result ? result.settings : result;
+  return { templateId, ...readTemplateConditions(settings) };
+}
+
+export async function getWordPressTemplateConditions(credentials: WordPressCredentials, templateId: number, signal: AbortSignal): Promise<WordPressConditionsResult> {
+  return withSession(credentials, signal, session => readConditions(session, templateId));
+}
+
+/**
+ * Replace a template's conditions. set-template-conditions has no concurrency guard, so the stored
+ * conditions are re-read and must still equal the ones the user started from; the result is read back.
+ */
+export async function setWordPressTemplateConditions(
+  credentials: WordPressCredentials,
+  request: { templateId: number; conditions: TemplateCondition[]; expectedConditions: TemplateCondition[] },
+  signal: AbortSignal
+): Promise<WordPressConditionsResult> {
+  return withSession(credentials, signal, async session => {
+    await requireWriteAbility(session, "bricks/set-template-conditions");
+    const current = await readConditions(session, request.templateId);
+    if (current.unsupported.length) throw new RequestError(`This template has condition settings BricksSnap cannot edit (${current.unsupported.join(", ")}). Edit its conditions in Bricks.`, 422);
+    if (stableJson(current.conditions) !== stableJson(request.expectedConditions)) throw new RequestError("The template's conditions changed since they were loaded. Reload them and edit again.", 409);
+    await callAbility(session, "bricks/set-template-conditions", [templateArgument(request.templateId), { names: ["conditions"], value: request.conditions, required: true }]);
+    return readConditions(session, request.templateId);
+  });
+}
+
+/** Header and footer templates render inside <header>/<footer>; a root with the same landmark nests it. */
+function landmarkWarnings(template: BricksTemplate, type: TemplateType): string[] {
+  if (type !== "header" && type !== "footer") return [];
+  const nested = template.content.filter(el => el.parent === 0 && [el.settings.tag, el.settings.customTag].some(tag => typeof tag === "string" && /^(header|footer)$/i.test(tag)));
+  return nested.length ? [`Bricks wraps ${type} templates in a <${type}> landmark. Set the tag of ${nested.map(el => el.label || el.id).join(", ")} back to its default to avoid nested landmarks.`] : [];
+}
+
+/**
+ * Create a Bricks template from a reviewed proposal. Like applying, the global classes it uses must
+ * exist on the site; the template starts as a draft unless publishing is chosen explicitly.
+ */
+export async function createWordPressTemplate(
+  credentials: WordPressCredentials,
+  request: { title: string; type: TemplateType; status: "draft" | "publish"; template: unknown },
+  signal: AbortSignal
+): Promise<WordPressCreateTemplateResult> {
+  const proposal = readStagingTemplate(request.template);
+  if (!proposal.content.length) throw new RequestError("The reviewed template has no elements.", 422);
+  return withSession(credentials, signal, async session => {
+    await requireWriteAbility(session, "bricks/create-template");
+    const referenced = referencedClassIds(proposal);
+    if (referenced.length) {
+      const site = new Set((await listAll(session, "bricks/list-global-classes")).filter(isRecord).map(c => String(c.id)));
+      const missing = referenced.filter(id => !site.has(id));
+      if (missing.length) {
+        const names = missing.map(id => proposal.globalClasses?.find(c => c.id === id)?.name ?? id);
+        throw new RequestError(`The template uses global classes that do not exist on the site: ${names.join(", ")}. Create the missing global classes first, or remove them from the section.`, 422);
+      }
+    }
+    let created: unknown;
+    try {
+      created = await callAbility(session, "bricks/create-template", [
+        { names: ["title"], value: request.title, required: true },
+        { names: ["type"], value: request.type, required: true },
+        { names: ["status"], value: request.status },
+        { names: ["elements"], value: proposal.content },
+      ]);
+    } catch (error) {
+      const external = externalUrls(proposal, new URL(credentials.endpoint).hostname);
+      if (error instanceof RequestError && error.message.startsWith("The web host answered") && external.length) {
+        throw new RequestError(`${error.message} The template contains external URLs (${external.slice(0, 3).join(", ")}${external.length > 3 ? ", …" : ""}); some host firewalls block these. Import the images first and retry.`, error.status);
+      }
+      throw error;
+    }
+    const templateId = isRecord(created) ? Number(created.templateId ?? created.id) : NaN;
+    if (!Number.isInteger(templateId) || templateId <= 0) throw new RequestError("WordPress did not return the new template.", 502);
+    return {
+      templateId,
+      status: isRecord(created) && typeof created.status === "string" ? created.status : request.status,
+      ...(isRecord(created) && typeof created.editUrl === "string" ? { editUrl: created.editUrl } : {}),
+      warnings: landmarkWarnings(proposal, request.type),
+    };
+  });
+}
+
 /** Every global class with the ownership envelope Bricks requires for writes, from one consistent read. */
 async function listGlobalClasses(session: Session): Promise<{ classes: BricksGlobalClass[]; ownership: JsonRecord }> {
   const classes: BricksGlobalClass[] = [];
@@ -755,7 +861,7 @@ export async function restoreWordPressRevision(
 export async function handleWordPressRequest(
   request: WordPressRequest,
   signal: AbortSignal
-): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult | WordPressClassesResult> {
+): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult | WordPressClassesResult | WordPressTemplatesResult | WordPressConditionsResult | WordPressCreateTemplateResult> {
   switch (request.action) {
     case "connect":
       return connectWordPress(request.credentials, signal);
@@ -771,6 +877,14 @@ export async function handleWordPressRequest(
       return importWordPressMedia(request.credentials, request, signal);
     case "classes":
       return createWordPressClasses(request.credentials, request, signal);
+    case "templates":
+      return listWordPressTemplates(request.credentials, request.type, signal);
+    case "template-conditions":
+      return getWordPressTemplateConditions(request.credentials, request.templateId, signal);
+    case "set-conditions":
+      return setWordPressTemplateConditions(request.credentials, request, signal);
+    case "create-template":
+      return createWordPressTemplate(request.credentials, request, signal);
     case "apply":
       return applyWordPressPage(request.credentials, request, signal);
     case "restore":

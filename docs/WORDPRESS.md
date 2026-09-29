@@ -9,9 +9,9 @@ BricksSnap can read a live Bricks page and the site's global classes through the
 - An application password for a dedicated WordPress user. Give that user only the Bricks builder access it needs rather than using an administrator. Revoke the password when you are done.
 - These abilities enabled under **Bricks → AI → Abilities**:
   - required: `get-page-elements` and `get-design-context`;
-  - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version`, `list-ability-status` and `render-elements` (for the rendered preview).
+  - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version`, `list-ability-status`, `render-elements` (for the rendered preview), and `list-templates` and `get-template-settings` (for site templates).
 
-  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, importing images needs `upload-media` and `find-media`, and creating missing classes needs `batch-create-global-classes`. Keep them disabled if you only want to read.
+  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, importing images needs `upload-media` and `find-media`, creating missing classes needs `batch-create-global-classes`, creating templates needs `create-template`, and changing template conditions needs `set-template-conditions`. Keep them disabled if you only want to read.
 
 ## Connect
 
@@ -24,6 +24,20 @@ BricksSnap can read a live Bricks page and the site's global classes through the
 7. Add a section or version on the right, or generate one in the site's design (below), and **Review changes** as usual. Download the reviewed template and import it in Bricks, or apply it.
 
 The password is kept only in the open browser tab and sent to the local BricksSnap server for each request. It is not stored.
+
+## Site templates: headers, footers and conditions
+
+**Site templates** (below the connection) lists the site's Bricks templates with type, status and number of conditions, filtered by type if you like.
+
+- **Edit a template.** **Load into baseline** loads a template's elements, for a header or footer its header or footer area, like a page. Add or compare a change, review it and use **Apply to WordPress**. The same checks, digest guard, read-back and restore apply as for pages.
+- **Conditions.** **Conditions** shows where Bricks uses the template: entire website, front page, post types, archives, search results, the 404 page, terms or specific posts, each optionally as an exclusion. Section templates can also take a WordPress hook.
+  - Change the rows and confirm, then **Save conditions** replaces the template's conditions with `set-template-conditions`. Other template settings (sticky header, popup options) are not touched.
+  - Bricks has no concurrency guard for conditions. BricksSnap reads the stored conditions again right before saving and refuses if they changed since you opened them. Afterwards it reads them back.
+  - Conditions that use settings BricksSnap does not know (for example from add-ons) are shown read-only; edit those in Bricks.
+  - Conditions of a published template take effect immediately; those of a draft only once it is published.
+- **Save as a new Bricks template.** After **Review changes**, this creates a template (header, footer, section, content, popup, archive, search or error) from the reviewed elements with `create-template`. It is a draft unless you choose to publish it, and then becomes the baseline so you can set its conditions or keep editing it. As with applying, the global classes it uses must exist on the site. For header and footer templates BricksSnap warns when a root element also uses the `header` or `footer` tag, because Bricks already wraps these templates in that landmark.
+
+Deleting templates and changing their status are left to WordPress and Bricks.
 
 ## Generate in the site's design
 
@@ -66,7 +80,7 @@ What to expect:
 
 ### Import external images into the media library
 
-When a reviewed change uses images from other servers, **Apply to WordPress** lists them and offers **Import images into the media library** (`upload-media` must be enabled).
+When a reviewed change uses images from other servers, **Before saving** (above Apply) lists them and offers **Import images into the media library** (`upload-media` must be enabled). This also applies before saving the change as a new template.
 
 - **How files are copied.** BricksSnap downloads each image itself and uploads it to WordPress as base64 data, so the request carries no external URL. Downloads must be HTTPS from public addresses (checked for every redirect), with image content types only, 8 MB per file and at most 30 images.
 - **Rewriting.** The image settings are rewritten to the media item's ID and URL. Links and other URLs are left alone.
@@ -77,7 +91,7 @@ When a reviewed change uses images from other servers, **Apply to WordPress** li
 
 ### Create missing global classes
 
-Sections from the catalog or another site can use global classes the connected site lacks. Apply refuses such changes. **Create missing global classes** (under Apply, shown when the change uses classes the loaded page and design context do not contain, or after that refusal) adds them from the change's definitions (`batch-create-global-classes` must be enabled).
+Sections from the catalog or another site can use global classes the connected site lacks. Apply refuses such changes. **Create missing global classes** (under **Before saving**, shown when the change uses classes the loaded page and design context do not contain, or after that refusal) adds them from the change's definitions (`batch-create-global-classes` must be enabled).
 
 - **Additive only.** Existing classes are never changed or overwritten.
   - A staged class whose name already exists on the site with the same definition reuses the site's class: the elements switch to its ID.
@@ -116,6 +130,7 @@ This allows private and loopback addresses and custom ports; HTTPS stays mandato
 ## Limits
 
 - **Pages.** One page or template at a time, up to 1,500 elements and a 3 MB response.
+- **Templates.** Conditions cover Bricks' own condition types. Template settings such as sticky headers, popup behavior or password protection are not edited.
 - **What is read.** Header and footer templates are read from their own area automatically. Page settings are read but not staged.
 - **Colors.** The design context's brand colors are mapped by palette color name (primary, secondary, background, text, …); Bricks' built-in default palette is ignored there. Generating in the site's design suggests roles from all palettes and the loaded page. Theme styles and global variables are not read yet.
 - **Review scope.** The comparison is structural. Check rendering, dynamic data and forms in Bricks.

@@ -9,6 +9,10 @@
   - The page's font stack, the site's typography or BricksSnap's default font can be chosen.
   - The MCP tools `bricks_generate_section` and `bricks_assemble_page` accept role `colors`.
 - **Create missing global classes.** Before applying, global classes a change uses but the site lacks can be created from the change's definitions in one atomic `batch-create-global-classes` write, guarded by the class store's ownership digest. Existing classes are never changed: an identical class under the same name is reused, a different one is reported. Apply now names missing classes instead of IDs.
+- **Site templates.** A template list (type, status, conditions) under the connection. Templates load into the baseline like pages and save back through the same guarded apply, read-back and restore; headers and footers use their own area.
+- **Template conditions.** View and edit where a template applies: entire website, front page, post types, archives, search, 404, terms and specific posts, with exclusions and hooks for section templates. Saving re-reads the stored conditions first and refuses if they changed; conditions with unknown settings stay read-only.
+- **Save as a new Bricks template.** A reviewed change becomes a new header, footer, section or other template, as a draft unless publishing is chosen, and then serves as the baseline. Missing global classes are refused as for apply; nested header/footer landmarks are flagged.
+- **Before saving.** Image import and class creation form their own step, used by both apply and template creation.
 - **Font stacks (engine).** Font stacks are written as Bricks' font family plus its native `fallback` (`font-family: "Segoe UI", Arial, sans-serif`), including breakpoint and state typography. Previously the stack went into scoped custom CSS, which Bricks' abilities convert into a single quoted font name that browsers cannot match.
 
 ## 0.6.0 — 2026-09-29

@@ -8,12 +8,17 @@ import JsonPreview from "./JsonPreview";
 import StructurePreview from "./StructurePreview";
 import WordPressConnection from "./WordPressConnection";
 import WordPressApply from "./WordPressApply";
+import WordPressPrepare from "./WordPressPrepare";
+import WordPressCreateTemplate from "./WordPressCreateTemplate";
+import WordPressTemplates from "./WordPressTemplates";
+import { postWordPress } from "@/lib/wordpress-request";
 import BricksRenderPreview from "./BricksRenderPreview";
 import SiteDesignGenerator from "./SiteDesignGenerator";
 import { pageDesign, type SitePalette } from "@/lib/site-design";
-import type { WordPressCredentials, WordPressSource } from "@/lib/wordpress-contract";
+import type { WordPressCredentials, WordPressPageResult, WordPressSource } from "@/lib/wordpress-contract";
 
-type Review = { id: number; before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
+// `version` counts changes to the reviewed template after review (imported images, created classes).
+type Review = { id: number; version: number; before: BricksTemplate; template: BricksTemplate; diff: ReturnType<typeof diffTemplates>; warnings: string[] };
 const control = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
 const button = "rounded-lg border border-border px-3 py-2 text-sm hover:bg-card-hover disabled:opacity-40 disabled:cursor-not-allowed";
 
@@ -30,9 +35,13 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
   const [sitePalettes, setSitePalettes] = useState<SitePalette[]>([]);
   // Verified connection credentials, kept in memory for applying reviewed changes.
   const [credentials, setCredentials] = useState<WordPressCredentials | null>(null);
+  // A save was refused because global classes are missing on the site.
+  const [classesMissing, setClassesMissing] = useState(false);
+  // Remounts the template list after a template was created.
+  const [templatesVersion, setTemplatesVersion] = useState(0);
   // A slow file read must not overwrite a subsequent edit or show a stale review.
   const revision = useRef(0);
-  const invalidate = () => { revision.current++; setReview(null); setError(""); };
+  const invalidate = () => { revision.current++; setReview(null); setError(""); setClassesMissing(false); };
   const edit = (side: "baseline" | "candidate", text: string) => {
     invalidate();
     if (side === "baseline") {
@@ -58,12 +67,20 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
       const addition = JSON.parse(candidate);
       if (mode === "compare") {
         const template = readStagingTemplate(addition, true);
-        setReview({ id: revision.current, before, template, diff: diffTemplates(before, template), warnings: [...(siteClasses ? siteClassWarnings(template, siteClasses) : []), "Comparison can include removals. Export contains the full candidate, not only the differences.", "Structure comparison only. Check layout, dynamic data, links and forms in Bricks before publishing."] });
+        setReview({ id: revision.current, version: 0, before, template, diff: diffTemplates(before, template), warnings: [...(siteClasses ? siteClassWarnings(template, siteClasses) : []), "Comparison can include removals. Export contains the full candidate, not only the differences.", "Structure comparison only. Check layout, dynamic data, links and forms in Bricks before publishing."] });
       } else {
         const merged = mergeTemplates(before, addition, mode === "after" ? { mode, afterId: selectedAfter } : { mode });
-        setReview({ id: revision.current, before, ...merged, warnings: [...(siteClasses ? siteClassWarnings(merged.template, siteClasses) : []), ...merged.warnings] });
+        setReview({ id: revision.current, version: 0, before, ...merged, warnings: [...(siteClasses ? siteClassWarnings(merged.template, siteClasses) : []), ...merged.warnings] });
       }
     } catch (e) { setError(e instanceof Error ? e.message : "Could not review templates."); }
+  };
+  // Load a page or template of the connected site as the baseline (template list, newly created template).
+  const loadIntoBaseline = async (postId: number) => {
+    if (!credentials) return;
+    const page = await postWordPress<WordPressPageResult>({ action: "page", credentials, postId });
+    invalidate();
+    setBaseline(JSON.stringify(page.template, null, 2));
+    setSource(page.source);
   };
   const demo = () => {
     invalidate();
@@ -106,6 +123,7 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         setSource(newSource);
       }}
     />
+    {credentials && <WordPressTemplates key={`${credentials.endpoint}#${templatesVersion}`} credentials={credentials} onLoad={loadIntoBaseline} currentId={source?.postId}/>}
     {designPalettes.length > 0 && credentials && <SiteDesignGenerator key={`${credentials.endpoint}#${source?.postId ?? ""}#${sitePalettes.length}`} palettes={designPalettes} fonts={loadedDesign.fonts} host={new URL(credentials.endpoint).host} onGenerate={json => { edit("candidate", json); if (mode === "compare") setMode("append"); }}/>}
     <div className="grid gap-5 lg:grid-cols-2">
       {(["baseline", "candidate"] as const).map((side, i) => <div key={side} className="min-w-0 rounded-xl border border-border bg-card p-5 space-y-3">
@@ -144,22 +162,36 @@ export default function StagingWorkspace({ generatedTemplate }: { generatedTempl
         <div className="min-w-0 rounded-xl border border-border p-4"><h4 className="font-medium mb-3">Before · structure</h4><StructurePreview elements={review.before.content}/></div>
         <div className="min-w-0 rounded-xl border border-border p-4"><h4 className="font-medium mb-3">After · structure</h4><StructurePreview elements={review.template.content}/></div>
       </div>
-      {source && credentials && credentials.endpoint === source.endpoint && <BricksRenderPreview key={review.id} source={source} credentials={credentials} proposal={review.template} changedIds={review.diff.elements.filter(el => el.status === "added" || el.status === "changed").map(el => el.id)}/>}
+      {source && credentials && credentials.endpoint === source.endpoint && <BricksRenderPreview key={`${review.id}:${review.version}`} source={source} credentials={credentials} proposal={review.template} changedIds={review.diff.elements.filter(el => el.status === "added" || el.status === "changed").map(el => el.id)}/>}
       <ul className="rounded-xl border border-border p-5 space-y-2 text-xs text-muted">{review.warnings.map((warning, i) => <li className="break-words" key={i}>{warning}</li>)}</ul>
       <div className="min-w-0"><h3 className="font-medium mb-3">4. Export reviewed template</h3><JsonPreview data={review.template} templateName="BricksSnap Staged Page" initialType="content" maxHeight="320px"/></div>
     </div>}
+    {review && credentials && <WordPressPrepare
+      key={`${credentials.endpoint}#${review.id}`}
+      credentials={credentials}
+      proposal={review.template}
+      onProposalChange={template => setReview(current => current && { ...current, version: current.version + 1, template, diff: diffTemplates(current.before, template) })}
+      knownClassIds={[...review.before.globalClasses.map(c => c.id), ...(siteClasses ?? []).map(c => c.id)]}
+      classesMissing={classesMissing}
+    />}
     {source?.documentDigest && credentials && credentials.endpoint === source.endpoint && <WordPressApply
       key={`${source.endpoint}#${source.postId}`}
       source={source}
       credentials={credentials}
       proposal={review?.template ?? null}
-      onProposalChange={template => setReview(current => current && { ...current, id: current.id + 0.5, template, diff: diffTemplates(current.before, template) })}
-      knownClassIds={[...(review?.before.globalClasses ?? []).map(c => c.id), ...(siteClasses ?? []).map(c => c.id)]}
+      onMissingClasses={() => setClassesMissing(true)}
       onUpdated={(template, newSource) => {
         invalidate();
         setBaseline(JSON.stringify(template, null, 2));
         setSource(newSource);
       }}
+    />}
+    {review && credentials && <WordPressCreateTemplate
+      key={credentials.endpoint}
+      credentials={credentials}
+      proposal={review.template}
+      onMissingClasses={() => setClassesMissing(true)}
+      onCreated={async templateId => { setTemplatesVersion(v => v + 1); await loadIntoBaseline(templateId).catch(e => setError(e instanceof Error ? e.message : "Could not load the new template.")); }}
     />}
   </section>;
 }

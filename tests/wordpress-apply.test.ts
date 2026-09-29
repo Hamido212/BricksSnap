@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { wpRequestSchema, type WordPressApplyResult, type WordPressClassesResult, type WordPressCredentials, type WordPressRestoreResult } from "../src/lib/wordpress-contract";
+import { wpRequestSchema, type WordPressApplyResult, type WordPressClassesResult, type WordPressConditionsResult, type WordPressCreateTemplateResult, type WordPressCredentials, type WordPressRestoreResult, type WordPressTemplatesResult } from "../src/lib/wordpress-contract";
 import { stableJson } from "../src/lib/template-staging";
 import type { BricksElement } from "../src/lib/bricks-engine";
 
@@ -12,7 +12,14 @@ class FakeBricksSite {
   revisions = new Map<number, BricksElement[]>();
   nextRevision = 100;
   locked = false;
-  enabled = new Set(["bricks/set-page-elements", "bricks/restore-revision", "bricks/batch-create-global-classes"]);
+  enabled = new Set(["bricks/set-page-elements", "bricks/restore-revision", "bricks/batch-create-global-classes", "bricks/create-template", "bricks/set-template-conditions"]);
+  templates = new Map<number, { title: string; type: string; status: string; settings: Record<string, unknown> | unknown[]; elements: unknown[] }>([
+    [81, { title: "Coming soon", type: "content", status: "publish", settings: [], elements: [] }],
+    [90, { title: "Main header", type: "header", status: "publish", settings: { templateConditions: [{ id: "c1a2b3", main: "any" }], headerSticky: true }, elements: [] }],
+  ]);
+  nextTemplate = 200;
+  /** Simulates another editor changing a template's conditions between BricksSnap's reads. */
+  conditionEditBeforeWrite = false;
   classes: Array<{ id: string; name: string; settings: Record<string, unknown>; selectors?: unknown[] }> = [{ id: "cls001", name: "btn", settings: { _padding: { top: "1rem" } } }];
   classVersion = 0;
   classWrites = 0;
@@ -66,6 +73,30 @@ class FakeBricksSite {
         this.writes++;
         return { elementIds: this.elements.map(el => el.id), elementCount: this.elements.length, revisionId, documentDigest: this.digest(), changed: true };
       }
+      case "bricks/list-templates": {
+        const items = [...this.templates].filter(([, t]) => !params.type || t.type === params.type)
+          .map(([id, t]) => ({ id, title: t.title, type: t.type, status: t.status, editUrl: `https://example.com/?p=${id}&bricks=run`, conditionCount: Array.isArray((t.settings as Record<string, unknown>).templateConditions) ? ((t.settings as Record<string, unknown[]>).templateConditions).length : 0 }));
+        return { items, total: items.length, page: 1, perPage: 100, hasMore: false };
+      }
+      case "bricks/get-template-settings": {
+        const template = this.templates.get(params.templateId as number);
+        if (!template) throw new Error("Template not found.");
+        if (this.conditionEditBeforeWrite) template.settings = { templateConditions: [{ id: "zzz999", main: "frontpage" }] };
+        return { settings: structuredClone(template.settings), templateId: params.templateId };
+      }
+      case "bricks/set-template-conditions": {
+        const template = this.templates.get(params.templateId as number)!;
+        const conditions = (params.conditions as Array<Record<string, unknown>>).map((c, i) => ({ id: `row${String(i).padStart(3, "0")}`, ...c }));
+        template.settings = { ...(Array.isArray(template.settings) ? {} : template.settings), templateConditions: conditions };
+        this.writes++;
+        return { templateId: params.templateId, conditions, conditionCount: conditions.length };
+      }
+      case "bricks/create-template": {
+        const templateId = this.nextTemplate++;
+        this.templates.set(templateId, { title: params.title as string, type: params.type as string, status: (params.status as string) ?? "draft", settings: [], elements: structuredClone(params.elements as unknown[]) ?? [] });
+        this.writes++;
+        return { templateId, editUrl: `https://example.com/?p=${templateId}&bricks=run`, status: (params.status as string) ?? "draft" };
+      }
       case "bricks/render-elements": {
         const elements = (params.elements as BricksElement[] | undefined) ?? this.elements;
         return { html: elements.map(el => `<div id="brxe-${el.id}">${el.label ?? el.name}</div>`).join(""), css: elements.map(el => `#brxe-${el.id}{margin:0}`).join("") };
@@ -115,6 +146,7 @@ async function connectTo(site: FakeBricksSite) {
       handleWordPressRequest({ action: "restore", credentials: creds, postId: 7, revisionId, expectedDocumentDigest, confirm: true }, signal) as Promise<WordPressRestoreResult>,
     createClasses: (template: unknown) =>
       handleWordPressRequest({ action: "classes", credentials: creds, template, confirm: true }, signal) as Promise<WordPressClassesResult>,
+    request: <T>(body: Record<string, unknown>) => handleWordPressRequest(wpRequestSchema.parse({ credentials: creds, ...body }), signal) as Promise<T>,
   };
 }
 
@@ -287,5 +319,61 @@ describe("guarded apply and restore", () => {
     expect(() => wpRequestSchema.parse({ ...base, confirm: false })).toThrow();
     expect(() => wpRequestSchema.parse({ ...base, confirm: true, expectedDocumentDigest: "abc" })).toThrow();
     expect(wpRequestSchema.parse({ ...base, confirm: true })).toMatchObject({ action: "apply", allowLocked: false });
+  });
+
+  describe("site templates", () => {
+    it("lists templates by type and reads their conditions", async () => {
+      const site = new FakeBricksSite(section("hero01", "Hero"));
+      const { request } = await connectTo(site);
+      expect((await request<WordPressTemplatesResult>({ action: "templates" })).templates.map(t => t.id)).toEqual([81, 90]);
+      expect((await request<WordPressTemplatesResult>({ action: "templates", type: "header" })).templates).toEqual([{ id: 90, title: "Main header", type: "header", status: "publish", conditionCount: 1 }]);
+      expect(await request<WordPressConditionsResult>({ action: "template-conditions", templateId: 90 })).toEqual({ templateId: 90, conditions: [{ main: "any" }], unsupported: [] });
+      // PHP's empty settings array.
+      expect(await request<WordPressConditionsResult>({ action: "template-conditions", templateId: 81 })).toEqual({ templateId: 81, conditions: [], unsupported: [] });
+    });
+
+    it("replaces conditions only while the stored ones are unchanged", async () => {
+      const site = new FakeBricksSite(section("hero01", "Hero"));
+      const { request } = await connectTo(site);
+      const conditions = [{ main: "postType", postType: ["page"] }, { main: "ids", ids: [114], exclude: true }];
+      const saved = await request<WordPressConditionsResult>({ action: "set-conditions", templateId: 90, conditions, expectedConditions: [{ main: "any" }], confirm: true });
+      expect(saved.conditions).toEqual(conditions);
+      // Other template settings are untouched.
+      expect(site.templates.get(90)!.settings).toMatchObject({ headerSticky: true });
+
+      await expect(request({ action: "set-conditions", templateId: 90, conditions: [], expectedConditions: [{ main: "any" }], confirm: true })).rejects.toMatchObject({ status: 409 });
+      site.conditionEditBeforeWrite = true;
+      await expect(request({ action: "set-conditions", templateId: 90, conditions: [], expectedConditions: conditions, confirm: true })).rejects.toMatchObject({ status: 409, message: expect.stringMatching(/changed since they were loaded/) });
+      expect(site.writes).toBe(1);
+    });
+
+    it("keeps conditions with settings it cannot edit read-only", async () => {
+      const site = new FakeBricksSite(section("hero01", "Hero"));
+      site.templates.get(90)!.settings = { templateConditions: [{ id: "c1", main: "any", userRole: ["editor"] }] };
+      const { request } = await connectTo(site);
+      expect(await request<WordPressConditionsResult>({ action: "template-conditions", templateId: 90 })).toMatchObject({ unsupported: ["userRole"] });
+      await expect(request({ action: "set-conditions", templateId: 90, conditions: [], expectedConditions: [], confirm: true })).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/userRole/) });
+      expect(site.writes).toBe(0);
+    });
+
+    it("creates a draft template from a proposal, guarding classes and landmarks", async () => {
+      const site = new FakeBricksSite(section("hero01", "Hero"));
+      const { request } = await connectTo(site);
+      const header = { content: section("head01", "Header", { tag: "header" }) };
+      const created = await request<WordPressCreateTemplateResult>({ action: "create-template", title: "Main header", type: "header", template: header, confirm: true });
+      expect(created).toMatchObject({ templateId: 200, status: "draft", editUrl: "https://example.com/?p=200&bricks=run" });
+      expect(created.warnings[0]).toMatch(/<header> landmark.*Header/);
+      expect(site.templates.get(200)).toMatchObject({ title: "Main header", type: "header", status: "draft" });
+      expect(site.templates.get(200)!.elements).toHaveLength(2);
+
+      const withClass = { content: section("feat01", "Features", { _cssGlobalClasses: ["new999"] }), globalClasses: [{ id: "new999", name: "fresh", settings: {} }] };
+      await expect(request({ action: "create-template", title: "X", type: "section", template: withClass, confirm: true })).rejects.toMatchObject({ status: 422, message: expect.stringMatching(/fresh/) });
+      site.enabled.delete("bricks/create-template");
+      await expect(request({ action: "create-template", title: "X", type: "section", template: header, confirm: true })).rejects.toMatchObject({ status: 403 });
+      expect(site.templates.size).toBe(3);
+      // Publishing is explicit; unknown types and missing confirmation are rejected.
+      expect(() => wpRequestSchema.parse({ action: "create-template", credentials: creds, title: "X", type: "banner", template: header, confirm: true })).toThrow();
+      expect(() => wpRequestSchema.parse({ action: "create-template", credentials: creds, title: "X", type: "header", template: header })).toThrow();
+    });
   });
 });
