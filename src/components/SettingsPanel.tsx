@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { storeApiKey, clearApiKey, getPersistPreference, Provider } from "@/lib/secure-storage";
 
-import { DEFAULT_MODELS } from "@/lib/ai-config";
+import { ANTHROPIC_MODELS, DEFAULT_MODELS } from "@/lib/ai-config";
 import ChatGPTConnection from "./ChatGPTConnection";
+import ClaudeConnection from "./ClaudeConnection";
 
 interface SettingsPanelProps {
   useChatGPT: boolean;
@@ -46,12 +47,12 @@ const PROVIDER_CONFIG = {
   },
   anthropic: {
     label: "Anthropic",
-    sub: "Claude Sonnet / Opus",
+    sub: "Claude Sonnet 5.5 / Opus 5.5",
     icon: "A",
     color: "#d4a27f",
     placeholder: "sk-ant-...",
     keyHint: "console.anthropic.com",
-    model: "claude-sonnet-4-6",
+    model: "claude-sonnet-5-5",
     speed: "Fast",
     quality: "Excellent",
   },
@@ -80,9 +81,10 @@ const PROVIDER_CONFIG = {
 } as const;
 
 const OPENROUTER_POPULAR = [
-  "anthropic/claude-sonnet-4-5",
-  "anthropic/claude-opus-4",
-  "openai/gpt-4.1",
+  "anthropic/claude-sonnet-5.5",
+  "anthropic/claude-opus-5.5",
+  "anthropic/claude-haiku-4.5",
+  "openai/gpt-5.5",
   "openai/gpt-4o-mini",
     "meta-llama/llama-3.3-70b-instruct",
   "mistralai/mistral-large",
@@ -199,6 +201,7 @@ function SettingsPanelBody({
       <div className="fixed right-0 top-0 bottom-0 z-[101] w-full max-w-md bg-card border-l border-border overflow-y-auto animate-slide-in-right">
         <div className="p-6">
           <ChatGPTConnection enabled={useChatGPT} setEnabled={setUseChatGPT} model={chatgptModel} setModel={setChatgptModel} />
+          <ClaudeConnection />
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -319,7 +322,7 @@ function SettingsPanelBody({
                     type="text"
                     value={tempOpenrouterModel}
                     onChange={(e) => setTempOpenrouterModel(e.target.value)}
-                    placeholder="anthropic/claude-sonnet-4-5"
+                    placeholder="anthropic/claude-sonnet-5.5"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-xs text-foreground placeholder:text-muted/50 focus:outline-none focus:border-primary transition-all font-mono"
                   />
                 </div>
@@ -346,7 +349,8 @@ function SettingsPanelBody({
 
             {provider !== "azure" && provider !== "openrouter" && <div>
               <label htmlFor="ai-model" className="text-xs font-semibold block mb-2">Model ID</label>
-              <input id="ai-model" value={tempModel} onChange={e => { setTempModel(e.target.value); setConnectionStatus(""); }} placeholder={DEFAULT_MODELS[provider]} className="w-full p-3 rounded-lg border border-border bg-background text-sm" />
+              <input id="ai-model" list={provider === "anthropic" ? "anthropic-models" : undefined} value={tempModel} onChange={e => { setTempModel(e.target.value); setConnectionStatus(""); }} placeholder={DEFAULT_MODELS[provider]} className="w-full p-3 rounded-lg border border-border bg-background text-sm" />
+              {provider === "anthropic" && <datalist id="anthropic-models">{ANTHROPIC_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</datalist>}
               <p className="text-xs text-muted mt-2">Leave empty for {DEFAULT_MODELS[provider]}. Use a model available to your API account.</p>
             </div>}
             {provider === "openai" && <p className="text-xs text-muted">API billing is separate from ChatGPT subscriptions. To use ChatGPT itself, see “ChatGPT & import” on the main page.</p>}

@@ -33,6 +33,15 @@ Local mode starts a loopback-bound server, requires a local-client header and re
 
 ChatGPT supplies the reasoning; MCP tools do not call a paid AI API or require an API key. This is a ChatGPT-side connection, not a subscription-to-API-credit workaround. Manual JSON paste/import also works without MCP.
 
+## Claude with your Claude plan (MCP)
+
+Anthropic does not permit third-party apps to offer a Claude.ai sign-in or to route requests through Free, Pro or Max plan credentials ([Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)). BricksSnap therefore has no "Sign in with Claude". Claude connects to BricksSnap instead and runs in its own app on your plan. Settings → **Claude · with your Claude plan** shows the snippets and checks the endpoint.
+
+- **Claude Code:** run `npm run build:mcp`, then `claude mcp add brickssnap -- node /absolute/path/to/BricksSnap/dist/mcp-server.mjs`.
+- **Claude Desktop:** add `{"mcpServers":{"brickssnap":{"command":"node","args":["/absolute/path/to/BricksSnap/dist/mcp-server.mjs"]}}}` to `claude_desktop_config.json` and restart.
+- **claude.ai and the Claude apps:** Customize → Connectors → + → **Add custom connector** with `https://your-deployment/api/mcp` ([Anthropic help](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp)). Claude connects from Anthropic's cloud, so the deployment must be public HTTPS with `BRICKSSNAP_MCP_ENABLED=true`.
+- **Inside BricksSnap:** choose Anthropic in Settings with an API key from the Claude Console; the model defaults to `claude-sonnet-5-5` (also `claude-opus-5-5`, `claude-haiku-4-5-20251001`).
+
 The opt-in stateless endpoint provides eight tools: `bricks_get_schema`, `bricks_list_templates`, `bricks_get_template`, `bricks_validate_template`, `bricks_generate_section`, `bricks_assemble_page`, `bricks_merge_templates` and `bricks_compare_templates`. It cannot access API keys, WordPress or private files, or publish pages. It currently has no authentication because it only provides public computations; apply hosting rate limits. Leave disabled when unused. For local stdio clients and the staging workflow, see [Staging and MCP](STAGING-MCP.md).
 
 ## Export and compatibility

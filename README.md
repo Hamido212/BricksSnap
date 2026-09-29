@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/brickssnap)](https://www.npmjs.com/package/brickssnap)
 [![GitHub](https://img.shields.io/github/license/Hamido212/BricksSnap)](https://github.com/Hamido212/BricksSnap)
 
-A Next.js tool that creates editable **Bricks Builder JSON templates**. Use built-in sections, an AI provider, local ChatGPT sign-in through Codex, or a ChatGPT MCP connection. Review exports in Bricks before publishing.
+A Next.js tool that creates editable **Bricks Builder JSON templates**. Use built-in sections, an AI provider (OpenAI, Anthropic, Azure, OpenRouter), local ChatGPT sign-in through Codex, or connect ChatGPT or Claude over MCP. Review exports in Bricks before publishing.
 
 **Start here: [setup, both AI connections and import guide](docs/SETUP.md).**
 
@@ -26,7 +26,7 @@ v0.5 builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [
 - Design tokens (colors, border-radius, shadows, spacing, typography, dark mode)
 - API route for AI-powered generation (`/api/generate`)
 - Export as Bricks Import JSON + copy-to-clipboard
-- Local Sign in with ChatGPT, optional MCP tools and JSON paste/file import
+- Local Sign in with ChatGPT, Claude and ChatGPT over MCP, and JSON paste/file import
 - Bricks 2.4.1 native element/control registry, reference repair and responsive defaults
 - Export types and preservation of global classes/component metadata
 - Staging workspace: prepend/append sections or insert after a root, with ID collision handling and structural comparison
