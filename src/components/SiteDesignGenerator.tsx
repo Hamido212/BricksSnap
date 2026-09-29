@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { SECTION_TYPES } from "@/lib/presets";
 import { COLOR_ROLES, generateInSiteDesign, siteColors, suggestRoles, type ColorRole, type RoleMapping, type SiteFont, type SitePalette } from "@/lib/site-design";
 
-const control = "w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs focus:outline-2 focus:outline-primary";
+const control = "w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs focus:outline-2 focus:outline-primary";
 
 /** Palettes may include the colors of the loaded page; `fonts` are the page's font stacks, most used first. */
 export default function SiteDesignGenerator({ palettes, fonts, host, onGenerate }: { palettes: SitePalette[]; fonts: string[]; host: string; onGenerate: (json: string) => void }) {
@@ -67,6 +67,6 @@ export default function SiteDesignGenerator({ palettes, fonts, host, onGenerate 
     </div>
     <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-40" disabled={!sections.length} onClick={generate}>Generate as new section</button>
     {status && <p role="status" className="text-xs text-muted">{status}</p>}
-    {error && <p role="alert" className="text-xs text-red-400 break-words">{error}</p>}
+    {error && <p role="alert" className="text-xs text-danger break-words">{error}</p>}
   </div>;
 }

@@ -11,55 +11,24 @@ export default function TemplateCard({ template, onSelect }: TemplateCardProps) 
   return (
     <button
       onClick={() => onSelect(template)}
-      className="group relative flex flex-col rounded-xl border border-border bg-card overflow-hidden transition-all duration-300 hover:border-border-hover hover:shadow-lg hover:shadow-primary-glow hover:-translate-y-1 text-left"
+      className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-colors hover:border-border-hover"
     >
-      {/* Preview gradient */}
-      <div
-        className="h-36 w-full relative overflow-hidden"
-        style={{ background: template.preview }}
-      >
-        {/* Overlay pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="grid grid-cols-3 gap-2 p-4 h-full">
-            <div className="bg-white/20 rounded" />
-            <div className="bg-white/10 rounded col-span-2" />
-            <div className="bg-white/10 rounded col-span-2" />
-            <div className="bg-white/20 rounded" />
-          </div>
-        </div>
-        {/* Category badge */}
-        <div className="absolute top-3 left-3">
-          <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-black/30 backdrop-blur-sm text-white/90 uppercase tracking-wider">
-            {template.category}
-          </span>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-col gap-2 p-4 flex-1">
-        <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-          {template.name}
-        </h3>
-        <p className="text-xs text-muted leading-relaxed line-clamp-2">
-          {template.description}
-        </p>
-        <div className="flex flex-wrap gap-1.5 mt-auto pt-3">
-          {template.tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="px-2 py-0.5 rounded text-[10px] font-medium bg-border text-muted"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Hover overlay */}
-      <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <span className="px-5 py-2.5 rounded-lg bg-primary text-white text-sm font-semibold shadow-lg">
-          Generate Template
+      <div className="relative h-32 w-full border-b border-border" style={{ background: template.preview }}>
+        <span className="absolute left-3 top-3 rounded-md bg-card/90 px-2 py-0.5 font-mono text-[11px] uppercase tracking-wider text-text">
+          {template.category}
         </span>
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 p-4">
+        <h3 className="text-sm font-medium text-foreground">{template.name}</h3>
+        <p className="line-clamp-2 text-xs leading-relaxed text-muted">{template.description}</p>
+        <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+          <div className="flex flex-wrap gap-1">
+            {template.tags.slice(0, 2).map((tag) => (
+              <span key={tag} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted">{tag}</span>
+            ))}
+          </div>
+          <span className="shrink-0 text-xs font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">Use →</span>
+        </div>
       </div>
     </button>
   );

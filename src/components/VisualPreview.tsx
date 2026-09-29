@@ -96,16 +96,7 @@ export default function VisualPreview({ elements }: VisualPreviewProps) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="p-4 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-          </div>
-          <h3 className="text-xs font-semibold text-foreground ml-2">
-            Visual Preview
-          </h3>
-        </div>
+        <h3 className="text-sm font-medium text-foreground">Wireframe</h3>
         <span className="text-[10px] text-muted">
           {sections.length} sections · {elements.length} elements
         </span>
@@ -113,7 +104,7 @@ export default function VisualPreview({ elements }: VisualPreviewProps) {
 
       {/* Mini browser frame */}
       <div className="p-4">
-        <div className="rounded-lg border border-border/50 bg-background overflow-hidden">
+        <div className="rounded-lg border border-border bg-subtle overflow-hidden">
           {/* Browser address bar */}
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30 bg-card">
             <div className="flex gap-1">
@@ -223,7 +214,7 @@ export default function VisualPreview({ elements }: VisualPreviewProps) {
 
                   {/* Hover label */}
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-primary/10 text-primary border border-primary/20 whitespace-nowrap">
+                    <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-primary-soft text-primary-hover border border-primary/20 whitespace-nowrap">
                       {section.label}
                     </span>
                   </div>

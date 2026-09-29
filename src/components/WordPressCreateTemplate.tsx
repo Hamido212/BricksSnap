@@ -14,7 +14,7 @@ interface WordPressCreateTemplateProps {
   onMissingClasses?: () => void;
 }
 
-const control = "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
+const control = "w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-2 focus:outline-primary";
 
 /** Save the reviewed template as a new Bricks template (header, footer, section, …) on the connected site. */
 export default function WordPressCreateTemplate({ credentials, proposal, onCreated, onMissingClasses }: WordPressCreateTemplateProps) {
@@ -53,11 +53,11 @@ export default function WordPressCreateTemplate({ credentials, proposal, onCreat
       </div>
       <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={publish} onChange={e => setPublish(e.target.checked)}/>Publish immediately. Otherwise the template is created as a draft and has no effect on the site.</label>
       <button className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-40" disabled={busy || !title.trim()} onClick={create}>{busy ? "Creating…" : publish ? "Create and publish template" : "Create draft template"}</button>
-      {created && <div role="status" className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 p-3 text-sm space-y-1">
+      {created && <div role="status" className="rounded-lg border border-success/30 bg-success/5 p-3 text-sm space-y-1">
         <p>Created template #{created.templateId} ({created.status}). It is now the baseline, so further changes apply to it.{created.editUrl && <> <a className="underline" href={created.editUrl} target="_blank" rel="noreferrer">Open in Bricks</a></>}</p>
-        {created.warnings.map((w, i) => <p key={i} className="text-xs text-amber-300 break-words">{w}</p>)}
+        {created.warnings.map((w, i) => <p key={i} className="text-xs text-warning break-words">{w}</p>)}
       </div>}
-      {error && <p role="alert" className="rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-400 break-words">{error}</p>}
+      {error && <p role="alert" className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger break-words">{error}</p>}
     </div>
   </details>;
 }

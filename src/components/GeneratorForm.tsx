@@ -142,7 +142,7 @@ export default function GeneratorForm({
   return (
     <div className="w-full">
       <form onSubmit={handleSubmit} className="relative">
-        <div className="relative rounded-xl border border-border bg-card focus-within:border-primary focus-within:shadow-lg focus-within:shadow-primary-glow transition-all duration-300">
+        <div className="relative rounded-xl border border-border bg-card focus-within:border-primary transition-all duration-300">
           <textarea
             aria-label="Describe your template"
             maxLength={12000}
@@ -155,16 +155,16 @@ export default function GeneratorForm({
 
           {/* Reference image preview (vision mode) */}
           {referenceImage && (
-            <div className="flex items-start gap-3 px-5 py-3 border-t border-border/30 bg-accent/5">
+            <div className="flex items-start gap-3 px-5 py-3 border-t border-border bg-subtle">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={referenceImage}
                 alt="Reference"
-                className="w-16 h-16 rounded-lg object-cover border border-accent/30"
+                className="w-16 h-16 rounded-lg object-cover border border-border"
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-accent">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-primary-hover">
                     Vision Mode
                   </span>
                   <span className="text-[10px] text-muted">· AI will replicate this design</span>
@@ -177,7 +177,7 @@ export default function GeneratorForm({
               <button
                 type="button"
                 onClick={clearReferenceImage}
-                className="text-muted hover:text-red-400 transition-colors"
+                className="text-muted hover:text-danger transition-colors"
                 aria-label="Remove reference image"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -187,7 +187,7 @@ export default function GeneratorForm({
             </div>
           )}
           {imageError && (
-            <div className="px-5 py-2 border-t border-border/30 text-[11px] text-red-400">
+            <div className="px-5 py-2 border-t border-border/30 text-[11px] text-danger">
               {imageError}
             </div>
           )}
@@ -196,14 +196,14 @@ export default function GeneratorForm({
           {(selectedPreset || selectedPalette || selectedSections.length > 0) && (
             <div className="flex flex-wrap items-center gap-2 px-5 py-2 border-t border-border/30">
               {selectedPreset && (
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-accent/10 text-accent border border-accent/20">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-primary-soft text-primary-hover border border-primary/20">
                   <span>🎨</span>
                   {selectedPreset.name}
                   <button type="button" onClick={() => setSelectedPreset(undefined)} className="ml-1 opacity-60 hover:opacity-100">×</button>
                 </span>
               )}
               {selectedPalette && (
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-primary/10 text-primary border border-primary/20">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-primary-soft text-primary-hover border border-primary/20">
                   <span className="flex gap-0.5">
                     {selectedPalette.preview.slice(0, 3).map((c, i) => (
                       <span key={i} className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c }} />
@@ -231,7 +231,7 @@ export default function GeneratorForm({
                 onClick={() => setUseAI(!useAI)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 ${
                   useAI
-                    ? "border-accent/40 bg-accent/10 text-accent"
+                    ? "border-primary bg-primary-soft text-primary-hover"
                     : "border-border text-muted hover:text-foreground hover:border-border-hover"
                 }`}
               >
@@ -239,7 +239,7 @@ export default function GeneratorForm({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 AI {useAI ? "ON" : "OFF"}
-                <div className={`w-7 h-4 rounded-full relative transition-colors ${useAI ? "bg-accent" : "bg-border"}`}>
+                <div className={`w-7 h-4 rounded-full relative transition-colors ${useAI ? "bg-primary" : "bg-border"}`}>
                   <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${useAI ? "translate-x-3.5" : "translate-x-0.5"}`} />
                 </div>
               </button>
@@ -250,7 +250,7 @@ export default function GeneratorForm({
                 onClick={() => togglePanel("presets")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 ${
                   activePanel === "presets" || selectedPreset
-                    ? "border-accent/40 bg-accent/10 text-accent"
+                    ? "border-primary bg-primary-soft text-primary-hover"
                     : "border-border text-muted hover:text-foreground hover:border-border-hover"
                 }`}
               >
@@ -263,7 +263,7 @@ export default function GeneratorForm({
                 onClick={() => togglePanel("palettes")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 ${
                   activePanel === "palettes" || selectedPalette
-                    ? "border-primary/40 bg-primary/10 text-primary"
+                    ? "border-primary bg-primary-soft text-primary-hover"
                     : "border-border text-muted hover:text-foreground hover:border-border-hover"
                 }`}
               >
@@ -311,7 +311,7 @@ export default function GeneratorForm({
                 }
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all duration-200 ${
                   referenceImage
-                    ? "border-accent/40 bg-accent/10 text-accent"
+                    ? "border-primary bg-primary-soft text-primary-hover"
                     : "border-border text-muted hover:text-foreground hover:border-border-hover"
                 }`}
               >
@@ -331,7 +331,7 @@ export default function GeneratorForm({
               {lastMode && (
                 <span className={`hidden sm:inline px-2 py-0.5 rounded text-[10px] font-medium ${
                   lastMode === "ai"
-                    ? "bg-accent/10 text-accent border border-accent/20"
+                    ? "bg-primary-soft text-primary-hover border border-primary/20"
                     : "bg-border text-muted"
                 }`}>
                   {lastMode === "ai" ? "AI generated" : "Built-in"}
@@ -342,7 +342,7 @@ export default function GeneratorForm({
             <button
               type="submit"
               disabled={!prompt.trim() || isLoading}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all duration-200 shadow-lg shadow-primary/20"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all duration-200"
             >
               {isLoading ? (
                 <>
@@ -388,7 +388,7 @@ export default function GeneratorForm({
                   <button key={preset.id}
                     onClick={() => setSelectedPreset(selectedPreset?.id === preset.id ? undefined : preset)}
                     className={`text-left p-3 rounded-lg border transition-all ${
-                      selectedPreset?.id === preset.id ? "border-accent bg-accent/5 shadow-sm" : "border-border hover:border-border-hover hover:bg-card-hover"
+                      selectedPreset?.id === preset.id ? "border-primary bg-primary-soft" : "border-border hover:border-border-hover hover:bg-card-hover"
                     }`}
                   >
                     <p className="text-xs font-semibold text-foreground truncate">{preset.name}</p>
@@ -420,7 +420,7 @@ export default function GeneratorForm({
                   <button key={palette.id}
                     onClick={() => setSelectedPalette(selectedPalette?.id === palette.id ? undefined : palette)}
                     className={`text-left p-3 rounded-lg border transition-all ${
-                      selectedPalette?.id === palette.id ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-border-hover hover:bg-card-hover"
+                      selectedPalette?.id === palette.id ? "border-primary bg-primary-soft" : "border-border hover:border-border-hover hover:bg-card-hover"
                     }`}
                   >
                     <div className="flex gap-1 mb-2">
@@ -443,7 +443,7 @@ export default function GeneratorForm({
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-muted">{selectedSections.length} selected</span>
                   {selectedSections.length > 0 && (
-                    <button type="button" onClick={() => setSelectedSections([])} className="text-[10px] text-red-400 hover:text-red-300 font-medium">Clear</button>
+                    <button type="button" onClick={() => setSelectedSections([])} className="text-[10px] text-danger hover:text-danger font-medium">Clear</button>
                   )}
                 </div>
               </div>

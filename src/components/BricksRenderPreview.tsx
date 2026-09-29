@@ -64,7 +64,7 @@ export default function BricksRenderPreview({ source, credentials, proposal, cha
         <button className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-card-hover disabled:opacity-40" disabled={busy} onClick={render}>{busy ? "Rendering…" : result ? "Render again" : "Render with Bricks"}</button>
       </div>
     </div>
-    {error && <p role="alert" className="text-xs text-red-400 break-words">{error}</p>}
+    {error && <p role="alert" className="text-xs text-danger break-words">{error}</p>}
     {result && <div className="grid gap-4 lg:grid-cols-2">
       <div className="min-w-0 space-y-2"><p className="text-xs text-muted">Before · saved page</p><ScaledFrame title="Saved page rendered by Bricks" html={documentFor(result.before, result)} width={VIEWPORTS[viewport]}/></div>
       <div className="min-w-0 space-y-2"><p className="text-xs text-muted">After · reviewed version</p><ScaledFrame title="Reviewed version rendered by Bricks" html={documentFor(result.after, result, changedIds)} width={VIEWPORTS[viewport]}/></div>
