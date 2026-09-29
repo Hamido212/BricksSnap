@@ -1,6 +1,13 @@
 # BricksSnap as a Bricks remote template library (v0.6)
 
-A BricksSnap deployment can act as a **Remote Library** source in Bricks. Bricks users browse the 60 catalog templates in the builder's template library and insert them like templates from any other Bricks site. No JSON download is needed.
+A BricksSnap deployment can act as a **Remote Library** source in Bricks. Bricks users browse the design library in the builder and insert pages and sections like templates from any other Bricks site. No JSON download is needed.
+
+Since 0.9.0 the library serves the Studio's designs instead of the older classic catalog, in German and English (104 templates):
+
+- **Pages.** Each of the 12 designs (for example "Nord", "Trattoria", "Kontur") as a complete page.
+- **Sections.** All 40 layouts as single sections, in the "Fundament" design.
+
+Styling travels as `bs-` global classes. Class IDs are the same in every design, so sections inserted later take on the look of the first design the site received. To change the look everywhere, install the design system from the Studio (see [Studio](STUDIO.md)).
 
 ## How it works
 
@@ -14,8 +21,8 @@ Bricks 2.4 first asks a source for its versioned remote-library package. BricksS
 
 Each template has `{ id, name, title, date, date_formatted, author, permalink, thumbnail, bundles, tags, type, content }`. This is the shape captured from a Bricks 2.4.2 source site.
 
-- **IDs** are stable numbers derived from the catalog slug.
-- **Bundles** are the catalog categories.
+- **IDs** are stable numbers derived from the slug (`design-nord-de`, `section-hero-split-en`).
+- **Bundles** are "Pages" and "Sections" per language; tags name the style, industry or section type.
 - **Types** are `content` for full pages, `header` for navbars, `footer` for footers and `section` otherwise.
 - **Thumbnails** are SVG cards served from `/api/library/thumbnail/<slug>`.
 - **Errors** come back like Bricks sends them: HTTP 200 with `{ error: { code, message } }`, for example `no_site_url`.
@@ -32,7 +39,7 @@ On the Bricks site, go to **Bricks → Settings → Templates & components → R
 | `BRICKSSNAP_REMOTE_LIBRARY_WHITELIST` | Comma- or space-separated site origins allowed to request templates (`site_not_whitelisted` otherwise). |
 | `BRICKSSNAP_REMOTE_LIBRARY_PASSWORD` | Require the remote library password configured in Bricks (`remote_templates_password_required` otherwise). The query parameter name `password` is inferred and not yet verified against a Bricks consumer. |
 
-The catalog is public in the app anyway, so the library is enabled by default. Responses are cacheable (`s-maxage=3600`); a full response is about 1 MB.
+The designs are public in the app anyway, so the library is enabled by default. Responses are cacheable (`s-maxage=3600`); a full response is about 1.8 MB.
 
 ## Hosting notes
 

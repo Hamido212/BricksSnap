@@ -34,6 +34,7 @@ it("lists kit options and builds a kit page with design system and quality check
   const options = (await (await rpc("tools/call", { name: "bricks_kit_options", arguments: {} })).json()).result.structuredContent;
   expect(options.styles.map((s: { id: string }) => s.id)).toEqual(["clean", "soft", "bold", "editorial", "warm"]);
   expect(options.sections.find((s: { type: string }) => s.type === "hero").variants.length).toBeGreaterThan(1);
+  expect(options.designs.find((d: { id: string }) => d.id === "nord")).toMatchObject({ industry: "kfz", kit: { style: "warm", primary: "#0f766e" } });
   const call = await rpc("tools/call", { name: "bricks_kit_page", arguments: {
     sections: [{ type: "navbar" }, { type: "hero", variant: "panel" }, { type: "services", variant: "list" }, { type: "footer" }],
     kit: { style: "warm", primary: "#0b5fff" }, profile: { industry: "kfz", language: "de", name: "Muster Zulassung", city: "Bremen" }, title: "Kfz Seite",

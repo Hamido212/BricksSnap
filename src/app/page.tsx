@@ -5,24 +5,23 @@ import GeneratorForm, { GeneratorConfig } from "@/components/GeneratorForm";
 import JsonPreview from "@/components/JsonPreview";
 import StructurePreview from "@/components/StructurePreview";
 import VisualPreview from "@/components/VisualPreview";
-import TemplateCard from "@/components/TemplateCard";
 import SettingsPanel from "@/components/SettingsPanel";
-import { TEMPLATES, CATEGORIES, TemplateDefinition, searchTemplates, getTemplatesByCategory } from "@/lib/templates";
-import { wrapTemplate, BricksElement, BricksTemplate } from "@/lib/bricks-engine";
+import type { BricksElement, BricksTemplate } from "@/lib/bricks-engine";
 import { loadApiKey, clearApiKey, Provider } from "@/lib/secure-storage";
 
 import ConnectionGuide from "@/components/ConnectionGuide";
-import { templateWarnings } from "@/lib/template-warnings";
 import StagingWorkspace from "@/components/StagingWorkspace";
-import KitStudio, { type KitSelection } from "@/components/kit/KitStudio";
+import KitStudio, { type KitSelection, type Saved } from "@/components/kit/KitStudio";
+import KitLibrary, { type StudioPreset } from "@/components/kit/KitLibrary";
+import { DESIGNS } from "@/lib/kit/library";
 import { VARIANTS } from "@/lib/kit/sections";
 import { version } from "../../package.json";
 
 type Tab = "studio" | "generator" | "library" | "staging";
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "studio", label: "Studio" },
-  { id: "generator", label: "Generator" },
   { id: "library", label: "Library" },
+  { id: "generator", label: "Generator" },
   { id: "staging", label: "Staging" },
 ];
 
@@ -33,8 +32,8 @@ export default function Home() {
   const [generatedTemplate, setGeneratedTemplate] = useState<BricksTemplate | null>(null);
   const [generatedElements, setGeneratedElements] = useState<BricksElement[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  // A library design the Studio should start from.
+  const [studioPreset, setStudioPreset] = useState<(Saved & { nonce: number }) | null>(null);
   const [generationInfo, setGenerationInfo] = useState<{
     elementCount: number;
     sections: string[];
@@ -142,24 +141,11 @@ export default function Home() {
     }
   }, [apiKey, provider, azureEndpoint, azureDeployment, openrouterModel, model, useChatGPT, chatgptModel]);
 
-  const handleTemplateSelect = useCallback((template: TemplateDefinition) => {
-    setGenerationError(""); setWarnings([]); setLastMode("builtin");
-    const elements = template.generator();
-    setWarnings(templateWarnings(elements));
-    const wrapped = wrapTemplate(elements);
-    setGeneratedTemplate(wrapped);
-    setGeneratedElements(elements);
-    setGenerationInfo({
-      elementCount: elements.length,
-      sections: elements.filter((e) => e.parent === 0).map((e) => e.label || e.name),
-    });
-    setActiveTab("generator");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
-  const filteredTemplates = searchQuery
-    ? searchTemplates(searchQuery)
-    : getTemplatesByCategory(selectedCategory);
+  const customizeDesign = (preset: StudioPreset) => {
+    setStudioPreset({ ...preset, nonce: Date.now() });
+    setActiveTab("studio");
+    window.scrollTo({ top: 0 });
+  };
 
   const openKitInStaging = (selection: KitSelection) => {
     setKitSelection(selection);
@@ -209,7 +195,7 @@ export default function Home() {
               <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[44px]">Pick a layout. Make it yours.</h2>
               <p className="mt-4 text-[15px] leading-relaxed text-text">{VARIANTS.length} layouts in five style directions, written for your industry in German or English. Set your color, fonts and spacing, see every section update live, and export native Bricks JSON with global classes and a design system. No AI and no account needed.</p>
             </div>
-            <KitStudio onOpenInStaging={openKitInStaging}/>
+            <KitStudio preset={studioPreset} onOpenInStaging={openKitInStaging}/>
           </div>
         )}
 
@@ -218,7 +204,7 @@ export default function Home() {
             <div className="mb-8 max-w-3xl">
               <p className="label-mono mb-3">Generator</p>
               <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[44px]">Describe a page, get Bricks JSON.</h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-text">Use the built-in engine for free, your own AI provider key, your ChatGPT connection, or Claude through MCP. {TEMPLATES.length}+ templates, 45+ color palettes and 30+ style presets to start from.</p>
+              <p className="mt-4 text-[15px] leading-relaxed text-text">Use the built-in engine for free, your own AI provider key, your ChatGPT connection, or Claude through MCP. 45+ color palettes and 30+ style presets to start from.</p>
             </div>
 
             <div className="mb-10 max-w-4xl">
@@ -277,63 +263,25 @@ export default function Home() {
             )}
 
             {!generatedTemplate && !isLoading && (
-              <div className="mt-12">
-                <div className="mb-5 flex items-end justify-between gap-4">
-                  <h3 className="text-lg font-semibold tracking-tight">Popular templates</h3>
-                  <button onClick={() => setActiveTab("library")} className="text-sm font-medium text-primary hover:text-primary-hover">All {TEMPLATES.length} templates →</button>
+              <div className="mt-12 flex max-w-4xl flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card p-5">
+                <div>
+                  <h3 className="text-base font-semibold">Prefer a ready-made design?</h3>
+                  <p className="mt-1 text-sm text-muted">{DESIGNS.length} designs for different industries and styles, with global classes and a design system.</p>
                 </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {TEMPLATES.slice(0, 8).map((template) => (
-                    <TemplateCard key={template.id} template={template} onSelect={handleTemplateSelect} />
-                  ))}
-                </div>
+                <button onClick={() => setActiveTab("library")} className="inline-flex h-9 items-center rounded-lg border border-border bg-card px-3 text-sm font-medium hover:border-border-hover hover:bg-subtle">Browse the library →</button>
               </div>
             )}
           </div>
         )}
 
         {activeTab === "library" && (
-          <div className="animate-fade-in">
-            <div className="mb-8 max-w-3xl">
+          <div className="animate-fade-in space-y-8">
+            <div className="max-w-3xl">
               <p className="label-mono mb-3">Library</p>
-              <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.03em]">Classic templates</h2>
-              <p className="mt-3 text-[15px] text-text">Ready-made sections and pages with inline styles. For modern layouts with global classes and a design system, use the Studio.</p>
+              <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[44px]">Ready-made designs.</h2>
+              <p className="mt-4 text-[15px] leading-relaxed text-text">{DESIGNS.length} complete designs for different industries and styles, in German or English. Take a whole page or single sections as they are, or open a design in the Studio and make it yours.</p>
             </div>
-            <div className="flex flex-col gap-8 md:flex-row">
-              <aside className="flex-shrink-0 md:w-56">
-                <div className="md:sticky md:top-24">
-                  <h3 className="label-mono mb-3">Categories</h3>
-                  <nav className="-mx-4 flex gap-1 overflow-x-auto px-4 md:mx-0 md:flex-col md:px-0" aria-label="Template categories">
-                    {CATEGORIES.map((cat) => {
-                      const count = cat.id === "all" ? TEMPLATES.length : TEMPLATES.filter((t) => t.category === cat.id).length;
-                      const active = selectedCategory === cat.id && !searchQuery;
-                      return (
-                        <button key={cat.id} onClick={() => { setSelectedCategory(cat.id); setSearchQuery(""); }} aria-pressed={active}
-                          className={`flex shrink-0 items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${active ? "bg-primary-soft font-medium text-primary-hover" : "text-text hover:bg-subtle"}`}>
-                          <span>{cat.name}</span>
-                          <span className="font-mono text-[11px] text-muted">{count}</span>
-                        </button>
-                      );
-                    })}
-                  </nav>
-                </div>
-              </aside>
-              <div className="min-w-0 flex-1">
-                <div className="relative mb-6">
-                  <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input type="search" aria-label="Search templates" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search templates…"
-                    className="h-10 w-full rounded-lg border border-border bg-card pl-10 pr-4 text-sm placeholder:text-muted focus:border-primary focus:outline-none" />
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredTemplates.map((template) => (
-                    <TemplateCard key={template.id} template={template} onSelect={handleTemplateSelect} />
-                  ))}
-                </div>
-                {filteredTemplates.length === 0 && <p className="py-12 text-center text-sm text-muted">No templates found matching your search.</p>}
-              </div>
-            </div>
+            <KitLibrary onCustomize={customizeDesign} onOpenInStaging={openKitInStaging}/>
           </div>
         )}
       </main>
@@ -341,7 +289,7 @@ export default function Home() {
       <footer className="mt-16 border-t border-border">
         <div className="mx-auto flex max-w-[1440px] flex-col items-start justify-between gap-3 px-4 py-6 text-xs text-muted sm:flex-row sm:items-center sm:px-6">
           <p>BricksSnap v{version} · Free for your own and your clients&apos; sites · <a className="underline hover:text-foreground" href="https://github.com/Hamido212/BricksSnap/blob/BricksSnap/LICENSING.md" target="_blank" rel="noreferrer">License</a> · <a className="underline hover:text-foreground" href="https://github.com/Hamido212/BricksSnap" target="_blank" rel="noreferrer">GitHub</a> · Not affiliated with Bricks</p>
-          <p className="font-mono text-[11px]">{VARIANTS.length} studio layouts · {TEMPLATES.length} classic templates · Bricks 2.4 schema</p>
+          <p className="font-mono text-[11px]">{DESIGNS.length} designs · {VARIANTS.length} layouts · Bricks 2.4 schema</p>
         </div>
       </footer>
 

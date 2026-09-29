@@ -72,7 +72,7 @@ export function createMcpServer() {
     inputSchema: { ...generationSchema, sections: z.array(z.string().max(100)).min(1).max(12) }, annotations: { ...annotations, idempotentHint: false },
   }, async input => safely(() => generateMcpPage(input)));
   server.registerTool("bricks_kit_options", {
-    description: "List the template kit's choices: style directions, font pairs, radius, spacing, industries with ready-made German and English copy, and every section type with its layout variants. Use the IDs with bricks_kit_page.",
+    description: "List the template kit's choices: style directions, font pairs, radius, spacing, industries with ready-made German and English copy, every section type with its layout variants, and the ready-made designs (kit plus page). Use them with bricks_kit_page.",
     inputSchema: {}, annotations,
   }, async () => reply(kitCatalog()));
   server.registerTool("bricks_kit_page", {

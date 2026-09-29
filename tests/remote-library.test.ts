@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildRemoteTemplates, checkLibraryAccess, remoteLibraryData, remoteTemplateId, templateThumbnail } from "../src/lib/remote-library";
 import { readStagingTemplate } from "../src/lib/template-staging";
-import { TEMPLATES } from "../src/lib/templates";
+import { DESIGNS } from "../src/lib/kit/library";
+import { VARIANTS } from "../src/lib/kit/sections";
 import { GET as getTemplatesData } from "../src/app/wp-json/bricks/v1/get-templates-data/route";
 import { GET as getTemplates } from "../src/app/wp-json/bricks/v1/get-templates/route";
 import { GET as remoteLibrary } from "../src/app/wp-json/bricks/v1/remote-library/[[...path]]/route";
@@ -16,9 +17,9 @@ describe("BricksSnap remote template library", () => {
     const data = remoteLibraryData("https://snap.example", now);
     expect(Object.keys(data)).toEqual(CAPTURED_TOP_KEYS);
     expect(data.date).toBe("September 28, 2026 (11:39 pm)");
-    expect(data.templates).toHaveLength(TEMPLATES.length);
+    expect(data.templates).toHaveLength(2 * (DESIGNS.length + VARIANTS.length));
     for (const template of data.templates) expect(Object.keys(template).filter(k => k !== "globalClasses")).toEqual(CAPTURED_TEMPLATE_KEYS);
-    expect(data.bundles).toContain("hero");
+    expect(data.bundles).toEqual(["Pages · Deutsch", "Sections · Deutsch", "Pages · English", "Sections · English"]);
     expect(data.authors).toEqual(["BricksSnap"]);
   });
 
@@ -30,10 +31,15 @@ describe("BricksSnap remote template library", () => {
       expect(() => readStagingTemplate({ content: template.content })).not.toThrow();
       expect(template.content.some(el => typeof el.settings._cssCustom === "string" && el.settings._cssCustom.includes("%root%"))).toBe(false);
       expect(template.thumbnail).toBe(`https://snap.example/api/library/thumbnail/${template.name}`);
+      // Styling travels as bs- global classes that every element references.
+      expect(template.globalClasses?.length).toBeGreaterThan(0);
+      expect(template.globalClasses?.every(c => c.name.startsWith("bs-"))).toBe(true);
     }
-    expect(remoteTemplateId("hero-centered")).toBe(remoteTemplateId("hero-centered"));
-    expect(templates.find(t => TEMPLATES.find(e => e.id === t.name)?.category === "fullpage")?.type).toBe("content");
-    expect(templates.find(t => t.name.startsWith("footer"))?.type).toBe("footer");
+    expect(remoteTemplateId("design-nord-de")).toBe(remoteTemplateId("design-nord-de"));
+    expect(templates.find(t => t.name === "design-nord-de")).toMatchObject({ type: "content", title: "Nord · Kfz-Zulassungsdienst (DE)" });
+    expect(templates.find(t => t.name === "section-footer-columns-en")?.type).toBe("footer");
+    expect(templates.find(t => t.name === "section-navbar-classic-de")?.type).toBe("header");
+    expect(JSON.stringify(templates.find(t => t.name === "design-trattoria-en")?.content)).toContain("From our menu");
   });
 
   it("applies Bricks-style access rules", () => {
@@ -63,8 +69,9 @@ describe("BricksSnap remote template library", () => {
   });
 
   it("escapes catalog text in thumbnails", () => {
-    expect(templateThumbnail("hero-centered")).toMatch(/^<svg[\s\S]*Hero - Centered[\s\S]*<\/svg>$/);
+    expect(templateThumbnail("design-nord-de")).toMatch(/^<svg[\s\S]*#0f766e[\s\S]*Nord · Kfz-Zulassungsdienst[\s\S]*<\/svg>$/);
+    expect(templateThumbnail("section-faq-split-en")).toMatch(/FAQ: /);
     expect(templateThumbnail("missing")).toBeNull();
-    expect(templateThumbnail(TEMPLATES[0].id)).not.toContain("<script");
+    expect(templateThumbnail("design-trattoria-de")).not.toContain("<script");
   });
 });

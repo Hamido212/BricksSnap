@@ -203,3 +203,19 @@ describe("preview sanitizing", () => {
     expect(css).not.toContain('a.jpg")');
   });
 });
+
+describe("design library", () => {
+  it("has unique designs whose pages use known layouts, pass contrast and structure checks in both languages", async () => {
+    const { DESIGNS } = await import("../src/lib/kit/library");
+    expect(new Set(DESIGNS.map(d => d.id)).size).toBe(DESIGNS.length);
+    for (const design of DESIGNS) {
+      for (const pick of design.page) expect(variantsFor(pick.type).map(v => v.id)).toContain(pick.variant);
+      expect(contrastChecks(resolveKit(design.kit)).filter(c => !c.ok)).toEqual([]);
+      for (const language of ["de", "en"] as const) {
+        const result = generateKitTemplate({ kit: design.kit, profile: { industry: design.industry, language }, sections: design.page });
+        expect(() => readStagingTemplate(result.template)).not.toThrow();
+        expect(result.quality.filter(q => q.level === "warning" && !/„#“|“#”/.test(q.message))).toEqual([]);
+      }
+    }
+  });
+});

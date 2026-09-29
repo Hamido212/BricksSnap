@@ -2,6 +2,10 @@
 
 The Studio is BricksSnap's first tab. It builds modern sections and pages without AI. You pick layouts, set your brand, describe the business, and export native Bricks JSON. The styling lives in global classes that follow one central design system.
 
+## Library
+
+The **Library** tab shows 12 ready-made designs: a brand kit, an industry and a page, chosen to work as they are. Filter them by industry and style and switch the sample text between German and English. Open a design to see the whole page at desktop and phone width and all of its sections. Download or copy the page or single sections, or **Customize in Studio** to continue from it. The same designs are available in Bricks through the [remote library](REMOTE-LIBRARY.md).
+
 ## 1. Brand kit
 
 The panel on the left sets how every layout looks. All previews update live.

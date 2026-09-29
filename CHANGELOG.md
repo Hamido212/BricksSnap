@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.0 — 2026-09-29
+
+A library of ready-made designs replaces the classic templates in the app and in Bricks' remote library. See the [release notes](docs/RELEASE-0.9.0.md).
+
+- **Library tab.** 12 designs, each a brand kit, an industry and a page: Nord, Tempo (vehicle registration), Werkbank, Volt (trades), Lindenhof, Balance (medical practice), Trattoria, Markthalle (restaurant), Kontur, Nachtschicht (agency, dark), Fundament and Mandat (business).
+  - Filter by industry and style; switch the sample text between German and English.
+  - Open a design for the full page at desktop and phone width and all its sections.
+  - Download or copy the page or single sections, open it in Staging, or **Customize in Studio**, which loads its kit, industry and page.
+- **Remote library.** Bricks' remote library now serves the designs as pages and all 40 layouts as sections, in German and English (104 templates, "Pages" and "Sections" bundles per language). Thumbnails are drawn in each design's colors.
+- **MCP.** `bricks_kit_options` lists the designs with their kit and page.
+- **Generator.** The empty state points to the library instead of the classic templates. The classic catalog stays available to MCP clients (`bricks_list_templates`, `bricks_get_template`).
+- **Preview.** Rich text keeps paragraphs and lists (without attributes).
+- **Why.** The classic templates used inline styles and generic copy; rendered, they showed empty image placeholders, blank icon boxes and avatars, an orphaned fourth service card and low-contrast stars and links. They validate and still work in the Generator.
+
 ## 0.8.1 — 2026-09-29
 
 - **License.** BricksSnap is now licensed under the [PolyForm Shield License 1.0.0](LICENSE) instead of MIT.
