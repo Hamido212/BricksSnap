@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.0 — 2026-09-29
+
+Work in the connected site's design, media, global classes and templates; fix font stacks in the engine. See the [release notes](docs/RELEASE-0.7.0.md).
+
+- **Import images into the media library.** Before applying, external images in a reviewed change can be copied into the site's media library (`upload-media`). BricksSnap downloads each image itself (HTTPS, public addresses, image types, 8 MB, 30 images) and uploads it as data, so the save request carries no external URL. Re-imports reuse earlier uploads.
+- **Generate in the site's design.** Built-in sections in the connected site's colors and fonts.
+  - Colors come from the site's palettes and from the colors the loaded page uses, suggested per role and adjustable.
+  - Palette colors can be linked to their CSS variables with the hex as fallback.
+  - The page's font stack, the site's typography or BricksSnap's default font can be chosen.
+  - The MCP tools `bricks_generate_section` and `bricks_assemble_page` accept role `colors`.
+- **Create missing global classes.** Before applying, global classes a change uses but the site lacks can be created from the change's definitions in one atomic `batch-create-global-classes` write, guarded by the class store's ownership digest. Existing classes are never changed: an identical class under the same name is reused, a different one is reported. Apply now names missing classes instead of IDs.
+- **Site templates.** A template list (type, status, conditions) under the connection. Templates load into the baseline like pages and save back through the same guarded apply, read-back and restore; headers and footers use their own area.
+- **Template conditions.** View and edit where a template applies: entire website, front page, post types, archives, search, 404, terms and specific posts, with exclusions and hooks for section templates. Saving re-reads the stored conditions first and refuses if they changed; conditions with unknown settings stay read-only.
+- **Save as a new Bricks template.** A reviewed change becomes a new header, footer, section or other template, as a draft unless publishing is chosen, and then serves as the baseline. Missing global classes are refused as for apply; nested header/footer landmarks are flagged.
+- **Before saving.** Image import and class creation form their own step, used by both apply and template creation.
+- **Host firewall hints.** When the web host answers with its own error page, apply, template creation and "Render with Bricks" now name external URLs and email addresses in the change. The test host's firewall blocked requests containing either.
+- **Form placeholders (engine).** Email fields use "Your email address" instead of sample addresses, so the coming-soon and contact forms no longer trip such firewalls.
+- **Font stacks (engine).** Font stacks are written as Bricks' font family plus its native `fallback` (`font-family: "Segoe UI", Arial, sans-serif`), including breakpoint and state typography. Previously the stack went into scoped custom CSS, which Bricks' abilities convert into a single quoted font name that browsers cannot match.
+
 ## 0.6.0 — 2026-09-29
 
 Distribute the catalog to Bricks sites and document AI client setups.

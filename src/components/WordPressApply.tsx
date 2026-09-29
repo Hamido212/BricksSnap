@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BricksTemplate } from "@/lib/bricks-engine";
 import type { WordPressApplyResult, WordPressCredentials, WordPressRestoreResult, WordPressSource } from "@/lib/wordpress-contract";
+import { isMissingClassesError, postWordPress as post } from "@/lib/wordpress-request";
 
 interface WordPressApplyProps {
   source: WordPressSource;
@@ -11,18 +12,13 @@ interface WordPressApplyProps {
   proposal: BricksTemplate | null;
   /** The page was saved or restored; the read-back becomes the new baseline. */
   onUpdated: (template: BricksTemplate, source: WordPressSource) => void;
+  /** Saving was refused because global classes are missing on the site. */
+  onMissingClasses?: () => void;
 }
 
 const button = "rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed";
 
-async function post<T>(body: Record<string, unknown>): Promise<T> {
-  const res = await fetch("/api/wordpress", { method: "POST", headers: { "Content-Type": "application/json", "X-BricksSnap-Local": "1" }, body: JSON.stringify(body) });
-  const data = await res.json();
-  if (!res.ok) throw Object.assign(new Error(data.error || "WordPress request failed."), { status: res.status });
-  return data as T;
-}
-
-export default function WordPressApply({ source, credentials, proposal, onUpdated }: WordPressApplyProps) {
+export default function WordPressApply({ source, credentials, proposal, onUpdated, onMissingClasses }: WordPressApplyProps) {
   const [confirmed, setConfirmed] = useState(false);
   const [lockedPage, setLockedPage] = useState(false);
   const [allowLocked, setAllowLocked] = useState(false);
@@ -44,6 +40,7 @@ export default function WordPressApply({ source, credentials, proposal, onUpdate
     } catch (e) {
       const message = e instanceof Error ? e.message : "Could not apply the change.";
       if (/open in the Bricks builder/.test(message)) setLockedPage(true);
+      if (isMissingClassesError(message)) onMissingClasses?.();
       setError(message);
     } finally { setBusy(false); }
   }

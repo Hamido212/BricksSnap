@@ -336,7 +336,7 @@ describe("WordPress client operations", () => {
     // The design context only summarizes; values come from the list abilities.
     vi.spyOn(Client.prototype, "callTool").mockImplementation(async params => {
       const body = params.name === "bricks/list-color-palettes"
-        ? { items: [{ id: "p1", name: "Brand", colors: [{ name: "Primary Brand", hex: "#1d4ed8" }, { name: "Base Background", hex: "#f8fafc" }] }], hasMore: false }
+        ? { items: [{ id: "p1", name: "Brand", colors: [{ name: "Primary Brand", hex: "#1d4ed8" }, { name: "Base Background", hex: "#f8fafc" }, { id: "c3", raw: "var(--brand-accent)", light: "#f59e0b", colorDigest: "0".repeat(64), itemOwnership: {} }] }], hasMore: false }
         : params.name === "bricks/list-global-classes"
         ? { items: [{ id: "btn-primary", name: "btn-primary", settings: { color: { hex: "#ffffff" } } }], hasMore: false }
         : { counts: { colorPalettes: 1, globalClasses: 1 } };
@@ -359,6 +359,10 @@ describe("WordPress client operations", () => {
         { id: "btn-primary", name: "btn-primary" },
       ],
     });
+    // Palettes for generating in the site's design, without digests or ownership data.
+    expect((result as { palettes: unknown }).palettes).toEqual([{ id: "p1", name: "Brand", colors: [
+      { id: "p1-0", light: "#1d4ed8", name: "Primary Brand" }, { id: "p1-1", light: "#f8fafc", name: "Base Background" }, { id: "c3", raw: "var(--brand-accent)", light: "#f59e0b" },
+    ] }]);
   });
 
   it("throws RequestError when an ability execution fails", async () => {

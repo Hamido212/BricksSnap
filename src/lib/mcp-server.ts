@@ -53,9 +53,14 @@ export function createMcpServer() {
       return { content: [{ type: "text", text: error instanceof Error ? error.message : "Invalid template" }], isError: true };
     }
   });
-  const generationSchema = { prompt: z.string().min(1).max(4000), stylePreset: z.string().max(100).optional(), colorPalette: z.string().max(100).optional() };
+  const hex = z.string().regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+  const generationSchema = {
+    prompt: z.string().min(1).max(4000), stylePreset: z.string().max(100).optional(), colorPalette: z.string().max(100).optional(),
+    colors: z.object({ primary: hex, secondary: hex, accent: hex, background: hex, surface: hex, text: hex, heading: hex, muted: hex, border: hex }).partial().strict().optional()
+      .describe("Optional role colors (hex), e.g. from a site's palette via bricks/list-color-palettes; they override colorPalette."),
+  };
   server.registerTool("bricks_generate_section", {
-    description: "Generate one editable native section using BricksSnap's built-in generators and optional preset/palette IDs from bricks_list_templates. Prompt keyword detection uses sample content; this is not an AI provider call or live preview.",
+    description: "Generate one editable native section using BricksSnap's built-in generators, optional preset/palette IDs from bricks_list_templates, or explicit role colors. Prompt keyword detection uses sample content; this is not an AI provider call or live preview.",
     inputSchema: { ...generationSchema, section: z.string().max(100) }, annotations: { ...annotations, idempotentHint: false },
   }, async ({ section, ...input }) => safely(() => generateMcpPage({ ...input, sections: [section] })));
   server.registerTool("bricks_assemble_page", {

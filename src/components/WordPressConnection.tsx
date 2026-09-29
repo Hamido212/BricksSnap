@@ -13,7 +13,7 @@ import type {
 
 interface WordPressConnectionProps {
   onImportBaseline: (template: BricksTemplate, source: WordPressSource) => void;
-  onImportDesign?: (tokens: Partial<DesignTokens>, classes: BricksGlobalClass[]) => void;
+  onImportDesign?: (tokens: Partial<DesignTokens>, classes: BricksGlobalClass[], palettes: WordPressDesignResult["palettes"]) => void;
   /** Credentials of the verified connection (memory only), or null after disconnecting or a failed check. */
   onCredentials?: (credentials: WordPressCredentials | null) => void;
   currentSource: WordPressSource | null;
@@ -168,7 +168,7 @@ export default function WordPressConnection({
 
       const designResult = data as WordPressDesignResult;
       if (onImportDesign) {
-        onImportDesign(designResult.designTokens, designResult.globalClasses);
+        onImportDesign(designResult.designTokens, designResult.globalClasses, designResult.palettes ?? []);
       }
       const colors = Object.keys(designResult.designTokens).length;
       setStatus(`Imported design context: ${designResult.globalClasses.length} global classes${colors ? `, ${colors} brand colors` : ""}. Review now checks staged classes against the site.`);

@@ -17,3 +17,14 @@ it("initializes, discovers tools and validates a ChatGPT-created template over H
   const result = (await call.json()).result;
   expect(result.isError).not.toBe(true); expect(result.structuredContent.template.title).toBe("ChatGPT Test");
 });
+it("generates a section in explicit role colors and rejects unknown roles", async () => {
+  vi.stubEnv("BRICKSSNAP_MCP_ENABLED", "true");
+  await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
+  const call = await rpc("tools/call", { name: "bricks_generate_section", arguments: { prompt: "studio", section: "hero", colors: { primary: "#0B5FFF", heading: "#14291f" } } });
+  const result = (await call.json()).result;
+  expect(result.isError).not.toBe(true);
+  const json = JSON.stringify(result.structuredContent.template.content).toLowerCase();
+  expect(json).toContain("#0b5fff"); expect(json).toContain("#14291f");
+  const bad = await rpc("tools/call", { name: "bricks_generate_section", arguments: { prompt: "studio", section: "hero", colors: { brand: "#000000" } } });
+  expect(JSON.stringify(await bad.json())).toMatch(/brand|Unrecognized|invalid/i);
+});

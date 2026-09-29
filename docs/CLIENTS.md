@@ -58,9 +58,9 @@ Other clients use the same command and environment in their JSON format.
 
 **Add a generated section to a page, guarded**
 
-> Read page 42 with `bricks/get-page-elements` and keep its `documentDigest`. Generate a pricing section with BricksSnap's `bricks_generate_section`, choosing the `colorPalette` ID from `bricks_list_templates` closest to the site's palette in `bricks/list-color-palettes`. Merge it after the hero with `bricks_merge_templates`, then show me the structural diff from `bricks_compare_templates`. After my approval, save the merged tree with `bricks/set-page-elements` including `expectedDocumentDigest`. Read the page back and report the returned `revisionId`.
+> Read page 42 with `bricks/get-page-elements` and keep its `documentDigest`. Read the site's colors with `bricks/list-color-palettes`. Generate a pricing section with BricksSnap's `bricks_generate_section`, passing `colors` with a hex value per role (primary, background, text, heading, …) from that palette. Merge it after the hero with `bricks_merge_templates`, then show me the structural diff from `bricks_compare_templates`. After my approval, save the merged tree with `bricks/set-page-elements` including `expectedDocumentDigest`. Read the page back and report the returned `revisionId`.
 
-BricksSnap's generator uses its predefined palettes. It does not take arbitrary site colors, so adjust colors in the merged JSON or in Bricks when they must match exactly.
+`colors` overrides a `colorPalette` ID from `bricks_list_templates`; roles you leave out keep BricksSnap's defaults. The values are literal hex colors. To link a section to the palette's CSS variables, use **Generate in the site's design** in the Staging tab (see [WordPress](WORDPRESS.md#generate-in-the-sites-design)).
 
 The digest makes Bricks refuse the save if the page changed after it was read. The `revisionId` restores the previous state with `bricks/restore-revision`.
 

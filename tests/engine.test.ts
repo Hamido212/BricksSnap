@@ -45,12 +45,14 @@ describe("validation and round trips", () => {
     expect(settings).toEqual({ _rowGap: "8px", _columnGap: "24px", "_rowGap:mobile_landscape": "12px", "_columnGap:mobile_landscape": "12px" });
     expect(normalizeSettings("heading", { _gap: "8px" }).settings).toEqual({ _gap: "8px" });
   });
-  it("exports font stacks and root shorthand as portable CSS without mutating the input", () => {
-    const input = [{ ...element("root01"), settings: { _typography: { "font-family": "Segoe UI, Arial, sans-serif" }, _cssCustom: "%root% img { display: block; }" } }];
+  it("exports font stacks as native fallbacks and root shorthand as portable CSS without mutating the input", () => {
+    const input = [{ ...element("root01"), settings: { _typography: { "font-family": "Segoe UI, Arial, sans-serif" }, "_typography:mobile_portrait": { "font-family": "'Helvetica Neue', Arial" }, _cssCustom: "%root% img { display: block; }" } }];
     const template = wrapTemplate(input);
-    expect(template.content[0].settings._typography).toEqual({ "font-family": "Segoe UI" });
+    // Bricks renders this as font-family: "Segoe UI", Arial, sans-serif.
+    expect(template.content[0].settings._typography).toEqual({ "font-family": "Segoe UI", fallback: "Arial, sans-serif" });
+    expect(template.content[0].settings["_typography:mobile_portrait"]).toEqual({ "font-family": "Helvetica Neue", fallback: "Arial" });
     expect(template.content[0].settings._cssCustom).toContain("#brxe-root01 img");
-    expect(template.content[0].settings._cssCustom).toContain("font-family: Segoe UI, Arial, sans-serif");
+    expect(template.content[0].settings._cssCustom).not.toContain("font-family");
     expect(template.content[0].settings._cssCustom).not.toContain("%root%");
     expect(input[0].settings._cssCustom).toBe("%root% img { display: block; }");
     expect(wrapTemplate(template.content).content).toEqual(template.content);

@@ -1577,7 +1577,7 @@ export function generateContactSection(
   const form = createElement("form", formBlock.id, {
     fields: [
       { type: "text", label: "Full Name", placeholder: "John Doe", required: true, id: generateId() },
-      { type: "email", label: "Email", placeholder: "john@example.com", required: true, id: generateId() },
+      { type: "email", label: "Email", placeholder: "Your email address", required: true, id: generateId() },
       { type: "text", label: "Subject", placeholder: "How can we help?", required: false, id: generateId() },
       { type: "textarea", label: "Message", placeholder: "Tell us more...", required: true, id: generateId() },
     ],
@@ -3455,7 +3455,7 @@ export function generateComingSoonSection(
 
   // Native email field; connect the desired newsletter/email action in Bricks.
   const signup = createElement("form", container.id, {
-    fields: [{ id: generateId(), type: "email", label: "Email address", placeholder: "you@example.com", required: true }],
+    fields: [{ id: generateId(), type: "email", label: "Email address", placeholder: "Your email address", required: true }],
     actions: [],
     submitButtonText: "Notify Me",
     submitButtonBackgroundColor: { hex: tokens.primaryColor },
@@ -3593,7 +3593,7 @@ export function generateLoginSection(
   // Login form
   const form = createElement("form", container.id, {
     fields: [
-      { type: "email", label: "Email", placeholder: "you@example.com", required: true, id: generateId() },
+      { type: "email", label: "Email", placeholder: "Your email address", required: true, id: generateId() },
       { type: "password", label: "Password", placeholder: "Enter your password", required: true, id: generateId() },
     ],
     submitButtonText: "Sign In",
