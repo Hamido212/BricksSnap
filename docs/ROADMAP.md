@@ -68,6 +68,18 @@ Delivered in 0.8.0 (see [release notes](RELEASE-0.8.0.md)):
 - **App.** Light workbench redesign; Claude through MCP with current models.
 - **Not included.** Loading the kit's web fonts in Bricks, theme styles, and Studio layouts in the remote library.
 
+## v0.12 — Import & Modernize and more layouts
+
+Delivered in 0.12.0 (see [release notes](RELEASE-0.12.0.md)):
+- **Modernize.** Any Bricks JSON rebuilt on the design system, in the app and as the MCP tool `bricks_modernize_template` ([Modernize](MODERNIZE.md)).
+- **Layouts.** 90 instead of 40, with Bricks' nested tabs and accordion where a section switches or folds.
+- **Not included.** Importing from template libraries directly. BricksSnap does not fetch or redistribute other people's templates.
+
+## Later: cooperation instead of copying
+
+- **"Open in BricksSnap".** Template libraries that want it could link their sections to the Modernize tab, so users bring a section onto their own design system with one click. This needs the library's consent and a small, documented hand-over (for example a URL with the JSON or a postMessage from a library page).
+- **Community gallery.** Sections shared by their authors under an explicit open license (for example CC0 or MIT), with author credit, moderation and a license on every entry. Only then may BricksSnap offer others' sections.
+
 ## 2.0 milestone
 
 Use the 2.0 name when a connected site can be read, a change reviewed, applied, verified and recovered through a tested workflow. Intermediate releases should deliver useful complete workflows without implying that later phases are already available.
