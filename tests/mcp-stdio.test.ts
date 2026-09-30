@@ -32,7 +32,7 @@ it("runs the built CLI with real stdio discovery, generation, merge, diff and er
   try {
     await client.connect(transport);
 
-    expect((await client.listTools()).tools).toHaveLength(10);
+    expect((await client.listTools()).tools).toHaveLength(11);
 
     const page = await client.callTool({
       name: "bricks_assemble_page",
@@ -115,7 +115,7 @@ it("runs the built CLI with real stdio discovery, generation, merge, diff and er
 
     expect(invalid.isError).toBe(true);
 
-    expect((await client.listTools()).tools).toHaveLength(10);
+    expect((await client.listTools()).tools).toHaveLength(11);
   } finally {
     await client.close();
   }

@@ -36,7 +36,7 @@ function ColorField({ id, label, value, onChange }: { id: string; label: string;
   </div>;
 }
 
-export default function KitControls({ kit, onKit, profile, onProfile }: { kit: BrandKit; onKit: (kit: BrandKit) => void; profile: BusinessProfile; onProfile: (profile: BusinessProfile) => void }) {
+export default function KitControls({ kit, onKit, profile, onProfile, showBusiness = true }: { kit: BrandKit; onKit: (kit: BrandKit) => void; profile: BusinessProfile; onProfile: (profile: BusinessProfile) => void; showBusiness?: boolean }) {
   const [services, setServices] = useState(profile.services?.join("\n") ?? "");
   const checks = contrastChecks(resolveKit(kit)).filter(check => !check.ok);
   const field = (key: "name" | "city" | "phone" | "email" | "address", label: string, placeholder: string, type = "text") =>
@@ -86,7 +86,7 @@ export default function KitControls({ kit, onKit, profile, onProfile }: { kit: B
       <Segmented label="Mode" value={kit.mode} options={[{ id: "light", label: "Light" }, { id: "dark", label: "Dark" }]} onChange={mode => onKit({ ...kit, mode })}/>
     </section>
 
-    <section aria-labelledby="kit-business" className="space-y-4">
+    {showBusiness && <section aria-labelledby="kit-business" className="space-y-4">
       <h3 id="kit-business" className="label-mono">Business</h3>
       <div>
         <label htmlFor="kit-industry" className="mb-1.5 block text-xs font-medium text-text">Industry</label>
@@ -108,6 +108,6 @@ export default function KitControls({ kit, onKit, profile, onProfile }: { kit: B
           onChange={e => { setServices(e.target.value); const list = e.target.value.split("\n").map(s => s.trim()).filter(Boolean).slice(0, 6); onProfile({ ...profile, services: list.length ? list : undefined }); }}/>
       </div>
       <p className="text-xs leading-relaxed text-muted">Texts are written for the industry and filled with your details. Nothing leaves your browser.</p>
-    </section>
+    </section>}
   </div>;
 }

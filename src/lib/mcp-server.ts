@@ -14,6 +14,7 @@ import { generateKitTemplate, kitCatalog, kitTemplateType } from "./kit/generate
 import { SECTION_TYPES as KIT_SECTION_TYPES } from "./kit/sections";
 import { FONT_PAIR_IDS, RADIUS_IDS, SPACING_IDS, STYLE_IDS } from "./kit/tokens";
 import { INDUSTRY_IDS } from "./kit/content";
+import { modernizeTemplate } from "./modernize";
 
 // Default import: webpack no longer supports named exports from JSON modules.
 const { version } = packageJson;
@@ -90,6 +91,20 @@ export function createMcpServer() {
     const result = generateKitTemplate({ kit: kit ?? {}, profile: profile ?? {}, sections });
     const { palette, variables, category, css } = result.designSystem;
     return { template: buildBricksImportJson(result.template, title, kitTemplateType(sections)), designSystem: { palette, variables, category, css, fonts: result.designSystem.fonts }, quality: result.quality };
+  }));
+  server.registerTool("bricks_modernize_template", {
+    description: "Import & Modernize: rebuild any Bricks JSON (a copied section, a template export, a library component the user may use) on the BricksSnap design system. Colors become design tokens by role (brand colors → primary/accent), font sizes, spacing and radii land on the token scale (px, rem at 62.5%, Automatic CSS / Core Framework variables), each element's styles move into one deduplicated bs-<block>-<role> global class, and missing mobile rules are added. Optional brand kit restyles it. Returns a Bricks import object, the design system, a report of every change and quality checks. Pure local computation; nothing is fetched or saved.",
+    inputSchema: {
+      json: z.string().max(2_000_000).describe("Bricks JSON: an element array, copied elements ({content, globalClasses}) or a template export."),
+      kit: z.object({ style: z.enum(STYLE_IDS), primary: hex, accent: hex, fonts: z.enum(FONT_PAIR_IDS), radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]) }).partial().strict().optional(),
+      block: z.string().max(24).regex(/^[a-z0-9-]*$/).optional().describe("Class prefix after bs- (default: from the first heading)."),
+      title: z.string().max(120).default("Modernized section"),
+    }, annotations,
+  }, async ({ json, kit, block, title }) => safely(() => {
+    const result = modernizeTemplate(JSON.parse(json), { kit: kit ?? {}, ...(block ? { block } : {}) });
+    const roots = result.template.content.filter(el => el.parent === 0).length;
+    const { palette, variables, category, css, fonts } = result.designSystem;
+    return { template: buildBricksImportJson(result.template, title, roots > 1 ? "content" : "section"), designSystem: { palette, variables, category, css, fonts }, report: result.report, quality: result.quality };
   }));
   server.registerTool("bricks_merge_templates", {
     description: "Stage an additive merge of two strict Bricks JSON templates: prepend, append, or after a top-level element. Preserves existing elements, remaps incoming ID collisions, rejects ambiguous references and dependency conflicts. Returns template, structural diff and warnings. Review in Bricks before publishing; never writes to WordPress.",

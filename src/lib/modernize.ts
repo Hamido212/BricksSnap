@@ -225,7 +225,8 @@ export function modernizeTemplate(input: unknown, options: ModernizeOptions = {}
   const weights = new Map<string, { c: Rgba; w: number }>();
   const weigh = (value: unknown, w: number) => {
     const c = sourceColor(value);
-    if (c && typeof c !== "string" && c.a > 0.5 && isChromatic(c)) { const key = hexOf(c); const e = weights.get(key) ?? { c, w: 0 }; e.w += w; weights.set(key, e); }
+    // Tints and near-blacks are not brand colors: only saturated mid tones count.
+    if (c && typeof c !== "string" && c.a > 0.5 && isChromatic(c) && hsl(c).l >= 0.2 && hsl(c).l <= 0.8 && hsl(c).s >= 0.35) { const key = hexOf(c); const e = weights.get(key) ?? { c, w: 0 }; e.w += w; weights.set(key, e); }
   };
   for (const [id, styles] of effective) {
     const el = byId.get(id)!;
@@ -235,6 +236,7 @@ export function modernizeTemplate(input: unknown, options: ModernizeOptions = {}
       if (key.startsWith("_typography")) weigh(value.color, el.name === "text-link" || el.name === "button" ? 3 : 2);
       if (key.startsWith("_border")) weigh(value.color, 1);
     }
+    for (const [key, value] of Object.entries(el.settings)) if (/color/i.test(key) && !key.startsWith("_")) weigh(value, /icon/i.test(key) ? 2 : 1);
   }
   const ranked = [...weights.values()].sort((a, b) => b.w - a.w);
   const primary = ranked[0]?.c;
@@ -274,7 +276,7 @@ export function modernizeTemplate(input: unknown, options: ModernizeOptions = {}
       const family = brand === accent && accent !== primary ? "accent" : "primary";
       const bl = brand ? hsl(brand).l : 0.5;
       if (role === "heading" || role === "text" || role === "icon") return family === "accent" ? "accent" : context === "light" ? "link" : "on-inverse";
-      if (role === "border") return family === "accent" ? "accent" : "primary-edge";
+      if (role === "border") return l > 0.8 ? (context === "light" ? "border" : "inverse-muted") : family === "accent" ? "accent" : "primary-edge";
       if (l > bl + 0.25 || l > 0.88) return "primary-soft";
       if (family === "primary" && l < bl - 0.1) return "primary-hover";
       return family;
@@ -468,7 +470,15 @@ export function modernizeTemplate(input: unknown, options: ModernizeOptions = {}
       }
     }
 
-    // Element-specific controls (icon colors, form fields …) keep their place, with mapped colors.
+    // Icons: color and size live in the class, so they follow the brand kit.
+    if (el.name === "icon") {
+      const t = isRecord(styles._typography) ? { ...(styles._typography as Settings) } : {};
+      if (settings.iconColor !== undefined && t.color === undefined) t.color = mapColor(settings.iconColor, "icon", own) ?? settings.iconColor;
+      if (settings.iconSize !== undefined && t["font-size"] === undefined) t["font-size"] = typeof settings.iconSize === "number" ? `${settings.iconSize}px` : settings.iconSize;
+      if (Object.keys(t).length) styles._typography = t;
+      delete settings.iconColor; delete settings.iconSize;
+    }
+    // Element-specific controls (form fields …) keep their place, with mapped colors.
     for (const [key, value] of Object.entries(settings)) if (isRecord(value) || Array.isArray(value)) settings[key] = mapNestedColors(value, key, own);
 
     // Base typography: fonts come from the design system (Bricks quotes its font-family control).
@@ -540,7 +550,9 @@ export function modernizeTemplate(input: unknown, options: ModernizeOptions = {}
   // ── Classes: identical styles share one class, named after the element's role.
   const firstHeading = source.content.find(el => el.name === "heading");
   const STOP = new Set(["the", "a", "an", "our", "your", "we", "why", "how", "what", "who", "meet", "get", "der", "die", "das", "ein", "eine", "unser", "unsere", "ihr", "ihre", "wir", "so", "was", "wie", "und", "and"]);
-  const block = slugify(options.block ?? "").slice(0, 24) || slugify(plainText(firstHeading?.settings.text)).split("-").find(w => w.length >= 3 && !STOP.has(w))?.slice(0, 16) || "block";
+  const GENERIC = new Set(["section", "container", "block", "div", "wrapper", "inner", "root"]);
+  const rootLabel = slugify(source.content.find(el => el.parent === 0)?.label ?? "").split("-").find(w => w.length >= 3 && !GENERIC.has(w));
+  const block = slugify(options.block ?? "").slice(0, 24) || rootLabel?.slice(0, 16) || slugify(plainText(firstHeading?.settings.text)).split("-").find(w => w.length >= 3 && !STOP.has(w))?.slice(0, 16) || "block";
   const byStyle = new Map<string, string>();
   const used = new Map<string, number>();
   const classes: BricksGlobalClass[] = [];
