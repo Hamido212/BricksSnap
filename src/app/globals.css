@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Tailwind v4 gives buttons the default arrow. Everything clickable shows the pointer; disabled controls say so. */
+@layer base {
+  a[href], button:not(:disabled), [role="button"]:not([aria-disabled="true"]), [role="tab"], summary,
+  select:not(:disabled), label:has(> input:not(:disabled)), input:is([type="checkbox"], [type="radio"], [type="color"], [type="file"]):not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled, select:disabled, input:disabled { cursor: not-allowed; }
+}
+
 /* "Light workbench" – see docs/DESIGN.md. Color on screen belongs to the templates, not the chrome. */
 :root {
   --background: #fafaf9;
