@@ -7,7 +7,8 @@ import type { BricksElement } from "./bricks-engine";
 import { normalizeSettings } from "./bricks-settings";
 import schema from "../data/bricks-schema.json";
 export const BRICKS_ELEMENT_NAMES = new Set<string>(Object.keys(schema.elements));
-const metaControls = new Set(["_cssGlobalClasses", "_conditions", "_interactions", "_hideElementBuilder", "_hideElementFrontend", "_attributes"]);
+// _hidden carries the classes Bricks' nestable elements rely on (tab-title, accordion-content-wrapper, …).
+const metaControls = new Set(["_cssGlobalClasses", "_conditions", "_interactions", "_hideElementBuilder", "_hideElementFrontend", "_attributes", "_hidden"]);
 const controlSets = new Map(Object.entries(schema.elements).map(([name, element]) => [name, new Set([...schema.commonControls, ...element.controls, ...metaControls])]));
 
 // A Bricks id is always a 6-char lowercase alphanumeric string.

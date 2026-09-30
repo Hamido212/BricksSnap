@@ -63,6 +63,7 @@ HTTP uses the same tools at `/api/mcp`, opt-in as described in [Setup](SETUP.md)
 | `bricks_assemble_page` | `prompt`, ordered `sections` array (1–12), optional preset/palette IDs; page and warnings. |
 | `bricks_kit_options` | None; style directions, font pairs, industries and every section type with its layouts. |
 | `bricks_kit_page` | `sections` (type, optional `variant`, 1–16), optional `kit` and `profile`, `title`; Studio sections or page with global classes, design system and quality checks. See [Studio](STUDIO.md). |
+| `bricks_modernize_template` | JSON string `json` (up to 2 MB), optional `kit`, `block` (class prefix) and `title`; the section on BricksSnap's design system with the design system, a report of every change and quality checks. See [Modernize](MODERNIZE.md). |
 | `bricks_merge_templates` | JSON strings `baseline` and `addition`, `position` (`append`, `prepend`, `after`), `afterId` for `after`; staged template, diff, ID remapping and warnings. |
 | `bricks_compare_templates` | JSON strings `baseline` and `proposal`; element deltas, counts and metadata keys that differ. |
 

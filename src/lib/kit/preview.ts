@@ -221,10 +221,14 @@ export function renderPreview(template: Pick<BricksTemplate, "content" | "global
     const s = el.settings;
     const idAttr = typeof s._cssId === "string" && /^[A-Za-z][\w-]*$/.test(s._cssId) ? s._cssId : `brxe-${el.id}`;
     const selector = `#${idAttr}`;
-    const own = Object.fromEntries(Object.entries(s).filter(([k]) => k.startsWith("_") && k !== "_cssGlobalClasses" && k !== "_cssId" && k !== "_attributes"));
+    const own = Object.fromEntries(Object.entries(s).filter(([k]) => k.startsWith("_") && k !== "_cssGlobalClasses" && k !== "_cssId" && k !== "_attributes" && k !== "_hidden"));
     const r = rulesFor(selector, own, el.name);
     rules.push(...r.rules); custom += r.custom;
-    const classes = [`brxe-${el.name}`, ...(Array.isArray(s._cssGlobalClasses) ? s._cssGlobalClasses.map(id => classNames.get(String(id))).filter(Boolean) : [])];
+    // Nestable elements mark their parts with _hidden classes; Bricks' script opens the first tab.
+    const hidden = String((s._hidden as { _cssClasses?: unknown } | undefined)?._cssClasses ?? "").split(/\s+/).filter(c => /^[a-z][a-z-]*$/.test(c));
+    const firstChild = el.parent !== 0 && byId.get(String(el.parent))?.children[0] === el.id;
+    const open = firstChild && hidden.some(c => c === "tab-title" || c === "tab-pane") ? ["brx-open"] : [];
+    const classes = [`brxe-${el.name}`, ...hidden, ...open, ...(Array.isArray(s._cssGlobalClasses) ? s._cssGlobalClasses.map(id => classNames.get(String(id))).filter(Boolean) : [])];
     const attrs = `id="${esc(idAttr)}" class="${esc(classes.join(" "))}"${Array.isArray(s._attributes) ? (s._attributes as Array<{ name?: string; value?: string }>).filter(a => a.name && /^(aria-[\w-]+|role|data-[\w-]+)$/.test(a.name)).map(a => ` ${a.name}="${esc(String(a.value ?? ""))}"`).join("") : ""}`;
     const children = el.children.map(id => byId.get(id)).filter((c): c is BricksElement => !!c).map(render).join("");
     const text = typeof s.text === "string" ? safeHtml(s.text) : "";
@@ -271,4 +275,12 @@ const BASE_CSS = `@layer bricks {
 .bsp .brxe-form .form-group { width: 100%; margin-bottom: 12px; }
 .bsp .brxe-form .bsp-check { display: flex; gap: 8px; align-items: baseline; width: 100%; margin-bottom: 12px; font-size: 14px; }
 .bsp .brxe-form .bsp-check input { width: auto; }
+.bsp .brxe-tabs-nested { display: flex; flex-direction: column; width: 100%; }
+.bsp .brxe-tabs-nested .tab-menu { display: flex; }
+.bsp .brxe-tabs-nested .tab-title { cursor: pointer; }
+.bsp .brxe-tabs-nested .tab-pane { display: none; }
+.bsp .brxe-tabs-nested .tab-pane.brx-open { display: block; }
+.bsp .brxe-accordion-nested { display: flex; flex-direction: column; width: 100%; }
+.bsp .brxe-accordion-nested .accordion-content-wrapper { display: none; }
+.bsp .brxe-accordion-nested .brx-open > .accordion-content-wrapper { display: block; }
 }`;

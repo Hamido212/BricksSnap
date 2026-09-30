@@ -6,12 +6,21 @@ import { headerVariants, heroVariants } from "./header-hero";
 import { featuresVariants, servicesVariants } from "./services";
 import { ctaVariants, pricingVariants, testimonialVariants } from "./conversion";
 import { footerVariants, moreVariants } from "./more";
+import { headerPlusVariants, heroPlusVariants } from "./header-hero-plus";
+import { contentPlusVariants, featuresPlusVariants, portfolioPlusVariants, servicesPlusVariants, statsPlusVariants, stepsPlusVariants, teamPlusVariants, timelinePlusVariants } from "./services-plus";
+import { contactPlusVariants, ctaPlusVariants, faqPlusVariants, logosPlusVariants, pricingPlusVariants, testimonialPlusVariants } from "./conversion-plus";
+import { blogPlusVariants, footerPlusVariants, galleryPlusVariants, screenPlusVariants } from "./more-plus";
 
 export { SECTION_TYPES, type SectionType, type Variant } from "./common";
 
 export const VARIANTS: Variant[] = [
   ...headerVariants, ...heroVariants, ...servicesVariants, ...featuresVariants, ...pricingVariants,
   ...testimonialVariants, ...ctaVariants, ...footerVariants, ...moreVariants,
+  // Added in 0.12; each type keeps its first layout as the default.
+  ...headerPlusVariants, ...heroPlusVariants, ...servicesPlusVariants, ...featuresPlusVariants, ...stepsPlusVariants, ...statsPlusVariants,
+  ...contentPlusVariants, ...timelinePlusVariants, ...teamPlusVariants, ...portfolioPlusVariants, ...pricingPlusVariants, ...testimonialPlusVariants,
+  ...faqPlusVariants, ...ctaPlusVariants, ...contactPlusVariants, ...logosPlusVariants, ...blogPlusVariants, ...galleryPlusVariants,
+  ...footerPlusVariants, ...screenPlusVariants,
 ];
 
 export const isSectionType = (value: unknown): value is SectionType => typeof value === "string" && (SECTION_TYPES as readonly string[]).includes(value);

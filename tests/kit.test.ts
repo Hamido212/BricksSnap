@@ -59,7 +59,8 @@ describe("generated templates", () => {
 
   it("never lets two classes on one element set the same CSS property", () => {
     for (const style of STYLE_IDS) {
-      const pages = [0, 16, 32].map(start => generateKitTemplate({ kit: { style }, profile: { industry: "agentur", language: "en" }, sections: LAYOUTS.slice(start, start + 16) }).template);
+      const starts = Array.from({ length: Math.ceil(LAYOUTS.length / 16) }, (_, i) => i * 16);
+      const pages = starts.map(start => generateKitTemplate({ kit: { style }, profile: { industry: "agentur", language: "en" }, sections: LAYOUTS.slice(start, start + 16) }).template);
       const classes = new Map(pages.flatMap(t => t.globalClasses).map(c => [c.id, c]));
       for (const el of pages.flatMap(t => t.content)) {
         const seen = new Map<string, string>();
@@ -72,6 +73,41 @@ describe("generated templates", () => {
         }
       }
     }
+  });
+
+  it("offers at least 80 layouts, every class defined once", () => {
+    expect(LAYOUTS.length).toBeGreaterThanOrEqual(80);
+    expect(new Set(LAYOUTS.map(l => `${l.type}/${l.variant}`)).size).toBe(LAYOUTS.length);
+    // A class name defined by two factories would silently overwrite the other one.
+    const r = resolveKit({});
+    const owners = new Map<string, number>();
+    for (const factory of new Set(SECTION_TYPES.flatMap(type => variantsFor(type).map(v => v.classes)).filter(Boolean))) {
+      for (const name of Object.keys(factory!(r))) owners.set(name, (owners.get(name) ?? 0) + 1);
+    }
+    expect([...owners].filter(([, n]) => n > 1).map(([name]) => name)).toEqual([]);
+  });
+
+  it("builds switches and FAQs from Bricks' nested tabs and accordion", () => {
+    const { template } = generateKitTemplate({ kit: {}, profile: { industry: "handwerk", language: "de" }, sections: [{ type: "pricing", variant: "switch" }, { type: "faq", variant: "accordion" }] });
+    const byId = new Map(template.content.map(el => [el.id, el]));
+    const hidden = (id: string) => (byId.get(id)!.settings._hidden as { _cssClasses: string })._cssClasses;
+    const tabsEl = template.content.find(el => el.name === "tabs-nested")!;
+    const [menu, content] = tabsEl.children;
+    expect([hidden(menu), hidden(content)]).toEqual(["tab-menu", "tab-content"]);
+    expect(byId.get(menu)!.children.map(hidden)).toEqual(["tab-title", "tab-title"]);
+    expect(byId.get(content)!.children.map(hidden)).toEqual(["tab-pane", "tab-pane"]);
+    const acc = template.content.find(el => el.name === "accordion-nested")!;
+    expect(acc.settings.faqSchema).toBe(true);
+    const item = byId.get(acc.children[0])!;
+    expect(item.children.map(hidden)).toEqual(["accordion-title-wrapper", "accordion-content-wrapper"]);
+    expect(validateBricksElements(template.content).violations.filter(v => /undocumented/.test(v))).toEqual([]);
+    // Pane and content classes never set display: Bricks shows and hides them.
+    const library = classLibrary(resolveKit({}));
+    for (const name of ["bs-tabs__pane", "bs-tabs__content", "bs-acc__content"]) expect(Object.keys(library[name]).some(k => k.startsWith("_display"))).toBe(false);
+    const { html } = renderPreview(template);
+    expect(html.match(/tab-title brx-open/g)).toHaveLength(1);
+    expect(html.match(/tab-pane brx-open/g)).toHaveLength(1);
+    expect(html).toContain("accordion-content-wrapper");
   });
 
   it("uses stable, unique class IDs", () => {

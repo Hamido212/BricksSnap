@@ -12,7 +12,7 @@ it("initializes, discovers tools and validates a ChatGPT-created template over H
   const init = await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
   expect(init.status).toBe(200); expect((await init.json()).result.serverInfo.name).toBe("BricksSnap");
   const list = await rpc("tools/list"); const tools = (await list.json()).result.tools;
-  expect(tools).toHaveLength(10); expect(tools.every((t: { annotations: { readOnlyHint: boolean } }) => t.annotations.readOnlyHint)).toBe(true);
+  expect(tools).toHaveLength(11); expect(tools.every((t: { annotations: { readOnlyHint: boolean } }) => t.annotations.readOnlyHint)).toBe(true);
   const call = await rpc("tools/call", { name: "bricks_validate_template", arguments: { json: JSON.stringify([{ id: "abc123", name: "text-link", parent: 0, children: [], settings: { text: "Contact" } }]), title: "ChatGPT Test" } });
   const result = (await call.json()).result;
   expect(result.isError).not.toBe(true); expect(result.structuredContent.template.title).toBe("ChatGPT Test");
@@ -49,4 +49,20 @@ it("lists kit options and builds a kit page with design system and quality check
   expect(quality.length).toBeGreaterThan(0);
   const bad = await rpc("tools/call", { name: "bricks_kit_page", arguments: { sections: [{ type: "nope" }] } });
   expect(JSON.stringify(await bad.json())).toMatch(/invalid|nope/i);
+});
+it("modernizes Bricks JSON onto the design system", async () => {
+  vi.stubEnv("BRICKSSNAP_MCP_ENABLED", "true");
+  await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
+  const { MODERNIZE_EXAMPLE } = await import("../src/lib/modernize-example");
+  const call = await rpc("tools/call", { name: "bricks_modernize_template", arguments: { json: JSON.stringify(MODERNIZE_EXAMPLE), kit: { style: "soft", primary: "#0f766e" }, block: "features" } });
+  const result = (await call.json()).result;
+  expect(result.isError).not.toBe(true);
+  const { template, designSystem, report } = result.structuredContent;
+  expect(template.type).toBe("section");
+  expect(template.globalClasses.every((c: { name: string }) => c.name.startsWith("bs-features-"))).toBe(true);
+  expect(designSystem.css).toContain("--bs-primary: #0f766e");
+  expect(report.brand.primary).toBe("#7c3aed");
+  expect(report.mobile.length).toBeGreaterThan(0);
+  const bad = await rpc("tools/call", { name: "bricks_modernize_template", arguments: { json: "{\"foo\":1}" } });
+  expect(JSON.stringify(await bad.json())).toMatch(/Paste Bricks JSON/);
 });

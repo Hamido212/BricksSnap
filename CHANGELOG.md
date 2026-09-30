@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.12.0 — 2026-09-30
+
+Import & Modernize, and 90 layouts. See the [release notes](docs/RELEASE-0.12.0.md).
+
+- **Modernize tab.** Paste or import any Bricks JSON and BricksSnap rebuilds it on its design system. See [Modernize](docs/MODERNIZE.md).
+  - Colors become tokens by role, and the source's brand colors are replaced by the kit's.
+  - Font sizes, spacing and corners land on the kit's fluid scale.
+  - Repeated inline styles become `bs-<block>-<role>` classes.
+  - Missing mobile rules are added.
+  - The brand kit restyles the result.
+  - Compare before and after at three widths, read the report, then download, copy or open it in Staging. It runs locally.
+- **MCP.** New tool `bricks_modernize_template` (eleven tools).
+- **50 new layouts (90 in total)** for every section type, among them:
+  - bento hero, hero with form, hero with numbers;
+  - photo service cards and service tabs;
+  - vertical steps;
+  - pricing switch, plans as rows, price tiles;
+  - quote wall;
+  - team photo cards;
+  - portfolio bento and project index;
+  - FAQ accordion;
+  - logo tiles and marquee;
+  - masonry and bento gallery;
+  - CTA with background image;
+  - big-name footer;
+  - split login, 404 and coming-soon pages.
+- **Native tabs and accordion.** The pricing switch and service tabs use Bricks' nested tabs, and the FAQ accordion uses Bricks' nested accordion with FAQ schema. The preview shows them as Bricks does (first tab open), and the validator accepts their `_hidden` classes.
+- **Remote library.** 206 templates: 13 designs as pages and all 90 layouts as sections, in German and English.
+- **Roadmap.** "Open in BricksSnap" cooperation with template libraries and a community gallery with an explicit open license are planned for later.
+
 ## 0.11.1 — 2026-09-30
 
 - **Pointer cursor.** Everything clickable (buttons, tabs, filter chips, cards, selects, checkboxes, expandable sections) shows the hand cursor again. Tailwind CSS v4 gives buttons the default arrow; disabled controls now show "not allowed". Suggested on the Bricks forum.

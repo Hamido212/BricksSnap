@@ -14,6 +14,7 @@ import ConnectionGuide from "@/components/ConnectionGuide";
 import StagingWorkspace from "@/components/StagingWorkspace";
 import KitStudio, { type KitSelection, type Saved } from "@/components/kit/KitStudio";
 import KitLibrary, { type StudioPreset } from "@/components/kit/KitLibrary";
+import KitModernize from "@/components/kit/KitModernize";
 import { DESIGNS } from "@/lib/kit/library";
 import { VARIANTS } from "@/lib/kit/sections";
 import packageJson from "../../package.json";
@@ -21,10 +22,11 @@ import packageJson from "../../package.json";
 // Default import: webpack no longer supports named exports from JSON modules.
 const { version } = packageJson;
 
-type Tab = "studio" | "generator" | "library" | "staging";
+type Tab = "studio" | "generator" | "library" | "modernize" | "staging";
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "studio", label: "Studio" },
   { id: "library", label: "Library" },
+  { id: "modernize", label: "Modernize" },
   { id: "generator", label: "Generator" },
   { id: "staging", label: "Staging" },
 ];
@@ -285,6 +287,17 @@ export default function Home() {
                 <button onClick={() => setActiveTab("library")} className="inline-flex h-9 items-center rounded-lg border border-border bg-card px-3 text-sm font-medium hover:border-border-hover hover:bg-subtle">Browse the library →</button>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "modernize" && (
+          <div className="animate-fade-in space-y-8">
+            <div className="max-w-3xl">
+              <p className="label-mono mb-3">Import &amp; modernize</p>
+              <h2 className="text-[32px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[44px]">Bring any section. Make it yours.</h2>
+              <p className="mt-4 text-[15px] leading-relaxed text-text">Paste Bricks JSON from an old project, a client site or a component library. BricksSnap maps its colors, font sizes, spacing and radii to your design system, turns inline styles into clean <span className="font-mono text-sm">bs-</span> classes and adds the mobile rules it is missing. Then the brand kit restyles it like any Studio section.</p>
+            </div>
+            <KitModernize onOpenInStaging={openKitInStaging}/>
           </div>
         )}
 

@@ -9,6 +9,8 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Build mo
 
 Free for your own and your clients' websites. You may not offer BricksSnap itself to others as a hosted app or sell it; see [licensing](LICENSING.md).
 
+**v0.12: [Import & Modernize](docs/MODERNIZE.md) and 90 layouts** ([release notes](docs/RELEASE-0.12.0.md)). Paste any Bricks JSON and get it back on your design system: tokens instead of fixed colors, fluid sizes, clean `bs-` classes and mobile rules, restyled by your brand kit. The Studio grows from 40 to 90 layouts, including bento grids, a pricing switch and a FAQ accordion built on Bricks' native tabs and accordion.
+
 **v0.9: Library of ready-made designs.** 12 complete designs for different industries and styles, as pages and sections, in the app and in Bricks' remote library ([release notes](docs/RELEASE-0.9.0.md)).
 
 **v0.8: [Studio](docs/STUDIO.md)** ([release notes](docs/RELEASE-0.8.0.md)). Pick from 40 layouts in five style directions, set your brand color, fonts, corners and spacing, and get copy written for your industry in German or English. Export native Bricks JSON whose global classes follow one design system, and install that system's palette and variables on a connected site.
@@ -27,7 +29,8 @@ v0.5 builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [
 
 ## Features
 
-- Studio: 40 layouts in 22 section types and five style directions, a brand kit (color, fonts, corners, spacing, light/dark), industry copy in German or English, live preview at three widths, quality checks
+- Studio: 90 layouts in 22 section types and five style directions, a brand kit (color, fonts, corners, spacing, light/dark), industry copy in German or English, live preview at three widths, quality checks
+- Modernize: any Bricks JSON rebuilt on the design system (tokens, fluid scale, `bs-` classes, mobile rules), locally in the browser
 - Design system: `bs-` global classes with `var(--bs-*, fallback)` values; palette and variables installable on a connected site with ownership guards
 - Pre-built template library (Hero, Navbar, Features, Pricing, Testimonials, Footer and more)
 - Full page presets
@@ -38,7 +41,7 @@ v0.5 builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [
 - Bricks 2.4.1 native element/control registry, reference repair and responsive defaults
 - Export types and preservation of global classes/component metadata
 - Staging workspace: prepend/append sections or insert after a root, with ID collision handling and structural comparison
-- Ten MCP tools over optional HTTP or local stdio; Studio pages, section generation, page assembly, merge and comparison
+- Eleven MCP tools over optional HTTP or local stdio; Studio pages, modernizing Bricks JSON, section generation, page assembly, merge and comparison
 - Local WordPress connection: page search, live page import with Bricks' document digest, site class and palette import, class conflict warnings
 - Bricks-rendered before/after preview (1280/390 px), guarded apply with read-back verification and revision restore
 - Import of external images into the site's media library and guarded creation of missing global classes before applying

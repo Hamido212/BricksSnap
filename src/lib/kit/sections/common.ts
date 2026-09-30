@@ -1,8 +1,8 @@
-import { button, container, div, heading, icon, image, section, text, textLink, type ClassLibrary, type KitNode } from "../build";
+import { button, container, div, heading, icon, image, node, section, text, textLink, type ClassLibrary, type KitNode } from "../build";
 import type { Content, Link } from "../content";
 import { PHOTOS, type PhotoKey } from "../images";
 import type { IconKey } from "../icons";
-import { sx } from "../styles";
+import { merge, sx } from "../styles";
 import type { Language, ResolvedKit } from "../tokens";
 
 export const SECTION_TYPES = [
@@ -78,6 +78,26 @@ export function infoRow(iconKey: IconKey, label: string, value: string, href?: s
   ], label);
 }
 
+/**
+ * Bricks' nested tabs: a tab menu and one pane per tab. Bricks marks the parts through _hidden
+ * classes (tab-menu, tab-title, tab-content, tab-pane) and its script opens a tab with brx-open, so
+ * pane classes never set display. The look is "pill" (a switch) or "line" (underlined tabs).
+ */
+export function tabs(look: "pill" | "line", items: Array<{ label: string; pane: KitNode }>, label: string): KitNode {
+  return node("tabs-nested", "bs-tabs", {}, [
+    node("block", `bs-tabs__menu bs-tabs__menu--${look}`, { _hidden: { _cssClasses: "tab-menu" } }, items.map(item => node("div", `bs-tabs__title bs-tabs__title--${look}`, { _hidden: { _cssClasses: "tab-title" } }, [text(item.label, "bs-tabs__label", "span")], "Tab")), "Tab menu"),
+    node("block", "bs-tabs__content", { _hidden: { _cssClasses: "tab-content" } }, items.map(item => node("block", "bs-tabs__pane", { _hidden: { _cssClasses: "tab-pane" } }, [item.pane], "Pane")), "Tab content"),
+  ], label);
+}
+
+/** Bricks' nested accordion with FAQ schema; Bricks' script opens an item (brx-open), so content never sets display. */
+export function accordion(items: Array<{ title: string; body: KitNode[] }>, label: string): KitNode {
+  return node("accordion-nested", "bs-acc", { faqSchema: true }, items.map(item => node("block", "bs-acc__item", {}, [
+    node("block", "bs-acc__title", { _hidden: { _cssClasses: "accordion-title-wrapper" } }, [heading("h3", item.title, "bs-acc__q"), icon("add", "bs-acc__icon")], "Title"),
+    node("block", "bs-acc__content", { _hidden: { _cssClasses: "accordion-content-wrapper" } }, item.body, "Content"),
+  ], item.title)), label);
+}
+
 /** Classes used by the helpers above beyond the shared library. */
 export function commonClasses(r: ResolvedKit): ClassLibrary {
   const x = sx(r);
@@ -89,5 +109,33 @@ export function commonClasses(r: ResolvedKit): ClassLibrary {
     "bs-info__body": { _display: "flex", _direction: "column", _rowGap: "2px" },
     "bs-info__label": { ...x.type({ size: "text-xs", weight: "600", ls: "0.08em", transform: "uppercase", color: "muted" }), _margin: { top: "0", bottom: "0" } },
     "bs-info__value": { ...x.type({ size: "text-m", weight: "500", color: "heading", decoration: "none" }), _margin: { top: "0", bottom: "0" } },
+
+    // Tabs: layout classes plus one look per part.
+    "bs-tabs": { _display: "flex", _direction: "column", _rowGap: x.v("space-l"), _alignItems: "stretch", _width: "100%" },
+    "bs-tabs__menu": { _direction: "row", _flexWrap: "wrap", _rowGap: "4px" },
+    "bs-tabs__menu--pill": merge(x.bg("surface"), x.line("1px", "border"), x.round("999px"), x.pad("4px"), { _columnGap: "4px", _width: "auto", _alignSelf: "center" }),
+    "bs-tabs__menu--line": { _columnGap: x.v("space-m"), _width: "100%", _border: { width: { top: "0", right: "0", bottom: "1px", left: "0" }, style: "solid", color: x.color("border") } },
+    "bs-tabs__title": { _cursor: "pointer", _cssTransition: "background-color .2s ease, color .2s ease, border-color .2s ease" },
+    "bs-tabs__title--pill": merge(x.pad("10px", "20px"), x.round("999px"), x.type({ size: "text-s", weight: "600", lh: "1.2", color: "muted" }), {
+      _cssCustom: `.bs-tabs__title--pill.brx-open { background-color: ${x.v("primary")}; color: ${x.v("on-primary")}; }`,
+    }),
+    "bs-tabs__title--line": merge(x.pad("12px", "2px"), x.type({ size: "text-m", weight: "600", lh: "1.3", color: "muted" }), {
+      _border: { width: { top: "0", right: "0", bottom: "2px", left: "0" }, style: "solid", color: { raw: "transparent" } }, _margin: { bottom: "-1px" },
+      _cssCustom: `.bs-tabs__title--line.brx-open { color: ${x.v("heading")}; border-bottom-color: ${x.v("primary")}; }`,
+    }),
+    "bs-tabs__label": { _cssCustom: ".bs-tabs__label { white-space: nowrap; }" },
+    "bs-tabs__content": { _width: "100%" },
+    "bs-tabs__pane": { _width: "100%" },
+
+    // Accordion
+    "bs-acc": { _width: "100%", _widthMax: "860px", _margin: { left: "auto", right: "auto" } },
+    "bs-acc__item": { _width: "100%", _border: { width: { top: "0", right: "0", bottom: "1px", left: "0" }, style: "solid", color: x.color("border") }, _cssCustom: `.bs-acc__item:first-child { border-top: 1px solid ${x.v("border")}; }` },
+    "bs-acc__title": { _direction: "row", _flexWrap: "nowrap", _justifyContent: "space-between", _alignItems: "center", _columnGap: x.v("space-m"), _padding: { top: x.v("space-m"), right: "0", bottom: x.v("space-m"), left: "0" }, _cursor: "pointer", _width: "100%" },
+    "bs-acc__q": merge(x.type({ size: "text-l", weight: "heading-weight", ls: "heading-tracking", lh: "1.35", color: "heading" }), { _margin: { top: "0", bottom: "0" } }, x.font("bs-acc__q", "heading", " text-wrap: balance;")),
+    "bs-acc__icon": merge(x.type({ size: "22px", color: "link" }), {
+      _flexShrink: "0", _cssTransition: "transform .2s ease",
+      _cssCustom: `.bs-acc__item.brx-open .bs-acc__icon, .bs-acc__title[aria-expanded="true"] .bs-acc__icon { transform: rotate(45deg); }`,
+    }),
+    "bs-acc__content": { _widthMax: "720px", _padding: { top: "0", right: "0", bottom: x.v("space-m"), left: "0" } },
   };
 }

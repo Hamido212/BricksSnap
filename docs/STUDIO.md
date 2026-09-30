@@ -35,7 +35,9 @@ The texts are templates: read and adjust them before publishing. Nothing leaves 
 
 ## 3. Sections
 
-The **Sections** view shows all 40 layouts in 22 section types, grouped by type and rendered live at 1280 px. The section types are header, hero, services, benefits, steps, numbers, pricing, reviews, team, portfolio, timeline, about, FAQ, blog, logos, gallery, call to action, contact, footer, login, 404 and coming soon.
+The **Sections** view shows all 90 layouts in 22 section types, grouped by type and rendered live at 1280 px. The section types are header, hero, services, benefits, steps, numbers, pricing, reviews, team, portfolio, timeline, about, FAQ, blog, logos, gallery, call to action, contact, footer, login, 404 and coming soon. Since 0.12 each type has at least two layouts, among them bento grids, a pricing switch, service tabs, a FAQ accordion, a quote wall, a logo marquee and masonry galleries.
+
+- **Tabs and accordion.** The pricing switch and the service tabs use Bricks' nested tabs. The FAQ accordion uses Bricks' nested accordion with FAQ schema. Bricks' own script switches them; the preview shows the first tab open and the answers closed. Edit each tab and answer in the builder. For monthly and yearly prices, rename the switch's tabs (**Packages / Single prices**) and enter your prices in the panes.
 
 - **Copy.** Copies a single section. Paste it in the Bricks editor with Ctrl+V.
 - **Add to page.** Adds the section to your page. A header goes first, a footer last, and anything else goes before the footer.
@@ -51,6 +53,10 @@ The **Sections** view shows all 40 layouts in 22 section types, grouped by type 
   - **Download for Bricks import.** The file imports under Templates → Import. A header or footer alone is exported as that template type, several sections as a page.
   - **Copy for Bricks (Ctrl+V).** Pastes the page into the editor.
   - **Open in Staging.** Loads the page as a new section or version, to review it against a page of a connected site, save it there, or install the design system.
+
+## Modernize your own sections
+
+The **Modernize** tab brings Bricks JSON you already have onto the same design system: tokens instead of fixed colors, the kit's scale instead of px, `bs-` classes instead of repeated inline styles, and mobile rules. The brand kit then restyles it like a Studio layout. See [Modernize](MODERNIZE.md).
 
 ## How the output is built
 
@@ -94,9 +100,10 @@ Since 0.10 an install is not a one-way street.
 
 ## From Claude, ChatGPT and other MCP clients
 
-The MCP server offers two Studio tools:
+The MCP server offers three Studio tools:
 
 - **`bricks_kit_options`** lists style directions, font pairs, industries and every section type with its layouts.
+- **`bricks_modernize_template`** rebuilds Bricks JSON on the design system (see [Modernize](MODERNIZE.md)).
 - **`bricks_kit_page`** builds sections or a page. It takes `sections` (type and optional `variant`), an optional `kit` (style, primary, accent, fonts, radius, spacing, mode) and an optional `profile` (industry, language, name, city, phone, email, address, tagline, services). It returns the Bricks import object, the design system and the quality checks.
 
 For example: "Use BricksSnap to build a homepage for a vehicle registration service in Bremen in the Warm style with a green brand color, in German, and give me the Bricks JSON."
