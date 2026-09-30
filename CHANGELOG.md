@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1 — 2026-09-30
+
+- **Pointer cursor.** Everything clickable (buttons, tabs, filter chips, cards, selects, checkboxes, expandable sections) shows the hand cursor again. Tailwind CSS v4 gives buttons the default arrow; disabled controls now show "not allowed". Suggested on the Bricks forum.
+- **One "Brand kit" heading.** The collapse control from 0.11.0 no longer adds a second heading; **‹ Hide** sits on the heading's line.
+
 ## 0.11.0 — 2026-09-29
 
 Studio feedback from the Bricks forum.
