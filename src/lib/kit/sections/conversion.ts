@@ -32,7 +32,7 @@ function pricingClasses(r: ResolvedKit) {
 
 const pricingBand = (ctx: Ctx, children: Array<KitNode | null>, surface: "page" | "alt" = "page") => band({ surface, label: "Pricing", id: ctx.c.anchors.pricing, classes: "bs-pricing" }, children);
 
-function planCard(ctx: Ctx, plan: Ctx["c"]["pricing"]["plans"][number]): KitNode {
+export function planCard(ctx: Ctx, plan: Ctx["c"]["pricing"]["plans"][number]): KitNode {
   return div(`bs-plan ${plan.featured ? "bs-plan--featured" : "bs-plan--default"}`, [
     plan.featured ? text(ctx.c.ui.mostPopular, "bs-plan__badge") : null,
     heading("h3", plan.name, "bs-plan__name"),
@@ -97,7 +97,7 @@ function testimonialClasses(r: ResolvedKit) {
   };
 }
 
-function quoteCard(ctx: Ctx, item: Ctx["c"]["testimonials"]["items"][number]): KitNode {
+export function quoteCard(ctx: Ctx, item: Ctx["c"]["testimonials"]["items"][number]): KitNode {
   const p = PHOTOS[item.photo];
   return div("bs-card bs-quote", [
     stars(),

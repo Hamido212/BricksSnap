@@ -3,8 +3,8 @@ import { PHOTOS } from "../images";
 import { merge, sx } from "../styles";
 import type { ResolvedKit } from "../tokens";
 import { actions, band, checklist, infoRow, intro, photo, type Ctx, type Variant } from "./common";
+import { telHref } from "./header-hero";
 
-const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
 
 function footerClasses(r: ResolvedKit) {
   const x = sx(r);
@@ -26,8 +26,8 @@ function footerClasses(r: ResolvedKit) {
   };
 }
 
-const socials = () => div("bs-socials", (["logo-instagram", "logo-facebook", "logo-linkedin"] as const).map(key => icon(key, "bs-socials__icon", "#")), "Social links");
-const legalRow = (ctx: Ctx) => div("bs-footer__bottom", [
+export const socials = () => div("bs-socials", (["logo-instagram", "logo-facebook", "logo-linkedin"] as const).map(key => icon(key, "bs-socials__icon", "#")), "Social links");
+export const legalRow = (ctx: Ctx) => div("bs-footer__bottom", [
   text(ctx.c.footer.copyright, "bs-footer__small"),
   div("bs-footer__legal", ctx.c.footer.legal.map(link => textLink(link.label, link.href, "bs-footer__link"))),
 ], "Legal");
@@ -115,7 +115,7 @@ function moreClasses(r: ResolvedKit) {
 }
 
 /** Bricks form with the kit's colors; fields depend on the purpose. */
-function form(ctx: Ctx, fields: Array<{ type: string; label: string; required?: boolean; width?: number }>, submit: string, actions: string[] = ["email"]): KitNode {
+export function form(ctx: Ctx, fields: Array<{ type: string; label: string; required?: boolean; width?: number }>, submit: string, actions: string[] = ["email"]): KitNode {
   const { x } = ctx;
   const fieldId = (i: number) => `f${String(i + 1).padStart(5, "0")}`;
   return node("form", "bs-form", {

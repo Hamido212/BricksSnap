@@ -4,12 +4,12 @@ import { merge, sx } from "../styles";
 import type { ResolvedKit } from "../tokens";
 import { actions, band, checklist, photo, stars, type Ctx, type Variant } from "./common";
 
-const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
+export const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
 
-function brand(ctx: Ctx): KitNode {
+export function brand(ctx: Ctx): KitNode {
   return textLink(ctx.c.brand.name, "/", "bs-brand");
 }
-function navLinks(ctx: Ctx): KitNode {
+export function navLinks(ctx: Ctx): KitNode {
   return node("div", "bs-nav", { tag: "nav", _attributes: [{ name: "aria-label", value: ctx.c.lang === "de" ? "Hauptnavigation" : "Main navigation" }] }, ctx.c.nav.map(link => textLink(link.label, link.href, "bs-nav__link")), "Navigation");
 }
 
