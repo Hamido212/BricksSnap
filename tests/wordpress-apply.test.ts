@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { wpRequestSchema, type WordPressDesignSystemResult, type WordPressDesignSystemRevertResult, type WordPressDesignSystemUninstallResult, type WordPressApplyResult, type WordPressClassesResult, type WordPressConditionsResult, type WordPressCreateTemplateResult, type WordPressCredentials, type WordPressRestoreResult, type WordPressTemplatesResult } from "../src/lib/wordpress-contract";
+import { wpRequestSchema, type WordPressDesignSystemResult, type WordPressDesignSystemRevertResult, type WordPressDesignSystemUninstallResult, type WordPressApplyResult, type WordPressClassesResult, type WordPressClassUpdateResult, type WordPressConditionsResult, type WordPressCreateTemplateResult, type WordPressCredentials, type WordPressRestoreResult, type WordPressTemplatesResult } from "../src/lib/wordpress-contract";
 import { stableJson } from "../src/lib/template-staging";
 import type { BricksElement } from "../src/lib/bricks-engine";
 
@@ -14,7 +14,7 @@ class FakeBricksSite {
   locked = false;
   enabled = new Set(["bricks/set-page-elements", "bricks/restore-revision", "bricks/batch-create-global-classes", "bricks/create-template", "bricks/set-template-conditions",
     "bricks/create-color-palette", "bricks/create-color", "bricks/update-color", "bricks/set-global-variable-categories", "bricks/set-global-variables",
-    "bricks/delete-color-palette", "bricks/delete-color", "bricks/delete-global-variable"]);
+    "bricks/delete-color-palette", "bricks/delete-color", "bricks/delete-global-variable", "bricks/update-global-class"]);
   /** Simulates a variable write that fails after the palette was saved. */
   failVariableWrite = false;
   palettes: Array<{ id: string; name: string; colors: Array<{ id: string; light: string; raw: string }> }> = [{ id: "449b69", name: "Default", colors: [{ id: "047244", light: "#f5f5f5", raw: "var(--bricks-color-grey-100)" }] }];
@@ -45,6 +45,9 @@ class FakeBricksSite {
 
   constructor(elements: BricksElement[]) { this.elements = structuredClone(elements); }
   digest() { return createHash("sha256").update(stableJson(this.elements)).digest("hex"); }
+  lockOwnership() { return { resource: "globalClassLocks", siteId: 1, version: this.classVersion, resourceDigest: this.sha([]) }; }
+  /** Simulates another editor changing a class between BricksSnap's read and its update. */
+  classEditBeforeUpdate = false;
   classOwnership() { return { resource: "globalClasses", siteId: 1, version: this.classVersion, resourceDigest: createHash("sha256").update(stableJson(this.classes)).digest("hex") }; }
   sha(value: unknown) { return createHash("sha256").update(stableJson(value)).digest("hex"); }
   // Like Bricks 2.4.2, palettes, variables and categories share one design version that every write bumps.
@@ -68,8 +71,29 @@ class FakeBricksSite {
       case "bricks/list-global-classes": {
         // Paginated like Bricks 2.4.2, with an ownership envelope per read.
         const perPage = Number(params.perPage ?? 25), page = Number(params.page ?? 1);
-        const items = this.classes.slice((page - 1) * perPage, page * perPage).map(c => ({ ...c, itemDigest: "0".repeat(64), itemOwnership: this.classOwnership() }));
-        return { items, total: this.classes.length, page, perPage, hasMore: page * perPage < this.classes.length, categories: [], locked: [], ownership: this.classOwnership() };
+        const items = this.classes.slice((page - 1) * perPage, page * perPage).map(c => ({ ...c, itemDigest: this.sha(c), itemOwnership: { ...this.classOwnership(), itemDigest: this.sha(c) } }));
+        return { items, total: this.classes.length, page, perPage, hasMore: page * perPage < this.classes.length, categories: [], locked: [], ownership: this.classOwnership(), lockOwnership: this.lockOwnership() };
+      }
+      case "bricks/update-global-class": {
+        const index = this.classes.findIndex(c => c.id === params.classId);
+        if (index < 0) throw new Error("Class not found.");
+        if (this.classEditBeforeUpdate) { this.classes[index] = { ...this.classes[index], settings: { ...this.classes[index].settings, _opacity: "0.5" } }; this.classVersion++; this.classEditBeforeUpdate = false; }
+        const { itemDigest, ...resource } = (params.expectedOwnership ?? {}) as Record<string, unknown>;
+        if (stableJson(resource) !== stableJson(this.classOwnership()) || itemDigest !== this.sha(this.classes[index])) throw new Error("The class changed since it was read (bricks_conflict_ownership_mismatch).");
+        if (stableJson(params.lockOwnership) !== stableJson(this.lockOwnership())) throw new Error("Class locks changed since they were read.");
+        // Like Bricks 2.4.2: settings merge recursively, null removes a key, custom CSS is reformatted.
+        const mergeInto = (base: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> => {
+          const out = { ...base };
+          for (const [key, value] of Object.entries(patch)) {
+            if (value === null) delete out[key];
+            else if (value && typeof value === "object" && !Array.isArray(value) && out[key] && typeof out[key] === "object" && !Array.isArray(out[key])) out[key] = mergeInto(out[key] as Record<string, unknown>, value as Record<string, unknown>);
+            else out[key] = key.startsWith("_cssCustom") && typeof value === "string" ? value.replace(/\{ /g, "{\n  ").replace(/; \}/g, ";\n}") : value;
+          }
+          return out;
+        };
+        const updated = { ...this.classes[index], settings: mergeInto(this.classes[index].settings, params.settings as Record<string, unknown>) };
+        this.classes[index] = updated; this.classVersion++; this.classWrites++;
+        return { class: updated, ownership: this.classOwnership(), lockOwnership: this.lockOwnership(), itemDigest: this.sha(updated), itemOwnership: { ...this.classOwnership(), itemDigest: this.sha(updated) } };
       }
       case "bricks/batch-create-global-classes": {
         if (this.classEditBeforeWrite) { this.classes = [...this.classes, { id: "oth001", name: "other", settings: {} }]; this.classVersion++; }
@@ -246,6 +270,8 @@ async function connectTo(site: FakeBricksSite) {
       handleWordPressRequest({ action: "restore", credentials: creds, postId: 7, revisionId, expectedDocumentDigest, confirm: true }, signal) as Promise<WordPressRestoreResult>,
     createClasses: (template: unknown) =>
       handleWordPressRequest({ action: "classes", credentials: creds, template, confirm: true }, signal) as Promise<WordPressClassesResult>,
+    updateClasses: (classes: Array<{ name: string; settings: Record<string, unknown> }>) =>
+      handleWordPressRequest({ action: "update-classes", credentials: creds, classes, confirm: true }, signal) as Promise<WordPressClassUpdateResult>,
     request: <T>(body: Record<string, unknown>) => handleWordPressRequest(wpRequestSchema.parse({ credentials: creds, ...body }), signal) as Promise<T>,
   };
 }
@@ -381,6 +407,52 @@ describe("guarded apply and restore", () => {
     expect(result).toMatchObject({ created: [], remapped: [], mismatched: [{ id: "bst001", name: "bs-title" }] });
     expect(site.classWrites).toBe(0);
     expect(site.classes.find(c => c.id === "bst001")!.settings).toEqual({ _typography: { "font-weight": "700" } });
+  });
+
+  it("updates outdated BricksSnap classes with guarded writes, verifies them and undoes the update", async () => {
+    const site = new FakeBricksSite(section("hero01", "Hero"));
+    site.classes.push(
+      { id: "bst001", name: "bs-title", settings: { _typography: { "font-weight": "700", "letter-spacing": "-0.02em" }, _margin: { top: "0" } } },
+      { id: "bsl001", name: "bs-label", settings: { _cssCustom: ".bs-label {\n  white-space: nowrap;\n}" } },
+      { id: "foo001", name: "bs-cta", settings: { _display: "none", _cssCustom: ".bs-cta { color: red; }" } },
+    );
+    const before = structuredClone(site.classes);
+    const { updateClasses } = await connectTo(site);
+    const result = await updateClasses([
+      { name: "bs-title", settings: { _typography: { "font-weight": "500" }, _margin: { top: "0" } } },
+      { name: "bs-label", settings: { _cssCustom: ".bs-label { white-space: nowrap; }" } },
+      { name: "bs-cta", settings: { _cssCustom: ".bs-cta { color: blue; }" } },
+      { name: "bs-new", settings: {} },
+      { name: "btn", settings: {} },
+    ]);
+    expect(result).toMatchObject({ updated: [{ id: "bst001", name: "bs-title" }, { id: "foo001", name: "bs-cta" }], unchanged: ["bs-label"], missing: ["bs-new"], verified: true });
+    expect(result.error).toBeUndefined();
+    // Removed keys are gone, nested ones included; the foreign class "btn" is never touched.
+    expect(site.classes.find(c => c.name === "bs-title")!.settings).toEqual({ _typography: { "font-weight": "500" }, _margin: { top: "0" } });
+    expect(site.classes.find(c => c.name === "bs-cta")!.settings).toEqual({ _cssCustom: ".bs-cta {\n  color: blue;\n}" });
+    expect(site.classes.find(c => c.name === "btn")).toEqual(before.find(c => c.name === "btn"));
+    expect(site.classWrites).toBe(2);
+
+    const undo = await updateClasses(result.previous);
+    expect(undo).toMatchObject({ updated: [{ name: "bs-title" }, { name: "bs-cta" }], verified: true });
+    expect(site.classes.find(c => c.name === "bs-title")!.settings).toEqual(before.find(c => c.name === "bs-title")!.settings);
+    expect(site.classes.find(c => c.name === "bs-cta")!.settings._display).toBe("none");
+  });
+
+  it("stops at a class edited after the read and keeps earlier updates undoable", async () => {
+    const site = new FakeBricksSite(section("hero01", "Hero"));
+    site.classes.push({ id: "bsa001", name: "bs-a", settings: { _gap: "1px" } }, { id: "bsb001", name: "bs-b", settings: { _gap: "1px" } });
+    const { updateClasses } = await connectTo(site);
+    const first = await updateClasses([{ name: "bs-a", settings: { _gap: "2px" } }]);
+    expect(first).toMatchObject({ updated: [{ name: "bs-a" }], verified: true });
+    site.classEditBeforeUpdate = true;
+    const second = await updateClasses([{ name: "bs-b", settings: { _gap: "2px" } }]);
+    expect(second.updated).toEqual([]);
+    expect(second.error).toMatch(/bs-b was not updated/);
+    expect(site.classes.find(c => c.name === "bs-b")!.settings).toEqual({ _gap: "1px", _opacity: "0.5" });
+
+    site.enabled.delete("bricks/update-global-class");
+    await expect(updateClasses([{ name: "bs-a", settings: {} }])).rejects.toMatchObject({ status: 403, message: expect.stringMatching(/update-global-class/) });
   });
 
   it("refuses class creation when classes changed after the read, or when disabled", async () => {
