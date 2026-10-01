@@ -21,7 +21,7 @@ function morePlusClasses(r: ResolvedKit) {
     "bs-post-line__img": merge(x.round("radius-m"), { _width: "100%", _aspectRatio: "4/3", _objectFit: "cover", "_order:mobile_landscape": "-1" }),
 
     // Galleries
-    "bs-masonry": { _display: "block", _width: "100%", _cssCustom: `.bs-masonry { columns: 3 150px; column-gap: ${x.v("space-s")}; }` },
+    "bs-masonry": { _display: "block", _width: "100%", _columnGap: x.v("space-s"), _cssCustom: ".bs-masonry { columns: 3 150px; }" },
     "bs-masonry__img": merge(x.round("radius-m"), { _display: "block", _width: "100%", _objectFit: "cover", _margin: { top: "0", bottom: x.v("space-s") }, _cssCustom: ".bs-masonry__img { break-inside: avoid; }" }),
     "bs-gbento": { _display: "grid", _gridTemplateColumns: "repeat(4, minmax(0, 1fr))", "_gridTemplateColumns:mobile_landscape": "repeat(2, minmax(0, 1fr))", _gridAutoRows: "clamp(130px, 15vw, 220px)", _gridGap: x.v("space-s"), _width: "100%" },
     "bs-gbento__cell": { _overflow: "hidden" },

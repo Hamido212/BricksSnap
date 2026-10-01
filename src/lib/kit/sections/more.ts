@@ -103,14 +103,16 @@ function moreClasses(r: ResolvedKit) {
     "bs-gallery": { _display: "grid", _gridTemplateColumns: "repeat(3, minmax(0, 1fr))", "_gridTemplateColumns:mobile_landscape": "repeat(2, minmax(0, 1fr))", _gridAutoRows: "clamp(150px, 20vw, 280px)", _gridGap: x.v("space-s"), _width: "100%" },
     "bs-gallery__item": merge(x.round("radius-m"), { _width: "100%", _height: "100%", _objectFit: "cover", _overflow: "hidden" }),
     // Bricks has no grid span control on image elements, so the span lives in class CSS.
-    "bs-gallery__wide": { _cssCustom: ".bs-gallery__wide { grid-column: span 2; }" },
+    // Inside the grid's rule: Bricks turns `.bs-gallery__wide { grid-column }` into a control.
+    "bs-gallery__wide": { _cssCustom: ".bs-gallery .bs-gallery__wide { grid-column: span 2; }" },
     "bs-contact": { _display: "grid", _gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.1fr)", "_gridTemplateColumns:tablet_portrait": "minmax(0, 1fr)", _gridGap: x.v("space-xl"), _alignItems: "start", _width: "100%" },
     "bs-contact__info": { _display: "flex", _direction: "column", _rowGap: x.v("space-m") },
     "bs-form-card": merge(x.bg("surface"), x.line("1px", "border"), x.round("radius-l"), x.pad("space-card"), { _display: "flex", _direction: "column", _rowGap: x.v("space-s"), _width: "100%" }),
     "bs-center": merge({ _display: "flex", _direction: "column", _rowGap: x.v("space-m"), _alignItems: "center", _widthMax: "640px", _margin: { left: "auto", right: "auto" } }, x.type({ align: "center" })),
     "bs-code": merge(x.type({ size: "clamp(88px, 60px + 8vw, 160px)", weight: "heading-weight", ls: "heading-tracking", lh: "1", color: "link" }), { _margin: { top: "0", bottom: "0" } }, x.font("bs-code", "heading")),
     "bs-screen": { _heightMin: "min(80vh, 760px)", _justifyContent: "center" },
-    "bs-form": { _width: "100%" },
+    // Bricks 2.4 has no padding control for the submit button.
+    "bs-form": { _width: "100%", _cssCustom: ".bs-form .bricks-button { padding: 14px 24px; }" },
   };
 }
 
@@ -134,7 +136,6 @@ export function form(ctx: Ctx, fields: Array<{ type: string; label: string; requ
     submitButtonBackgroundColor: x.color("primary"),
     submitButtonTypography: { "font-size": "16px", "font-weight": "600", color: x.color("on-primary") },
     submitButtonBorder: { radius: x.sides(x.v("radius-btn")) },
-    submitButtonPadding: { top: "14px", right: "24px", bottom: "14px", left: "24px" },
   });
 }
 

@@ -53,7 +53,7 @@ function heroPlusClasses(r: ResolvedKit) {
   return {
     "bs-hero-bento": { _display: "grid", _gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)", _gridGap: x.v("space-s"), _width: "100%" },
     // Bricks has no grid span control on image elements, so the span lives in class CSS.
-    "bs-hero-bento__main": merge(x.round("radius-l"), { _width: "100%", _height: "100%", _heightMin: "340px", _objectFit: "cover", _cssCustom: ".bs-hero-bento__main { grid-row: span 2; }" }),
+    "bs-hero-bento__main": merge(x.round("radius-l"), { _width: "100%", _height: "100%", _heightMin: "340px", _objectFit: "cover", _cssCustom: ".bs-hero-bento .bs-hero-bento__main { grid-row: span 2; }" }),
     "bs-hero-bento__tile": merge(x.round("radius-l"), x.pad("space-card"), { _display: "flex", _direction: "column", _justifyContent: "flex-end", _rowGap: "6px", _heightMin: "160px" }),
     "bs-hero-bento__tile--primary": merge(x.bg("primary"), x.type({ color: "on-primary" })),
     "bs-hero-bento__tile--soft": merge(x.bg("primary-soft"), x.type({ color: "heading" })),

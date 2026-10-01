@@ -65,9 +65,9 @@ export function baseClasses(r: ResolvedKit): ClassLibrary {
   const eyebrow: Record<typeof style.eyebrow, Settings> = {
     text: x.type({ size: "text-xs", weight: "600", ls: "0.12em", transform: "uppercase", color: "link" }),
     pill: merge(x.type({ size: "text-xs", weight: "600", ls: "0.02em", color: "link" }), x.bg("primary-soft"), x.pad("6px", "12px"), x.round("999px"), { _display: "inline-flex" }),
-    rule: merge(x.type({ size: "text-xs", weight: "700", ls: "0.14em", transform: "uppercase", color: "heading" }), { _display: "inline-flex", _alignItems: "center", _cssCustom: `.bs-eyebrow { gap: 12px; }\n.bs-eyebrow::before { content: ""; width: 28px; height: 2px; background: ${v("primary")}; }` }),
+    rule: merge(x.type({ size: "text-xs", weight: "700", ls: "0.14em", transform: "uppercase", color: "heading" }), { _display: "inline-flex", _alignItems: "center", _gap: "12px", _cssCustom: `.bs-eyebrow::before { content: ""; width: 28px; height: 2px; background: ${v("primary")}; }` }),
     italic: merge(x.type({ size: "text-m", weight: "400", style: "italic", color: "link" }), x.font("bs-eyebrow", "heading")),
-    dot: merge(x.type({ size: "text-s", weight: "600", color: "link" }), { _display: "inline-flex", _alignItems: "center", _cssCustom: `.bs-eyebrow { gap: 10px; }\n.bs-eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: ${v("primary")}; }` }),
+    dot: merge(x.type({ size: "text-s", weight: "600", color: "link" }), { _display: "inline-flex", _alignItems: "center", _gap: "10px", _cssCustom: `.bs-eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: ${v("primary")}; }` }),
   };
 
   const card: Record<typeof style.card, Settings> = {
@@ -88,11 +88,13 @@ export function baseClasses(r: ResolvedKit): ClassLibrary {
     "bs-section": merge(x.type({ size: "text-m", lh: "1.65" }), { _width: "100%" }, x.font("bs-section", "body", " -webkit-font-smoothing: antialiased;")),
     "bs-surface--page": merge(x.bg("bg"), x.type({ color: "text" })),
     "bs-surface--alt": merge(x.bg("surface-alt"), x.type({ color: "text" })),
+    // Bricks prints class controls as `.bs-title.brxe-heading`; the doubled surface class outranks them
+    // wherever Bricks happens to print the surface class.
     "bs-surface--inverse": merge(x.bg("inverse"), x.type({ color: "on-inverse" }), {
-      _cssCustom: `.bs-surface--inverse :is(.bs-title, .bs-card__title, .bs-stat__value, .bs-quote__text, .bs-eyebrow, .bs-price, .bs-brand, .bs-info__value) { color: ${v("on-inverse")}; }\n.bs-surface--inverse :is(.bs-lead, .bs-small, .bs-card__text, .bs-stat__label, .bs-quote__meta, .bs-nav__link, .bs-info__label) { color: ${v("inverse-muted")}; }\n.bs-surface--inverse .bs-card { background: transparent; border-color: ${v("inverse-muted")}; box-shadow: none; }`,
+      _cssCustom: `.bs-surface--inverse.bs-surface--inverse :is(.bs-title, .bs-card__title, .bs-stat__value, .bs-quote__text, .bs-eyebrow, .bs-price, .bs-brand, .bs-info__value) { color: ${v("on-inverse")}; }\n.bs-surface--inverse.bs-surface--inverse :is(.bs-lead, .bs-small, .bs-card__text, .bs-stat__label, .bs-quote__meta, .bs-nav__link, .bs-info__label) { color: ${v("inverse-muted")}; }\n.bs-surface--inverse.bs-surface--inverse .bs-card { background: transparent; border-color: ${v("inverse-muted")}; box-shadow: none; }`,
     }),
     "bs-surface--primary": merge(x.bg("primary"), x.type({ color: "on-primary" }), {
-      _cssCustom: `.bs-surface--primary :is(.bs-title, .bs-lead, .bs-eyebrow, .bs-small, .bs-card__title, .bs-card__text, .bs-stat__value, .bs-stat__label) { color: ${v("on-primary")}; }\n.bs-surface--primary :is(.bs-lead, .bs-small, .bs-stat__label) { opacity: 0.88; }\n.bs-surface--primary .bs-eyebrow { background: transparent; }\n.bs-surface--primary .bs-eyebrow::before { background: currentColor; }`,
+      _cssCustom: `.bs-surface--primary.bs-surface--primary :is(.bs-title, .bs-lead, .bs-eyebrow, .bs-small, .bs-card__title, .bs-card__text, .bs-stat__value, .bs-stat__label) { color: ${v("on-primary")}; }\n.bs-surface--primary.bs-surface--primary :is(.bs-lead, .bs-small, .bs-stat__label) { opacity: 0.88; }\n.bs-surface--primary.bs-surface--primary .bs-eyebrow { background: transparent; }\n.bs-surface--primary.bs-surface--primary .bs-eyebrow::before { background: currentColor; }`,
     }),
     "bs-space--section": x.pad("space-section", "gutter"),
     "bs-space--tight": x.pad("space-l", "gutter"),
@@ -116,7 +118,7 @@ export function baseClasses(r: ResolvedKit): ClassLibrary {
     "bs-small": merge(x.type({ size: "text-s", lh: "1.55", color: "muted" }), { _margin: { top: "0", bottom: "0" } }),
 
     // On phones, buttons stack at full width instead of squeezing side by side.
-    "bs-btn-row": { _display: "flex", _direction: "row", _flexWrap: "wrap", _alignItems: "center", _columnGap: "12px", _rowGap: "12px", "_direction:mobile_portrait": "column", "_alignItems:mobile_portrait": "stretch", "_width:mobile_portrait": "100%", _cssCustom: ".bs-btn-row > .bs-btn { justify-content: center; }" },
+    "bs-btn-row": { _display: "flex", _direction: "row", _flexWrap: "wrap", _alignItems: "center", _columnGap: "12px", _rowGap: "12px", "_direction:mobile_portrait": "column", "_alignItems:mobile_portrait": "stretch", "_width:mobile_portrait": "100%", _cssCustom: ".bs-btn-row.bs-btn-row > .bs-btn { justify-content: center; }" },
     // Buttons: bs-btn (shape and type), exactly one size and exactly one variant (colors and border line).
     "bs-btn-size--m": merge(x.pad("14px", "24px"), x.type({ size: "16px" })),
     "bs-btn-size--s": merge(x.pad("10px", "18px"), x.type({ size: "15px" })),

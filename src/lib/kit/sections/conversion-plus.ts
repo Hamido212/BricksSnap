@@ -25,10 +25,10 @@ function convertPlusClasses(r: ResolvedKit) {
     "bs-price-tiles": { _display: "grid", _gridTemplateColumns: "repeat(3, minmax(0, 1fr))", "_gridTemplateColumns:tablet_portrait": "repeat(2, minmax(0, 1fr))", "_gridTemplateColumns:mobile_landscape": "minmax(0, 1fr)", _gridGap: x.v("space-s"), _width: "100%" },
 
     // Testimonials
-    "bs-wall": { _display: "block", _width: "100%", _cssCustom: `.bs-wall { columns: 3 260px; column-gap: ${x.v("space-m")}; }\n.bs-wall > * { break-inside: avoid; margin-bottom: ${x.v("space-m")}; }` },
+    "bs-wall": { _display: "block", _width: "100%", _columnGap: x.v("space-m"), _cssCustom: `.bs-wall { columns: 3 260px; }\n.bs-wall > * { break-inside: avoid; margin-bottom: ${x.v("space-m")}; }` },
     "bs-wall__rating": merge(x.bg("primary"), x.round("radius-l"), x.pad("space-card"), x.type({ color: "on-primary" }), {
       _display: "flex", _direction: "column", _rowGap: "8px", _alignItems: "flex-start",
-      _cssCustom: `.bs-wall__rating .bs-stars__icon { color: ${x.v("on-primary")}; }`,
+      _cssCustom: `.bs-wall__rating.bs-wall__rating .bs-stars__icon { color: ${x.v("on-primary")}; }`,
     }),
     "bs-wall__score": merge(x.type({ size: "text-display", weight: "heading-weight", ls: "heading-tracking", lh: "1", color: "inherit" }), { _margin: none }, x.font("bs-wall__score", "heading")),
     "bs-wall__meta": merge(x.type({ size: "text-s", color: "inherit" }), { _margin: none, _opacity: "0.88" }),
@@ -59,9 +59,10 @@ function convertPlusClasses(r: ResolvedKit) {
 
     // Logos
     "bs-logo-tiles": { _display: "grid", _gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", _gridGap: x.v("space-s"), _width: "100%" },
-    "bs-logo-tile": merge(x.bg("surface-alt"), x.round("radius-m"), x.pad("space-s"), { _display: "flex", _alignItems: "center", _justifyContent: "center", _heightMin: "96px", _cssCustom: ".bs-logo-tile .bs-logos__name { white-space: normal; text-align: center; }" }),
+    "bs-logo-tile": merge(x.bg("surface-alt"), x.round("radius-m"), x.pad("space-s"), { _display: "flex", _alignItems: "center", _justifyContent: "center", _heightMin: "96px", _cssCustom: ".bs-logo-tile.bs-logo-tile .bs-logos__name { white-space: normal; text-align: center; }" }),
     "bs-marquee": { _width: "100%", _overflow: "hidden", _cssCustom: ".bs-marquee { mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }" },
-    "bs-marquee__track": { _display: "flex", _direction: "row", _width: "max-content", _cssCustom: ".bs-marquee__track { animation: bs-marquee 32s linear infinite; }\n.bs-marquee:hover .bs-marquee__track { animation-play-state: paused; }\n@keyframes bs-marquee { to { transform: translateX(-50%); } }\n@media (prefers-reduced-motion: reduce) { .bs-marquee__track { animation: none; } }" },
+    "bs-marquee__track": { _display: "flex", _direction: "row", _width: "max-content", // At-rules first, as Bricks stores them.
+    _cssCustom: "@keyframes bs-marquee { to { transform: translateX(-50%); } }\n@media (prefers-reduced-motion: reduce) { .bs-marquee__track { animation: none; } }\n.bs-marquee__track { animation: bs-marquee 32s linear infinite; }\n.bs-marquee:hover .bs-marquee__track { animation-play-state: paused; }" },
     "bs-marquee__group": { _display: "flex", _direction: "row", _alignItems: "center", _columnGap: "clamp(40px, 6vw, 80px)", _padding: { top: "8px", right: "clamp(40px, 6vw, 80px)", bottom: "8px", left: "0" } },
   };
 }

@@ -191,7 +191,7 @@ function formCss(selector: string, s: Settings): string {
     part("label", declarations("_typography", s.labelTypography)),
     part(":is(input, textarea)", [...declarations("_typography", s.fieldTypography), ...(color(s.fieldBackgroundColor) ? [`background-color: ${color(s.fieldBackgroundColor)}`] : []), ...sides("padding", s.fieldPadding), ...(fieldBorder ? declarations("_border", fieldBorder) : [])]),
     part(".form-group", sides("margin", s.fieldMargin)),
-    part(".bricks-button", [...declarations("_typography", s.submitButtonTypography), ...(color(s.submitButtonBackgroundColor) ? [`background-color: ${color(s.submitButtonBackgroundColor)}`] : []), ...sides("padding", s.submitButtonPadding), ...(submitBorder ? declarations("_border", submitBorder) : [])]),
+    part(".bricks-button", [...declarations("_typography", s.submitButtonTypography), ...(color(s.submitButtonBackgroundColor) ? [`background-color: ${color(s.submitButtonBackgroundColor)}`] : []), ...(submitBorder ? declarations("_border", submitBorder) : [])]),
   ].filter(Boolean).join("\n");
 }
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.13.1 — 2026-10-01
+
+Fixes found while rebuilding a real club website on a Bricks 2.4.2 site. See the [release notes](docs/RELEASE-0.13.1.md).
+
+- **Forms save again.** Layouts with a form (contact, hero with form, login, coming soon) were refused by Bricks' `set-page-elements`: the submit button used `submitButtonPadding`, a control Bricks 2.4 does not have. The padding now comes from the `bs-form` class.
+- **Light text on dark sections, on every page.**
+  - Bricks prints class controls as `.bs-title.brxe-heading`, as strong as the dark-section rule.
+  - When a dark section (a cover hero, a dark header) came before the first title, titles stayed dark on the dark background.
+  - Surface rules now outrank Bricks' class rules, wherever Bricks prints them.
+- **Classes are written the way Bricks stores them.** Saving a class, Bricks moves `gap`, `padding`, `grid-column` and similar declarations into controls, splits selector lists and puts at-rules first. Affected classes reported "another version on the site" forever, and the class update ended "not verified". Two of those conversions also dropped CSS:
+  - the eyebrow's gap (Bricks' `_gridGap` is not printed on text);
+  - the tabs' gap.
+- **No false warnings.** Saving a page no longer reports "keeps the site's definition" for classes that differ only in how Bricks laid out their CSS.
+- **Tests** check every layout for controls Bricks rejects or does not render, for CSS Bricks rewrites, and for override rules weaker than Bricks' own class rules.
+
 ## 0.13.0 — 2026-10-01
 
 Mobile menus, carousels, motion and class updates. See the [release notes](docs/RELEASE-0.13.0.md).

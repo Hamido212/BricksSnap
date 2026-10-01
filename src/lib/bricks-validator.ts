@@ -10,7 +10,7 @@ export const BRICKS_ELEMENT_NAMES = new Set<string>(Object.keys(schema.elements)
 // _hidden carries the classes Bricks' nestable elements rely on (tab-title, accordion-content-wrapper, …).
 const metaControls = new Set(["_cssGlobalClasses", "_conditions", "_interactions", "_hideElementBuilder", "_hideElementFrontend", "_attributes", "_hidden"]);
 // Controls the published schema leaves out, verified against Bricks 2.4.2's rendered output.
-const verifiedControls: Record<string, string[]> = { "nav-nested": ["ariaLabel", "mobileMenu"] };
+export const verifiedControls: Record<string, string[]> = { "nav-nested": ["ariaLabel", "mobileMenu"], image: ["_objectFit", "_objectPosition"] };
 const controlSets = new Map(Object.entries(schema.elements).map(([name, element]) => [name, new Set([...schema.commonControls, ...element.controls, ...(verifiedControls[name] ?? []), ...metaControls])]));
 
 // A Bricks id is always a 6-char lowercase alphanumeric string.

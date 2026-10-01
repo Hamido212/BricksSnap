@@ -555,7 +555,7 @@ export async function applyWordPressPage(
       if (foreign.length) throw new RequestError(`The site uses the ID of ${foreign.map(f => `${f.name} (${f.id})`).join(", ")} for another class (${foreign.map(f => f.siteName).join(", ")}). Run "Create missing global classes" first; it gives these classes new IDs.`, 422);
       for (const cls of proposal.globalClasses ?? []) {
         const existing = site.get(cls.id);
-        if (referenced.has(cls.id) && existing && stableJson(isRecord(existing.settings) ? existing.settings : {}) !== stableJson(cls.settings ?? {})) warnings.push(`Global class ${cls.name} keeps the site's definition; staged settings for it are not saved.`);
+        if (referenced.has(cls.id) && existing && !sameClassDefinition({ settings: isRecord(existing.settings) ? existing.settings : {} }, cls)) warnings.push(`Global class ${cls.name} keeps the site's definition; staged settings for it are not saved.`);
       }
     }
 
