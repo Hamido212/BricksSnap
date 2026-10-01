@@ -9,6 +9,8 @@ A Next.js tool that creates editable **Bricks Builder JSON templates**. Build mo
 
 Free for your own and your clients' websites. You may not offer BricksSnap itself to others as a hosted app or sell it; see [licensing](LICENSING.md).
 
+**v0.13: Mobile menus, carousels, motion and class updates** ([release notes](docs/RELEASE-0.13.0.md)). Every header gets a real mobile menu, reviews and portfolio come as carousels, content can fade in on scroll, and sites with older BricksSnap classes can update them with undo.
+
 **v0.12: [Import & Modernize](docs/MODERNIZE.md) and 90 layouts** ([release notes](docs/RELEASE-0.12.0.md)). Paste any Bricks JSON and get it back on your design system: tokens instead of fixed colors, fluid sizes, clean `bs-` classes and mobile rules, restyled by your brand kit. The Studio grows from 40 to 90 layouts, including bento grids, a pricing switch and a FAQ accordion built on Bricks' native tabs and accordion.
 
 **v0.9: Library of ready-made designs.** 12 complete designs for different industries and styles, as pages and sections, in the app and in Bricks' remote library ([release notes](docs/RELEASE-0.9.0.md)).
@@ -29,7 +31,7 @@ v0.5 builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [
 
 ## Features
 
-- Studio: 90 layouts in 22 section types and five style directions, a brand kit (color, fonts, corners, spacing, light/dark), industry copy in German or English, live preview at three widths, quality checks
+- Studio: 92 layouts in 22 section types and five style directions, with mobile menus, carousels and optional scroll motion; a brand kit (color, fonts, corners, spacing, light/dark, motion), industry copy in German or English, live preview at three widths, quality checks
 - Modernize: any Bricks JSON rebuilt on the design system (tokens, fluid scale, `bs-` classes, mobile rules), locally in the browser
 - Design system: `bs-` global classes with `var(--bs-*, fallback)` values; palette and variables installable on a connected site with ownership guards
 - Pre-built template library (Hero, Navbar, Features, Pricing, Testimonials, Footer and more)

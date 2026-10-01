@@ -75,6 +75,12 @@ Delivered in 0.12.0 (see [release notes](RELEASE-0.12.0.md)):
 - **Layouts.** 90 instead of 40, with Bricks' nested tabs and accordion where a section switches or folds.
 - **Not included.** Importing from template libraries directly. BricksSnap does not fetch or redistribute other people's templates.
 
+## v0.13 — Mobile menus, carousels, motion and class updates
+
+Delivered in 0.13.0 (see [release notes](RELEASE-0.13.0.md)):
+- **Bricks-native interaction.** Headers use the nestable nav with a mobile menu; carousels use the nested slider; optional motion uses interactions. Each structure was read from or confirmed on Bricks 2.4.2.
+- **Class updates.** Outdated `bs-` classes can be updated site-wide with guards, read-back and undo.
+
 ## Later: cooperation instead of copying
 
 - **"Open in BricksSnap".** Template libraries that want it could link their sections to the Modernize tab, so users bring a section onto their own design system with one click. This needs the library's consent and a small, documented hand-over (for example a URL with the JSON or a postMessage from a library page).

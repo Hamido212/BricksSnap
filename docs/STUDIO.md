@@ -24,6 +24,7 @@ The panel on the left sets how every layout looks. All previews update live. On 
 - **Second color.** An optional highlight color.
 - **Fonts.** Eight Google font pairs, or system fonts without web fonts.
 - **Corners, spacing, mode.** Corners from none to round; spacing compact, normal or airy; light or dark.
+- **Motion (0.13).** **Fade in** lets intros, cards, list items and images of content sections fade up once as they scroll into view, slightly staggered. It uses Bricks interactions, so you edit or remove it in the builder. Headers, heroes, footers and single-purpose pages stay still, and visitors who ask their system for reduced motion see everything at once.
 
 ## 2. Business
 
@@ -35,8 +36,10 @@ The texts are templates: read and adjust them before publishing. Nothing leaves 
 
 ## 3. Sections
 
-The **Sections** view shows all 90 layouts in 22 section types, grouped by type and rendered live at 1280 px. The section types are header, hero, services, benefits, steps, numbers, pricing, reviews, team, portfolio, timeline, about, FAQ, blog, logos, gallery, call to action, contact, footer, login, 404 and coming soon. Since 0.12 each type has at least two layouts, among them bento grids, a pricing switch, service tabs, a FAQ accordion, a quote wall, a logo marquee and masonry galleries.
+The **Sections** view shows all 92 layouts in 22 section types, grouped by type and rendered live at 1280 px. The section types are header, hero, services, benefits, steps, numbers, pricing, reviews, team, portfolio, timeline, about, FAQ, blog, logos, gallery, call to action, contact, footer, login, 404 and coming soon. Since 0.12 each type has at least two layouts, among them bento grids, a pricing switch, service tabs, a FAQ accordion, a quote wall, a logo marquee and masonry galleries.
 
+- **Mobile menu (0.13).** Every header with links uses Bricks' nestable nav. Below the tablet breakpoint a hamburger opens the menu as a full-screen overlay in the kit's colors; on phones the header button moves into the menu.
+- **Carousels (0.13).** Reviews and portfolio come as carousels on Bricks' nested slider: two or three cards side by side, one on phones, navigated by swipe and the dots below.
 - **Tabs and accordion.** The pricing switch and the service tabs use Bricks' nested tabs. The FAQ accordion uses Bricks' nested accordion with FAQ schema. Bricks' own script switches them; the preview shows the first tab open and the answers closed. Edit each tab and answer in the builder. For monthly and yearly prices, rename the switch's tabs (**Packages / Single prices**) and enter your prices in the panes.
 
 - **Copy.** Copies a single section. Paste it in the Bricks editor with Ctrl+V.
@@ -104,6 +107,6 @@ The MCP server offers three Studio tools:
 
 - **`bricks_kit_options`** lists style directions, font pairs, industries and every section type with its layouts.
 - **`bricks_modernize_template`** rebuilds Bricks JSON on the design system (see [Modernize](MODERNIZE.md)).
-- **`bricks_kit_page`** builds sections or a page. It takes `sections` (type and optional `variant`), an optional `kit` (style, primary, accent, fonts, radius, spacing, mode) and an optional `profile` (industry, language, name, city, phone, email, address, tagline, services). It returns the Bricks import object, the design system and the quality checks.
+- **`bricks_kit_page`** builds sections or a page. It takes `sections` (type and optional `variant`), an optional `kit` (style, primary, accent, fonts, radius, spacing, mode, motion) and an optional `profile` (industry, language, name, city, phone, email, address, tagline, services). It returns the Bricks import object, the design system and the quality checks.
 
 For example: "Use BricksSnap to build a homepage for a vehicle registration service in Bremen in the Warm style with a green brand color, in German, and give me the Bricks JSON."

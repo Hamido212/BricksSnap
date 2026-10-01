@@ -11,7 +11,7 @@ BricksSnap can read a live Bricks page and the site's global classes through the
   - required: `get-page-elements` and `get-design-context`;
   - also used: `find-post`, `get-page-settings`, `list-global-classes`, `list-color-palettes`, `get-mcp-version`, `list-ability-status`, `render-elements` (for the rendered preview), `list-templates` and `get-template-settings` (for site templates), and `list-global-variables` (for the Studio design system).
 
-  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, importing images needs `upload-media` and `find-media`, creating missing classes needs `batch-create-global-classes`, creating templates needs `create-template`, changing template conditions needs `set-template-conditions`, installing the Studio design system needs `create-color-palette`, `create-color`, `update-color`, `set-global-variable-categories` and `set-global-variables`, and undoing or uninstalling it also needs `delete-global-variable`, `delete-color` and `delete-color-palette`. Keep them disabled if you only want to read.
+  Saving additionally needs `set-page-elements`, restoring needs `restore-revision`, importing images needs `upload-media` and `find-media`, creating missing classes needs `batch-create-global-classes`, updating outdated BricksSnap classes needs `update-global-class`, creating templates needs `create-template`, changing template conditions needs `set-template-conditions`, installing the Studio design system needs `create-color-palette`, `create-color`, `update-color`, `set-global-variable-categories` and `set-global-variables`, and undoing or uninstalling it also needs `delete-global-variable`, `delete-color` and `delete-color-palette`. Keep them disabled if you only want to read.
 
 ## Connect
 
@@ -106,6 +106,17 @@ Sections from the catalog or another site can use global classes the connected s
   - If the site uses a staged class's ID for a class with another name, the staged class is created under a new ID and the elements follow it. Saving the page or a template is refused until then, so an element never silently picks up a foreign class.
   - If the site has the same ID and name with another definition (for example the same `bs-` class from another BricksSnap design), the site's class is kept and reported: the page shows the site's version.
 - **Undefined references.** Referenced IDs without a definition in the change are listed; remove them or add their definitions.
+- **Layout is not a difference.** Bricks reformats custom CSS when it stores a class (line breaks, indentation, no spaces around `>`). Since 0.13 such differences no longer count as another definition.
+
+### Update outdated BricksSnap classes (0.13)
+
+When the site has `bs-` classes in another version (an older BricksSnap release or another design), the result of **Create missing global classes** offers **Update N BricksSnap classes** (`update-global-class` must be enabled).
+
+- **Only BricksSnap's classes.** Only `bs-` classes are changed; the server refuses other names.
+- **Site-wide.** The classes change everywhere on the site, also on pages that already use them.
+- **Guarded.** Each class is written with its item ownership and the class lock ownership from the read. If someone changed a class in between, Bricks refuses; earlier updates stay and can be undone.
+- **Exact.** Bricks merges class settings, so keys the new definition drops are removed explicitly, nested ones too.
+- **Verified and undoable.** The classes are read back and compared. **Undo the update** puts the previous definitions back the same way.
 - **Removing a class later.** Created classes stay when a page is restored. Remove unused ones in Bricks → Global classes.
 
 ## Local and staging sites

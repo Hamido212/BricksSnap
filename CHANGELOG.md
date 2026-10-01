@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.13.0 — 2026-10-01
+
+Mobile menus, carousels, motion and class updates. See the [release notes](docs/RELEASE-0.13.0.md).
+
+- **Mobile menu in every header.** Headers with links use Bricks' nestable nav, in the structure Bricks itself creates.
+  - Below 991 px a hamburger opens a full-screen menu in the kit's colors and turns into an X.
+  - On phones the header button moves into the menu.
+  - Before, the links were hidden with no menu.
+- **Carousels.** New "Carousel" layouts for reviews and portfolio on Bricks' nested slider: 2 or 3 cards, 1 on phones, with swipe and dots (92 layouts).
+- **Motion.** New brand kit option "Fade in".
+  - Content sections fade their intros, cards, items and images up once on scroll, using Bricks interactions.
+  - Headers, heroes and footers stay still.
+  - With reduced motion, everything is shown at once.
+  - Also `kit.motion` over MCP.
+- **Update outdated BricksSnap classes.** In Staging, `bs-` classes the site has in another version can be updated site-wide (`update-global-class`).
+  - Each write is guarded and dropped keys are removed.
+  - The result is verified, and the update can be undone.
+- **Fix.** Class comparisons ignore how Bricks reformats custom CSS (line breaks, indentation, spaces around `>`). Before, such classes were reported as differing definitions.
+- **Remote library.** 210 templates.
+
 ## 0.12.0 — 2026-09-30
 
 Import & Modernize, and 90 layouts. See the [release notes](docs/RELEASE-0.12.0.md).
