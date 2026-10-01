@@ -2,6 +2,7 @@ import { button, div, heading, icon, node, text, textLink, type KitNode } from "
 import { PHOTOS } from "../images";
 import { merge, sx } from "../styles";
 import type { ResolvedKit } from "../tokens";
+import type { Link } from "../content";
 import { actions, band, checklist, photo, stars, type Ctx, type Variant } from "./common";
 
 export const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
@@ -9,8 +10,22 @@ export const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
 export function brand(ctx: Ctx): KitNode {
   return textLink(ctx.c.brand.name, "/", "bs-brand");
 }
-export function navLinks(ctx: Ctx): KitNode {
-  return node("div", "bs-nav", { tag: "nav", _attributes: [{ name: "aria-label", value: ctx.c.lang === "de" ? "Hauptnavigation" : "Main navigation" }] }, ctx.c.nav.map(link => textLink(link.label, link.href, "bs-nav__link")), "Navigation");
+/**
+ * Bricks' nestable nav with its mobile menu, in the structure Bricks 2.4 creates: a "Nav items"
+ * list (brx-nav-nested-items) with the links and a close toggle (brx-toggle-div), then the open
+ * toggle. Below the tablet breakpoint Bricks shows the toggle and opens the list as an overlay.
+ */
+export function navLinks(ctx: Ctx, classes = "bs-mainnav", cta: Link | null = ctx.c.navCta): KitNode {
+  const de = ctx.c.lang === "de";
+  return node("nav-nested", classes, { ariaLabel: de ? "Hauptnavigation" : "Main navigation", mobileMenu: "tablet_portrait" }, [
+    node("block", "bs-mainnav__items", { tag: "ul", _hidden: { _cssClasses: "brx-nav-nested-items" } }, [
+      ...ctx.c.nav.map(link => textLink(link.label, link.href, "bs-nav__link")),
+      // On phones the header button moves into the open menu.
+      cta ? button(cta.label, cta.href, "bs-btn bs-btn-size--m bs-btn--primary bs-mainnav__cta") : null,
+      node("toggle", "bs-mainnav__toggle bs-mainnav__close", { ariaLabel: de ? "Menü schließen" : "Close menu", animation: "squeeze", _hidden: { _cssClasses: "brx-toggle-div" } }, [], "Toggle (close: mobile)"),
+    ], "Nav items"),
+    node("toggle", "bs-mainnav__toggle bs-mainnav__open", { ariaLabel: de ? "Menü öffnen" : "Open menu", animation: "squeeze" }, [], "Toggle (open: mobile)"),
+  ], "Navigation");
 }
 
 function headerClasses(r: ResolvedKit) {
@@ -25,9 +40,23 @@ function headerClasses(r: ResolvedKit) {
       x.font("bs-brand", "heading", " text-wrap: balance; overflow-wrap: break-word;"),
       { _flexShrink: "1", _widthMin: "0", "_typography:mobile_portrait": { "font-size": x.v("text-m") } },
     ),
-    "bs-nav": { _display: "flex", _direction: "row", _columnGap: "clamp(18px, 2.4vw, 36px)", _alignItems: "center", "_display:tablet_portrait": "none" },
+    // Mobile menu: Bricks shows the toggles and the overlay below the tablet breakpoint. These
+    // classes never set display, so Bricks' own show/hide rules stay in charge.
+    "bs-mainnav": { "_order:tablet_portrait": "3" },
+    "bs-mainnav__items": {
+      _columnGap: "clamp(18px, 2.4vw, 36px)",
+      _cssCustom: `.bs-mainnav.brx-open .bs-mainnav__items { background-color: ${x.v("bg")}; row-gap: ${x.v("space-m")}; align-items: stretch; padding: 88px ${x.v("gutter")} ${x.v("space-l")}; }\n.bs-mainnav.brx-open .bs-nav__link { font-size: ${x.v("text-xl")}; color: ${x.v("heading")}; }`,
+    },
+    // A compact hamburger: 26px wide bars instead of Bricks' 40px, so it leaves room on phones.
+    "bs-mainnav__toggle": { _cursor: "pointer", _cssCustom: ".bs-mainnav__toggle { --brxe-toggle-bar-width: 26px; --brxe-toggle-bar-height: 3px; }\n.bs-mainnav__toggle .brxa-wrap { width: 26px; }" },
+    // Its list item stays hidden in the desktop bar and shows in the open menu.
+    "bs-mainnav__cta": { _cssCustom: `.bs-mainnav__items > li:has(> .bs-mainnav__cta) { display: none; }\n.bs-mainnav.brx-open .bs-mainnav__items > li:has(> .bs-mainnav__cta) { display: block; margin-top: ${x.v("space-s")}; }` },
+    "bs-header__actions--collapse": { "_display:mobile_portrait": "none" },
+    "bs-mainnav__open": x.type({ color: "inherit" }),
+    "bs-mainnav__close": merge(x.type({ color: "heading" }), { _position: "absolute", _top: "20px", _right: x.v("gutter") }),
     "bs-nav__link": merge(x.type({ size: "15px", weight: "500", color: "text", decoration: "none" }), { _cssTransition: "color .2s ease", "_typography:hover": { color: x.color("link") } }),
-    "bs-header__actions": { _display: "flex", _direction: "row", _columnGap: x.v("space-s"), _alignItems: "center", _flexShrink: "0" },
+    // From tablets on, the button sits next to the menu toggle on the right.
+    "bs-header__actions": { _display: "flex", _direction: "row", _columnGap: x.v("space-s"), _alignItems: "center", _flexShrink: "0", "_margin:tablet_portrait": { left: "auto" } },
     "bs-header__phone": merge(x.type({ size: "15px", weight: "600", color: "heading", decoration: "none" }), { "_display:mobile_landscape": "none" }),
     "bs-topbar": merge(x.type({ size: "text-xs", color: "on-inverse" }), { _display: "flex", _direction: "row", _justifyContent: "space-between", _columnGap: x.v("space-m"), _rowGap: "4px", _flexWrap: "wrap", _width: "100%", _widthMax: x.v("container"), _margin: { left: "auto", right: "auto" } }),
     "bs-topbar__item": merge(x.type({ size: "text-xs", color: "on-inverse", decoration: "none" }), { _margin: { top: "0", bottom: "0" } }),
@@ -41,7 +70,7 @@ export const headerVariants: Variant[] = [
     build: ctx => band({ surface: "page", space: "bar", label: "Header", classes: "bs-header", containerClasses: "bs-header__bar" }, [
       brand(ctx),
       navLinks(ctx),
-      div("bs-header__actions", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--primary")]),
+      div("bs-header__actions bs-header__actions--collapse", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--primary")]),
     ]),
   },
   {
@@ -56,7 +85,7 @@ export const headerVariants: Variant[] = [
       band({ surface: "page", space: "bar", label: "Header", classes: "bs-header", containerClasses: "bs-header__bar" }, [
         brand(ctx),
         navLinks(ctx),
-        div("bs-header__actions", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--primary")]),
+        div("bs-header__actions bs-header__actions--collapse", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--primary")]),
       ]),
     ], "Header with contact bar"),
   },

@@ -84,6 +84,7 @@ export default function KitControls({ kit, onKit, profile, onProfile, showBusine
       <Segmented label="Corners" value={kit.radius} options={RADIUS_IDS.map(id => ({ id, label: RADIUS_LABELS[id] }))} onChange={radius => onKit({ ...kit, radius })}/>
       <Segmented label="Spacing" value={kit.spacing} options={SPACING_IDS.map(id => ({ id, label: SPACING_LABELS[id] }))} onChange={spacing => onKit({ ...kit, spacing })}/>
       <Segmented label="Mode" value={kit.mode} options={[{ id: "light", label: "Light" }, { id: "dark", label: "Dark" }]} onChange={mode => onKit({ ...kit, mode })}/>
+      <Segmented label="Motion" value={kit.motion === "subtle" ? "subtle" : "none"} options={[{ id: "none", label: "None" }, { id: "subtle", label: "Fade in" }]} onChange={motion => onKit({ ...kit, motion: motion === "subtle" ? "subtle" : undefined })}/>
     </section>
 
     {showBusiness && <section aria-labelledby="kit-business" className="space-y-4">

@@ -28,6 +28,7 @@ export const WP_WRITE_ABILITIES = [
   "bricks/create-template", "bricks/set-template-conditions",
   "bricks/create-color-palette", "bricks/create-color", "bricks/update-color", "bricks/set-global-variable-categories", "bricks/set-global-variables",
   "bricks/delete-color-palette", "bricks/delete-color", "bricks/delete-global-variable",
+  "bricks/update-global-class",
 ] as const;
 
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/, "Reload the page into the baseline: Bricks' document digest is missing.");
@@ -64,7 +65,7 @@ export type WordPressCredentials = z.infer<typeof wpCredentialsSchema>;
 // The server derives every value from the kit's choices; no CSS reaches the site from the request.
 const kitSchema = z.object({
   style: z.enum(STYLE_IDS), primary: z.string().max(20), accent: z.string().max(20).optional(), fonts: z.enum(FONT_PAIR_IDS),
-  radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]),
+  radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]), motion: z.enum(["none", "subtle"]),
 }).partial().strict();
 
 export const wpRequestSchema = z.discriminatedUnion("action", [
@@ -79,6 +80,11 @@ export const wpRequestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("media"), credentials: wpCredentialsSchema, template: z.unknown(), confirm: z.literal(true) }).strict(),
   // Create the global classes a proposal uses but the site lacks (additive; existing classes are never changed).
   z.object({ action: z.literal("classes"), credentials: wpCredentialsSchema, template: z.unknown(), confirm: z.literal(true) }).strict(),
+  // Bring the site's BricksSnap (bs-) classes to the proposal's definitions, or back to earlier ones (undo).
+  z.object({
+    action: z.literal("update-classes"), credentials: wpCredentialsSchema, confirm: z.literal(true),
+    classes: z.array(z.object({ name: z.string().regex(/^bs-[a-z0-9_-]+$/).max(120), settings: z.record(z.string(), z.unknown()) }).strict()).min(1).max(200),
+  }).strict(),
   // The site's Bricks templates (header, footer, section, …), optionally of one type.
   z.object({ action: z.literal("templates"), credentials: wpCredentialsSchema, type: z.enum(TEMPLATE_TYPES).optional() }).strict(),
   z.object({ action: z.literal("template-conditions"), credentials: wpCredentialsSchema, templateId: z.number().int().positive() }).strict(),
@@ -202,6 +208,21 @@ export type WordPressConditionsResult = {
 };
 
 export type WordPressCreateTemplateResult = { templateId: number; status: string; editUrl?: string; warnings: string[] };
+
+export type WordPressClassUpdateResult = {
+  /** Classes now on the given definition. */
+  updated: Array<{ id: string; name: string }>;
+  /** Their definitions before the update, for undo. */
+  previous: Array<{ name: string; settings: Record<string, unknown> }>;
+  /** Already on the given definition; not written. */
+  unchanged: string[];
+  /** Not on the site (create them first). */
+  missing: string[];
+  /** Every updated class read back with the given definition. */
+  verified: boolean;
+  /** Set when a write was refused partway; earlier updates stay and can be undone. */
+  error?: string;
+};
 
 export type WordPressClassesResult = {
   /** The proposal with references to reused site classes switched and definitions as the site stores them. */

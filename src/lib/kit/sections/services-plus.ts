@@ -2,7 +2,7 @@ import { div, heading, icon, image, text, textLink, type KitNode } from "../buil
 import { PHOTOS, type PhotoKey } from "../images";
 import { merge, sx } from "../styles";
 import type { ResolvedKit } from "../tokens";
-import { band, checklist, intro, photo, tabs, type Ctx, type Variant } from "./common";
+import { band, checklist, intro, photo, slider, tabs, type Ctx, type Variant } from "./common";
 
 /** More layouts for services, benefits, process, numbers, about, history, team and work. */
 function bodyPlusClasses(r: ResolvedKit) {
@@ -313,3 +313,11 @@ export const portfolioPlusVariants: Variant[] = [
     ]),
   },
 ];
+
+portfolioPlusVariants.push({
+  type: "portfolio", id: "carousel", name: { de: "Karussell", en: "Carousel" }, classes: bodyPlusClasses,
+  build: ctx => band({ surface: "alt", label: "Portfolio", id: ctx.c.anchors.portfolio }, [
+    intro({ eyebrow: ctx.c.portfolio.eyebrow, title: ctx.c.portfolio.title, lead: ctx.c.portfolio.lead }),
+    slider(ctx, ctx.c.portfolio.items.map(item => div("bs-work", [photo(ctx, item.image, "4x3"), text(item.category, "bs-badge"), heading("h3", item.title, "bs-title bs-size--s")], item.title)), { perPage: 3, label: "Projects" }),
+  ]),
+});

@@ -83,7 +83,7 @@ export function createMcpServer() {
     description: "Build modern sections or a whole page from the template kit, without an AI call: pick section types and layout variants, a brand kit (style, primary color, fonts, radius, spacing, light/dark) and a business profile (industry, language de/en, name, city, phone, services). Returns a Bricks import object whose styling lives in bs- global classes with var(--bs-*, fallback) values, the design system (palette colors and global variables) for central editing in Bricks, and quality checks (contrast, headings, alt texts). Sample photos come from Unsplash; nothing is saved or published.",
     inputSchema: {
       sections: z.array(z.object({ type: z.enum(KIT_SECTION_TYPES), variant: z.string().max(40).optional() })).min(1).max(16),
-      kit: z.object({ style: z.enum(STYLE_IDS), primary: hex, accent: hex, fonts: z.enum(FONT_PAIR_IDS), radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]) }).partial().strict().optional(),
+      kit: z.object({ style: z.enum(STYLE_IDS), primary: hex, accent: hex, fonts: z.enum(FONT_PAIR_IDS), radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]), motion: z.enum(["none", "subtle"]) }).partial().strict().optional(),
       profile: z.object({ industry: z.enum(INDUSTRY_IDS), language: z.enum(["de", "en"]), name: z.string().max(120), city: z.string().max(60), phone: z.string().max(40), email: z.string().max(120), address: z.string().max(160), tagline: z.string().max(160), services: z.array(z.string().max(60)).max(6) }).partial().strict().optional(),
       title: z.string().max(120).default("BricksSnap Kit"),
     }, annotations,
@@ -96,7 +96,7 @@ export function createMcpServer() {
     description: "Import & Modernize: rebuild any Bricks JSON (a copied section, a template export, a library component the user may use) on the BricksSnap design system. Colors become design tokens by role (brand colors → primary/accent), font sizes, spacing and radii land on the token scale (px, rem at 62.5%, Automatic CSS / Core Framework variables), each element's styles move into one deduplicated bs-<block>-<role> global class, and missing mobile rules are added. Optional brand kit restyles it. Returns a Bricks import object, the design system, a report of every change and quality checks. Pure local computation; nothing is fetched or saved.",
     inputSchema: {
       json: z.string().max(2_000_000).describe("Bricks JSON: an element array, copied elements ({content, globalClasses}) or a template export."),
-      kit: z.object({ style: z.enum(STYLE_IDS), primary: hex, accent: hex, fonts: z.enum(FONT_PAIR_IDS), radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]) }).partial().strict().optional(),
+      kit: z.object({ style: z.enum(STYLE_IDS), primary: hex, accent: hex, fonts: z.enum(FONT_PAIR_IDS), radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]), motion: z.enum(["none", "subtle"]) }).partial().strict().optional(),
       block: z.string().max(24).regex(/^[a-z0-9-]*$/).optional().describe("Class prefix after bs- (default: from the first heading)."),
       title: z.string().max(120).default("Modernized section"),
     }, annotations,

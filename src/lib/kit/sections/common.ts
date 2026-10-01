@@ -98,6 +98,24 @@ export function accordion(items: Array<{ title: string; body: KitNode[] }>, labe
   ], item.title)), label);
 }
 
+/**
+ * Bricks' nested slider (Splide). Splide options go in as custom JSON: Bricks refuses breakpoint
+ * keys on its slider controls, while Splide's own breakpoints work (verified on Bricks 2.4.2).
+ * Every child becomes a slide. Navigation is by swipe and the dots (buttons, also by keyboard):
+ * Splide's arrows sit on top of the slides' content at narrow widths.
+ */
+export function slider(ctx: Ctx, slides: KitNode[], o: { perPage: number; label: string }): KitNode {
+  const { x } = ctx;
+  const options = {
+    type: "loop", perPage: o.perPage, perMove: 1, gap: x.v("space-m"), autoHeight: true, arrows: false, pagination: true,
+    breakpoints: { 991: { perPage: Math.min(o.perPage, 2) }, 767: { perPage: 1 } },
+  };
+  return node("slider-nested", "bs-slider", {
+    optionsType: "custom", options: JSON.stringify(options),
+    paginationColor: x.color("border-strong"), paginationColorActive: x.color("primary"),
+  }, slides, o.label);
+}
+
 /** Classes used by the helpers above beyond the shared library. */
 export function commonClasses(r: ResolvedKit): ClassLibrary {
   const x = sx(r);
@@ -126,6 +144,9 @@ export function commonClasses(r: ResolvedKit): ClassLibrary {
     "bs-tabs__label": { _cssCustom: ".bs-tabs__label { white-space: nowrap; }" },
     "bs-tabs__content": { _width: "100%" },
     "bs-tabs__pane": { _width: "100%" },
+
+    // Slider: room below the slides for Splide's dots.
+    "bs-slider": { _padding: { top: "0", right: "0", bottom: "48px", left: "0" }, _cssCustom: ".bs-slider .splide__slide > * { width: 100%; height: 100%; }" },
 
     // Accordion
     "bs-acc": { _width: "100%", _widthMax: "860px", _margin: { left: "auto", right: "auto" } },

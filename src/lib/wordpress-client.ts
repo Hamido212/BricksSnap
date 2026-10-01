@@ -8,6 +8,7 @@ import {
   WP_WRITE_ABILITIES,
   type WordPressApplyResult,
   type WordPressClassesResult,
+  type WordPressClassUpdateResult,
   type WordPressDesignSystemRevertResult,
   type WordPressDesignSystemUninstallResult,
   type WordPressConditionsResult,
@@ -34,7 +35,7 @@ import { diffTemplates, readStagingTemplate, stableJson } from "./template-stagi
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 import packageJson from "../../package.json";
 import { downloadImage, findExternalImages, MAX_IMAGES, replaceImages, uploadName, type SiteImage } from "./wordpress-media";
-import { foreignClassIds, planGlobalClasses, referencedClassIds, remapGlobalClasses } from "./template-classes";
+import { classSettingsPatch, foreignClassIds, isBricksSnapClass, planGlobalClasses, referencedClassIds, remapGlobalClasses, sameClassDefinition } from "./template-classes";
 import { readTemplateConditions, type TemplateCondition, type TemplateType } from "./template-conditions";
 
 type JsonRecord = Record<string, unknown>;
@@ -829,6 +830,75 @@ export async function createWordPressClasses(
   });
 }
 
+/** Every class row with its ownership envelopes, as list-global-classes returns them. */
+async function readClassRows(session: Session): Promise<{ rows: JsonRecord[]; lockOwnership: JsonRecord }> {
+  const rows: JsonRecord[] = [];
+  let ownership: JsonRecord | undefined, lockOwnership: JsonRecord | undefined;
+  for (let page = 1; page <= 20; page++) {
+    const result = await callAbility(session, "bricks/list-global-classes", [{ names: ["page"], value: page }, { names: ["perPage"], value: 100 }]);
+    if (!isRecord(result) || !isRecord(result.ownership) || !isRecord(result.lockOwnership)) throw new RequestError("This Bricks version does not report class ownership; classes cannot be updated safely.", 422);
+    if (ownership && stableJson(ownership) !== stableJson(result.ownership)) throw new RequestError("Global classes changed on the site while they were read. Try again.", 409);
+    ownership = result.ownership; lockOwnership = result.lockOwnership;
+    const items = Array.isArray(result.items) ? result.items.filter(isRecord) : [];
+    rows.push(...items);
+    if (result.hasMore !== true || !items.length) break;
+  }
+  return { rows, lockOwnership: lockOwnership ?? {} };
+}
+
+/**
+ * Put the site's BricksSnap classes on the given definitions: newer ones from a proposal, or the
+ * previous ones to undo. Only `bs-` classes are touched. Each write carries the class's item
+ * ownership and the lock ownership; the result is read back and compared.
+ */
+export async function updateWordPressClasses(
+  credentials: WordPressCredentials,
+  request: { classes: Array<{ name: string; settings: Record<string, unknown> }> },
+  signal: AbortSignal
+): Promise<WordPressClassUpdateResult> {
+  const targets = request.classes.filter(c => isBricksSnapClass(c.name));
+  return withSession(credentials, signal, async session => {
+    await requireWriteAbility(session, "bricks/update-global-class");
+    const { rows, lockOwnership } = await readClassRows(session);
+    const result: WordPressClassUpdateResult = { updated: [], previous: [], unchanged: [], missing: [], verified: false };
+    let lock = lockOwnership;
+    let resource: JsonRecord | undefined;
+    for (const target of targets) {
+      const row = rows.find(r => r.name === target.name);
+      if (!row) { result.missing.push(target.name); continue; }
+      const current = isRecord(row.settings) ? row.settings : {};
+      if (sameClassDefinition({ settings: current }, { settings: target.settings })) { result.unchanged.push(target.name); continue; }
+      if (!isRecord(row.itemOwnership)) throw new RequestError("This Bricks version does not report class ownership; classes cannot be updated safely.", 422);
+      // After a write the resource version moves on; the other rows' item digests stay valid.
+      const expectedOwnership = resource ? { ...resource, itemDigest: row.itemOwnership.itemDigest } : row.itemOwnership;
+      try {
+        const saved = await callAbility(session, "bricks/update-global-class", [
+          { names: ["classId"], value: String(row.id), required: true },
+          { names: ["settings"], value: classSettingsPatch(current, target.settings), required: true },
+          { names: ["expectedOwnership"], value: expectedOwnership, required: true },
+          { names: ["lockOwnership"], value: lock, required: true },
+        ]);
+        if (isRecord(saved) && isRecord(saved.ownership)) resource = saved.ownership;
+        if (isRecord(saved) && isRecord(saved.lockOwnership)) lock = saved.lockOwnership;
+      } catch (error) {
+        result.error = `${target.name} was not updated: ${error instanceof Error ? error.message : "the site refused the change"}. Earlier updates stay; undo them or check again.`;
+        break;
+      }
+      result.updated.push({ id: String(row.id), name: target.name });
+      result.previous.push({ name: target.name, settings: current });
+    }
+    if (result.updated.length) {
+      const after = (await readClassRows(session)).rows;
+      result.verified = result.updated.every(u => {
+        const row = after.find(r => r.id === u.id);
+        const target = targets.find(t => t.name === u.name)!;
+        return !!row && sameClassDefinition({ settings: isRecord(row.settings) ? row.settings : {} }, { settings: target.settings });
+      });
+    } else result.verified = !result.error;
+    return result;
+  });
+}
+
 /** Site root for an MCP endpoint (/wp-json/mcp/… or /?rest_route=/mcp/…). */
 export function siteRoot(endpoint: string): string {
   const url = new URL(endpoint);
@@ -1182,7 +1252,7 @@ export async function uninstallWordPressDesignSystem(credentials: WordPressCrede
 export async function handleWordPressRequest(
   request: WordPressRequest,
   signal: AbortSignal
-): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult | WordPressClassesResult | WordPressTemplatesResult | WordPressConditionsResult | WordPressCreateTemplateResult | WordPressDesignSystemResult | WordPressDesignSystemRevertResult | WordPressDesignSystemUninstallResult> {
+): Promise<WordPressConnectResult | { pages: WordPressPageSummary[] } | WordPressPageResult | WordPressDesignResult | WordPressApplyResult | WordPressRestoreResult | WordPressRenderResult | WordPressMediaResult | WordPressClassesResult | WordPressClassUpdateResult | WordPressTemplatesResult | WordPressConditionsResult | WordPressCreateTemplateResult | WordPressDesignSystemResult | WordPressDesignSystemRevertResult | WordPressDesignSystemUninstallResult> {
   switch (request.action) {
     case "connect":
       return connectWordPress(request.credentials, signal);
@@ -1198,6 +1268,8 @@ export async function handleWordPressRequest(
       return importWordPressMedia(request.credentials, request, signal);
     case "classes":
       return createWordPressClasses(request.credentials, request, signal);
+    case "update-classes":
+      return updateWordPressClasses(request.credentials, request, signal);
     case "templates":
       return listWordPressTemplates(request.credentials, request.type, signal);
     case "template-conditions":

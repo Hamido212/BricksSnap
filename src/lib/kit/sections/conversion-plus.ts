@@ -2,7 +2,7 @@ import { button, div, heading, icon, image, node, text, textLink, type KitNode }
 import { PHOTOS } from "../images";
 import { merge, sx } from "../styles";
 import type { ResolvedKit } from "../tokens";
-import { accordion, actions, band, checklist, infoRow, intro, stars, tabs, type Ctx, type Variant } from "./common";
+import { accordion, actions, band, checklist, infoRow, intro, slider, stars, tabs, type Ctx, type Variant } from "./common";
 import { planCard, quoteCard } from "./conversion";
 import { telHref } from "./header-hero";
 import { form } from "./more";
@@ -158,6 +158,14 @@ export const testimonialPlusVariants: Variant[] = [
     },
   },
 ];
+
+testimonialPlusVariants.push({
+  type: "testimonials", id: "carousel", name: { de: "Karussell", en: "Carousel" }, classes: convertPlusClasses,
+  build: ctx => band({ surface: "page", label: "Testimonials" }, [
+    intro({ eyebrow: ctx.c.testimonials.eyebrow, title: ctx.c.testimonials.title, center: true }),
+    slider(ctx, ctx.c.testimonials.items.map(item => quoteCard(ctx, item)), { perPage: 2, label: "Quotes" }),
+  ]),
+});
 
 export const faqPlusVariants: Variant[] = [
   {

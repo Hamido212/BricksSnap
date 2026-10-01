@@ -230,10 +230,29 @@ export function renderPreview(template: Pick<BricksTemplate, "content" | "global
     const open = firstChild && hidden.some(c => c === "tab-title" || c === "tab-pane") ? ["brx-open"] : [];
     const classes = [`brxe-${el.name}`, ...hidden, ...open, ...(Array.isArray(s._cssGlobalClasses) ? s._cssGlobalClasses.map(id => classNames.get(String(id))).filter(Boolean) : [])];
     const attrs = `id="${esc(idAttr)}" class="${esc(classes.join(" "))}"${Array.isArray(s._attributes) ? (s._attributes as Array<{ name?: string; value?: string }>).filter(a => a.name && /^(aria-[\w-]+|role|data-[\w-]+)$/.test(a.name)).map(a => ` ${a.name}="${esc(String(a.value ?? ""))}"`).join("") : ""}`;
+    // Bricks renders a nav list's items as <li class="menu-item">.
+    const inNavList = String(((byId.get(String(el.parent))?.settings._hidden) as { _cssClasses?: unknown } | undefined)?._cssClasses ?? "").includes("brx-nav-nested-items");
     const children = el.children.map(id => byId.get(id)).filter((c): c is BricksElement => !!c).map(render).join("");
     const text = typeof s.text === "string" ? safeHtml(s.text) : "";
     const href = safeUrl((s.link as { url?: string } | undefined)?.url);
-    switch (el.name) {
+    const markup = (() => { switch (el.name) {
+      case "nav-nested": {
+        // The preview shows the closed menu: below the breakpoint, the toggle replaces the list.
+        const bp = BREAKPOINTS[String(s.mobileMenu ?? "mobile_landscape")];
+        if (bp) rules.push({ selector: `${selector} .brxe-toggle`, decls: ["display: inline-flex"], breakpoint: bp }, { selector: `${selector} .brx-nav-nested-items`, decls: ["display: none"], breakpoint: bp });
+        return `<nav ${attrs} aria-label="${esc(String(s.ariaLabel ?? "Menu"))}">${children}</nav>`;
+      }
+      case "slider-nested": {
+        // A still of the first slides: the preview runs no Splide, so slides sit side by side.
+        let options: { perPage?: number; gap?: string; breakpoints?: Record<string, { perPage?: number }> } = {};
+        try { options = JSON.parse(String(s.options ?? "{}")); } catch { /* defaults below */ }
+        const columns = (n: number) => [`grid-auto-columns: calc((100% - ${n - 1} * ${options.gap ?? "0px"}) / ${n})`];
+        rules.push({ selector: `${selector} > .bsp-slides`, decls: ["display: grid", "grid-auto-flow: column", `gap: ${options.gap ?? "0px"}`, "overflow: hidden", "align-items: stretch", ...columns(options.perPage ?? 1)] });
+        for (const [width, value] of Object.entries(options.breakpoints ?? {})) if (Number(width) && value.perPage) rules.push({ selector: `${selector} > .bsp-slides`, decls: columns(value.perPage), breakpoint: Number(width) });
+        const count = el.children.length;
+        return `<div ${attrs}><div class="bsp-slides">${children}</div><div class="bsp-dots">${Array.from({ length: count }, (_, i) => `<span${i ? "" : ' class="is-active"'}></span>`).join("")}</div></div>`;
+      }
+      case "toggle": return `<button type="button" ${attrs} aria-label="${esc(String(s.ariaLabel ?? "Menu"))}"><span class="brxa-wrap"><span class="brxa-inner"></span></span></button>`;
       case "section": return `<${tagOf(s.tag, "section")} ${attrs}>${children}</${tagOf(s.tag, "section")}>`;
       case "container": case "block": case "div": return `<${tagOf(s.tag, "div")} ${attrs}>${children}</${tagOf(s.tag, "div")}>`;
       case "heading": { const tag = tagOf(s.tag, "h3"); return `<${tag} ${attrs}>${text}</${tag}>`; }
@@ -244,7 +263,8 @@ export function renderPreview(template: Pick<BricksTemplate, "content" | "global
       case "icon": return s.link ? `<a ${attrs} href="${esc(href)}">${iconSvg(s)}</a>` : `<span ${attrs}>${iconSvg(s)}</span>`;
       case "form": custom += `${formCss(selector, s)}\n`; return `<div ${attrs}>${formHtml(el)}</div>`;
       default: return `<div ${attrs}>${text}${children}</div>`;
-    }
+    } })();
+    return inNavList ? `<li class="menu-item">${markup}</li>` : markup;
   };
   const html = elements.filter(el => el.parent === 0).map(render).join("");
 
@@ -275,6 +295,21 @@ const BASE_CSS = `@layer bricks {
 .bsp .brxe-form .form-group { width: 100%; margin-bottom: 12px; }
 .bsp .brxe-form .bsp-check { display: flex; gap: 8px; align-items: baseline; width: 100%; margin-bottom: 12px; font-size: 14px; }
 .bsp .brxe-form .bsp-check input { width: auto; }
+.bsp .brxe-nav-nested { display: inline-flex; align-items: center; }
+.bsp .brx-nav-nested-items { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 30px; list-style-type: none; margin: 0; padding: 0; }
+.bsp .brxe-nav-nested .brxe-toggle { display: none; }
+.bsp .brxe-toggle { --brxe-toggle-scale: 1; --brxe-toggle-bar-height: 4px; --brxe-toggle-bar-width: 40px; --brxe-toggle-bar-radius: 4px; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; transform: scale(var(--brxe-toggle-scale)); }
+.bsp .brxa-wrap { display: inline-block; height: 24px; position: relative; width: 40px; }
+.bsp .brxa-inner { display: block; margin-top: -2px; top: 50%; }
+.bsp .brxa-inner, .bsp .brxa-inner::before, .bsp .brxa-inner::after { background-color: currentcolor; border-radius: var(--brxe-toggle-bar-radius); height: var(--brxe-toggle-bar-height); width: var(--brxe-toggle-bar-width); position: absolute; }
+.bsp .brxa-inner::before, .bsp .brxa-inner::after { content: ""; display: block; }
+.bsp .brxa-inner::before { top: -10px; }
+.bsp .brxa-inner::after { bottom: -10px; }
+.bsp .brxe-slider-nested { position: relative; width: 100%; min-width: 0; }
+.bsp .bsp-slides > * { min-width: 0; }
+.bsp .bsp-dots { position: absolute; left: 0; right: 0; bottom: 16px; display: flex; justify-content: center; gap: 10px; }
+.bsp .bsp-dots span { width: 10px; height: 10px; border-radius: 50%; background: currentColor; opacity: .25; }
+.bsp .bsp-dots span.is-active { opacity: 1; }
 .bsp .brxe-tabs-nested { display: flex; flex-direction: column; width: 100%; }
 .bsp .brxe-tabs-nested .tab-menu { display: flex; }
 .bsp .brxe-tabs-nested .tab-title { cursor: pointer; }

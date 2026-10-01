@@ -24,6 +24,8 @@ export type BrandKit = {
   radius: RadiusId;
   spacing: SpacingId;
   mode: Mode;
+  /** "subtle": content fades in as it scrolls into view (Bricks interactions). Off when absent. */
+  motion?: "none" | "subtle";
 };
 
 type Font = { family: string; fallback: string };
@@ -157,6 +159,7 @@ export function normalizeKit(input: Partial<BrandKit> = {}): BrandKit {
     radius: RADIUS_IDS.includes(input.radius as RadiusId) ? input.radius as RadiusId : base.radius,
     spacing: SPACING_IDS.includes(input.spacing as SpacingId) ? input.spacing as SpacingId : base.spacing,
     mode: input.mode === "dark" ? "dark" : "light",
+    ...(input.motion === "subtle" ? { motion: "subtle" as const } : {}),
   };
 }
 

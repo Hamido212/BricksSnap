@@ -1,5 +1,6 @@
 import type { ClassLibrary } from "../build";
 import { baseClasses } from "../styles";
+import { motionClasses } from "../motion";
 import type { ResolvedKit } from "../tokens";
 import { commonClasses, SECTION_TYPES, type SectionType, type Variant } from "./common";
 import { headerVariants, heroVariants } from "./header-hero";
@@ -39,7 +40,7 @@ export function findVariant(type: SectionType, id?: string): Variant {
 
 /** Every class the kit can emit, for one brand kit. */
 export function classLibrary(r: ResolvedKit): ClassLibrary {
-  const library: ClassLibrary = { ...baseClasses(r), ...commonClasses(r) };
+  const library: ClassLibrary = { ...baseClasses(r), ...commonClasses(r), ...motionClasses() };
   for (const factory of new Set(VARIANTS.map(v => v.classes).filter(Boolean))) Object.assign(library, factory!(r));
   return library;
 }

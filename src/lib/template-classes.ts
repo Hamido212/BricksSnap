@@ -30,8 +30,41 @@ export type ClassPlan = {
   mismatched: Array<{ id: string; name: string }>;
 };
 
+/**
+ * Bricks reformats custom CSS when it stores a class (line breaks, indentation, no spaces around
+ * ">" combinators); layout is not a difference. Both sides are normalized the same way.
+ */
+const normalizeCss = (css: string) => css.replace(/\s+/g, " ").replace(/\s*([{};>,])\s*/g, "$1").trim();
+const withoutCssLayout = (settings: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, key.startsWith("_cssCustom") && typeof value === "string" ? normalizeCss(value) : value]));
+
 const definition = (cls: Pick<BricksGlobalClass, "settings"> & { selectors?: unknown }) =>
-  stableJson({ settings: cls.settings ?? {}, selectors: Array.isArray(cls.selectors) && cls.selectors.length ? cls.selectors : [] });
+  stableJson({ settings: withoutCssLayout(cls.settings ?? {}), selectors: Array.isArray(cls.selectors) && cls.selectors.length ? cls.selectors : [] });
+
+/** Same definition apart from how Bricks lays out custom CSS. */
+export const sameClassDefinition = (a: Pick<BricksGlobalClass, "settings"> & { selectors?: unknown }, b: Pick<BricksGlobalClass, "settings"> & { selectors?: unknown }) => definition(a) === definition(b);
+
+/** Classes BricksSnap owns and may update on a site: its `bs-` design system classes. */
+export const isBricksSnapClass = (name: string) => /^bs-[a-z0-9_-]+$/.test(name);
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+
+/**
+ * Settings for Bricks' update-global-class, which merges recursively: keys the target lacks are set
+ * to null (Bricks then removes them), nested objects are patched the same way, the rest is replaced.
+ */
+export function classSettingsPatch(current: Record<string, unknown>, target: Record<string, unknown>): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  for (const key of Object.keys(current)) if (!(key in target)) patch[key] = null;
+  for (const [key, value] of Object.entries(target)) {
+    const before = current[key];
+    if (isPlainObject(before) && isPlainObject(value)) {
+      const nested = classSettingsPatch(before, value);
+      if (Object.keys(nested).length) patch[key] = nested;
+    } else if (stableJson(before) !== stableJson(value)) patch[key] = value;
+  }
+  return patch;
+}
 
 /** A class ID that neither the site nor the change uses, derived from the colliding ID and name. */
 function freshId(id: string, name: string, taken: Set<string>): string {

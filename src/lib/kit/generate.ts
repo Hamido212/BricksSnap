@@ -4,6 +4,7 @@ import { flatten, globalClassesFor, classId } from "./build";
 import { contentFor, INDUSTRIES, INDUSTRY_IDS, type BusinessProfile, type Content } from "./content";
 import { findVariant, isSectionType, classLibrary, SECTION_TYPES, variantsFor, type SectionType } from "./sections";
 import { DESIGNS } from "./library";
+import { addMotion } from "./motion";
 import { sx } from "./styles";
 import { COLOR_TOKENS, contrastChecks, FONT_PAIR_IDS, FONT_PAIRS, RADIUS_IDS, resolveKit, SPACING_IDS, STYLE_IDS, STYLES, type BrandKit, type ResolvedKit } from "./tokens";
 
@@ -91,7 +92,10 @@ export function generateKitTemplate(input: { kit: Partial<BrandKit>; profile: Pa
   const picks = input.sections.map(s => (typeof s === "string" ? { type: s } : s)).filter(s => isSectionType(s.type));
   if (!picks.length) throw new Error("Choose at least one section.");
   if (picks.length > 16) throw new Error("Choose at most 16 sections.");
-  const roots = picks.map(pick => findVariant(pick.type, pick.variant).build(ctx));
+  const roots = picks.map(pick => {
+    const root = findVariant(pick.type, pick.variant).build(ctx);
+    return resolved.kit.motion === "subtle" ? addMotion(root, pick.type) : root;
+  });
   const { elements, classNames } = flatten(roots);
   // Two sections of one kind (e.g. two service layouts) would share an anchor; keep IDs unique.
   const anchors = new Map<string, number>();

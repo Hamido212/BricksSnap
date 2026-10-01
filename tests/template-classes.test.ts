@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BricksElement } from "../src/lib/bricks-engine";
-import { foreignClassIds, planGlobalClasses, referencedClassIds, remapGlobalClasses } from "../src/lib/template-classes";
+import { foreignClassIds, planGlobalClasses, referencedClassIds, remapGlobalClasses, classSettingsPatch, isBricksSnapClass } from "../src/lib/template-classes";
 
 const el = (id: string, classes?: unknown[]): BricksElement => ({ id, name: "div", parent: 0, children: [], settings: classes ? { _cssGlobalClasses: classes } : {} });
 const site = [{ id: "site01", name: "btn", settings: { _padding: { top: "1rem" } } }];
@@ -42,6 +42,25 @@ describe("global class planning", () => {
     expect(plan.mismatched).toEqual([{ id: "tit001", name: "bs-title" }]);
     expect(foreignClassIds({ content: [el("a", ["abc123", "tit001"])], globalClasses: [{ id: "abc123", name: "bs-card", settings: {} }, { id: "tit001", name: "bs-title", settings: {} }] } as never, siteClasses))
       .toEqual([{ id: "abc123", name: "bs-card", siteName: "footer-grid" }]);
+  });
+
+  it("builds an update patch that removes keys the new definition drops, nested ones included", () => {
+    const current = { _display: "none", _border: { width: { top: "1px" }, radius: { top: "4px" } }, _gap: "1px", _cssCustom: ".x { a: b; }" };
+    const target = { _border: { width: { top: "2px" } }, _gap: "1px", _cssCustom: ".x { a: c; }" };
+    expect(classSettingsPatch(current, target)).toEqual({ _display: null, _border: { radius: null, width: { top: "2px" } }, _cssCustom: ".x { a: c; }" });
+    expect(classSettingsPatch(target, target)).toEqual({});
+    expect(isBricksSnapClass("bs-mainnav__toggle")).toBe(true);
+    expect(isBricksSnapClass("btn")).toBe(false);
+  });
+
+  it("ignores how Bricks reformats custom CSS when comparing definitions", () => {
+    // Bricks 2.4.2 stores ".x { a: b; }" as ".x {\n  a: b;\n}".
+    const stored = { id: "lab001", name: "bs-tabs__label", settings: { _cssCustom: ".bs-tabs__label {\n  white-space: nowrap;\n}" } };
+    const plan = (css: string) => planGlobalClasses({ content: [el("a", ["lab001"])], globalClasses: [{ id: "lab001", name: "bs-tabs__label", settings: { _cssCustom: css } }] } as never, [stored]);
+    expect(plan(".bs-tabs__label { white-space: nowrap; }").mismatched).toEqual([]);
+    const nav = { id: "cta001", name: "bs-cta", settings: { _cssCustom: ".a>li:has(>.b) {\n  display: none;\n}" } };
+    expect(planGlobalClasses({ content: [el("a", ["cta001"])], globalClasses: [{ id: "cta001", name: "bs-cta", settings: { _cssCustom: ".a > li:has(> .b) { display: none; }" } }] } as never, [nav]).mismatched).toEqual([]);
+    expect(plan(".bs-tabs__label { white-space: normal; }").mismatched).toEqual([{ id: "lab001", name: "bs-tabs__label" }]);
   });
 
   it("switches references and replaces definitions without duplicates", () => {

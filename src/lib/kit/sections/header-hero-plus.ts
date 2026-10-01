@@ -11,7 +11,7 @@ function headerPlusClasses(r: ResolvedKit) {
   const x = sx(r);
   return {
     // Centred logo: navigation and actions share the free space, so the brand sits in the middle.
-    "bs-nav--grow": { _flexGrow: "1", _flexBasis: "0" },
+    "bs-mainnav--grow": { _flexGrow: "1", _flexBasis: "0", "_justifyContent:tablet_portrait": "flex-end" },
     "bs-header__actions--grow": { _flexGrow: "1", _flexBasis: "0", _justifyContent: "flex-end" },
     "bs-header__pill": merge(x.bg("surface"), x.line("1px", "border"), x.round("999px"), x.pad("10px", "10px", "10px", "24px"), x.shadow("10px", "30px", "-18px")),
   };
@@ -24,9 +24,9 @@ export const headerPlusVariants: Variant[] = [
   {
     type: "navbar", id: "centered", name: { de: "Logo in der Mitte", en: "Centred logo" }, classes: headerPlusClasses,
     build: ctx => bar(ctx, [
-      { ...navLinks(ctx), classes: ["bs-nav", "bs-nav--grow"] },
+      navLinks(ctx, "bs-mainnav bs-mainnav--grow"),
       brand(ctx),
-      div("bs-header__actions bs-header__actions--grow", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--primary")]),
+      div("bs-header__actions bs-header__actions--grow bs-header__actions--collapse", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--primary")]),
     ], { classes: "bs-header" }),
   },
   {
@@ -34,7 +34,7 @@ export const headerPlusVariants: Variant[] = [
     build: ctx => bar(ctx, [
       brand(ctx),
       navLinks(ctx),
-      div("bs-header__actions", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--primary")]),
+      div("bs-header__actions bs-header__actions--collapse", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--primary")]),
     ], { surface: "alt", containerClasses: "bs-header__pill" }),
   },
   {
@@ -42,7 +42,7 @@ export const headerPlusVariants: Variant[] = [
     build: ctx => bar(ctx, [
       brand(ctx),
       navLinks(ctx),
-      div("bs-header__actions", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--on-dark")]),
+      div("bs-header__actions bs-header__actions--collapse", [button(ctx.c.navCta.label, ctx.c.navCta.href, "bs-btn bs-btn-size--s bs-btn--on-dark")]),
     ], { surface: "inverse" }),
   },
 ];
