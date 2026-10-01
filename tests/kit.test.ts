@@ -131,6 +131,38 @@ describe("generated templates", () => {
     }
   });
 
+  it("fades content in with Bricks interactions only when the kit asks for motion", () => {
+    const sections = [{ type: "navbar" as const }, { type: "hero" as const }, { type: "services" as const }, { type: "faq" as const, variant: "accordion" }, { type: "footer" as const }];
+    const still = generateKitTemplate({ kit: {}, profile: { industry: "kfz", language: "de" }, sections }).template;
+    expect(still.content.some(el => el.settings._interactions)).toBe(false);
+    const moving = generateKitTemplate({ kit: { motion: "subtle" }, profile: { industry: "kfz", language: "de" }, sections }).template;
+    const animated = moving.content.filter(el => el.settings._interactions);
+    expect(animated.length).toBeGreaterThan(3);
+    expect(animated[0].settings._interactions).toEqual([expect.objectContaining({ trigger: "enterView", action: "startAnimation", target: "self", animationType: "fadeInUp", runOnce: true })]);
+    // Headers, heroes and footers stay still; nothing inside Bricks' accordion is animated.
+    const byId = new Map(moving.content.map(el => [el.id, el]));
+    const rootOf = (el: (typeof moving.content)[number]): string => (el.parent === 0 ? el.label ?? "" : rootOf(byId.get(String(el.parent))!));
+    expect(new Set(animated.map(rootOf))).toEqual(new Set(["Services", "FAQ"]));
+    const insideAccordion = (el: (typeof moving.content)[number]): boolean => el.parent !== 0 && (byId.get(String(el.parent))!.name === "accordion-nested" || insideAccordion(byId.get(String(el.parent))!));
+    expect(animated.some(insideAccordion)).toBe(false);
+    const motion = moving.globalClasses.find(c => c.name === "bs-motion")!;
+    expect(String(motion.settings._cssCustom)).toMatch(/prefers-reduced-motion: reduce/);
+    expect(animated.every(el => (el.settings._cssGlobalClasses as string[]).includes(motion.id))).toBe(true);
+    expect(validateBricksElements(moving.content).valid).toBe(true);
+  });
+
+  it("builds carousels from Bricks' nested slider with Splide breakpoints", () => {
+    const { template } = generateKitTemplate({ kit: {}, profile: { industry: "agentur", language: "en" }, sections: [{ type: "portfolio", variant: "carousel" }, { type: "testimonials", variant: "carousel" }] });
+    const sliders = template.content.filter(el => el.name === "slider-nested");
+    expect(sliders).toHaveLength(2);
+    const options = JSON.parse(String(sliders[0].settings.options));
+    expect(sliders[0].settings.optionsType).toBe("custom");
+    expect(options).toMatchObject({ type: "loop", perPage: 3, breakpoints: { 991: { perPage: 2 }, 767: { perPage: 1 } }, pagination: true, arrows: false });
+    expect(JSON.stringify(sliders[0].settings.paginationColorActive)).toContain("var(--bs-primary");
+    expect(validateBricksElements(template.content).violations.filter(v => /undocumented/.test(v))).toEqual([]);
+    expect(renderPreview(template).html).toContain('class="bsp-slides"');
+  });
+
   it("uses stable, unique class IDs", () => {
     const names = Object.keys(classLibrary(resolveKit({})));
     const ids = names.map(classId);

@@ -65,7 +65,7 @@ export type WordPressCredentials = z.infer<typeof wpCredentialsSchema>;
 // The server derives every value from the kit's choices; no CSS reaches the site from the request.
 const kitSchema = z.object({
   style: z.enum(STYLE_IDS), primary: z.string().max(20), accent: z.string().max(20).optional(), fonts: z.enum(FONT_PAIR_IDS),
-  radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]),
+  radius: z.enum(RADIUS_IDS), spacing: z.enum(SPACING_IDS), mode: z.enum(["light", "dark"]), motion: z.enum(["none", "subtle"]),
 }).partial().strict();
 
 export const wpRequestSchema = z.discriminatedUnion("action", [

@@ -58,6 +58,8 @@ describe("global class planning", () => {
     const stored = { id: "lab001", name: "bs-tabs__label", settings: { _cssCustom: ".bs-tabs__label {\n  white-space: nowrap;\n}" } };
     const plan = (css: string) => planGlobalClasses({ content: [el("a", ["lab001"])], globalClasses: [{ id: "lab001", name: "bs-tabs__label", settings: { _cssCustom: css } }] } as never, [stored]);
     expect(plan(".bs-tabs__label { white-space: nowrap; }").mismatched).toEqual([]);
+    const nav = { id: "cta001", name: "bs-cta", settings: { _cssCustom: ".a>li:has(>.b) {\n  display: none;\n}" } };
+    expect(planGlobalClasses({ content: [el("a", ["cta001"])], globalClasses: [{ id: "cta001", name: "bs-cta", settings: { _cssCustom: ".a > li:has(> .b) { display: none; }" } }] } as never, [nav]).mismatched).toEqual([]);
     expect(plan(".bs-tabs__label { white-space: normal; }").mismatched).toEqual([{ id: "lab001", name: "bs-tabs__label" }]);
   });
 

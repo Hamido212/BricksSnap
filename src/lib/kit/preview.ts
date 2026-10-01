@@ -242,6 +242,16 @@ export function renderPreview(template: Pick<BricksTemplate, "content" | "global
         if (bp) rules.push({ selector: `${selector} .brxe-toggle`, decls: ["display: inline-flex"], breakpoint: bp }, { selector: `${selector} .brx-nav-nested-items`, decls: ["display: none"], breakpoint: bp });
         return `<nav ${attrs} aria-label="${esc(String(s.ariaLabel ?? "Menu"))}">${children}</nav>`;
       }
+      case "slider-nested": {
+        // A still of the first slides: the preview runs no Splide, so slides sit side by side.
+        let options: { perPage?: number; gap?: string; breakpoints?: Record<string, { perPage?: number }> } = {};
+        try { options = JSON.parse(String(s.options ?? "{}")); } catch { /* defaults below */ }
+        const columns = (n: number) => [`grid-auto-columns: calc((100% - ${n - 1} * ${options.gap ?? "0px"}) / ${n})`];
+        rules.push({ selector: `${selector} > .bsp-slides`, decls: ["display: grid", "grid-auto-flow: column", `gap: ${options.gap ?? "0px"}`, "overflow: hidden", "align-items: stretch", ...columns(options.perPage ?? 1)] });
+        for (const [width, value] of Object.entries(options.breakpoints ?? {})) if (Number(width) && value.perPage) rules.push({ selector: `${selector} > .bsp-slides`, decls: columns(value.perPage), breakpoint: Number(width) });
+        const count = el.children.length;
+        return `<div ${attrs}><div class="bsp-slides">${children}</div><div class="bsp-dots">${Array.from({ length: count }, (_, i) => `<span${i ? "" : ' class="is-active"'}></span>`).join("")}</div></div>`;
+      }
       case "toggle": return `<button type="button" ${attrs} aria-label="${esc(String(s.ariaLabel ?? "Menu"))}"><span class="brxa-wrap"><span class="brxa-inner"></span></span></button>`;
       case "section": return `<${tagOf(s.tag, "section")} ${attrs}>${children}</${tagOf(s.tag, "section")}>`;
       case "container": case "block": case "div": return `<${tagOf(s.tag, "div")} ${attrs}>${children}</${tagOf(s.tag, "div")}>`;
@@ -295,6 +305,11 @@ const BASE_CSS = `@layer bricks {
 .bsp .brxa-inner::before, .bsp .brxa-inner::after { content: ""; display: block; }
 .bsp .brxa-inner::before { top: -10px; }
 .bsp .brxa-inner::after { bottom: -10px; }
+.bsp .brxe-slider-nested { position: relative; width: 100%; min-width: 0; }
+.bsp .bsp-slides > * { min-width: 0; }
+.bsp .bsp-dots { position: absolute; left: 0; right: 0; bottom: 16px; display: flex; justify-content: center; gap: 10px; }
+.bsp .bsp-dots span { width: 10px; height: 10px; border-radius: 50%; background: currentColor; opacity: .25; }
+.bsp .bsp-dots span.is-active { opacity: 1; }
 .bsp .brxe-tabs-nested { display: flex; flex-direction: column; width: 100%; }
 .bsp .brxe-tabs-nested .tab-menu { display: flex; }
 .bsp .brxe-tabs-nested .tab-title { cursor: pointer; }
