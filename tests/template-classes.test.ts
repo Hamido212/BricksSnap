@@ -44,6 +44,14 @@ describe("global class planning", () => {
       .toEqual([{ id: "abc123", name: "bs-card", siteName: "footer-grid" }]);
   });
 
+  it("ignores how Bricks reformats custom CSS when comparing definitions", () => {
+    // Bricks 2.4.2 stores ".x { a: b; }" as ".x {\n  a: b;\n}".
+    const stored = { id: "lab001", name: "bs-tabs__label", settings: { _cssCustom: ".bs-tabs__label {\n  white-space: nowrap;\n}" } };
+    const plan = (css: string) => planGlobalClasses({ content: [el("a", ["lab001"])], globalClasses: [{ id: "lab001", name: "bs-tabs__label", settings: { _cssCustom: css } }] } as never, [stored]);
+    expect(plan(".bs-tabs__label { white-space: nowrap; }").mismatched).toEqual([]);
+    expect(plan(".bs-tabs__label { white-space: normal; }").mismatched).toEqual([{ id: "lab001", name: "bs-tabs__label" }]);
+  });
+
   it("switches references and replaces definitions without duplicates", () => {
     const template = { content: [el("a", ["new002", "site01"]), el("b", ["new001"])], globalClasses: [{ id: "new002", name: "btn", settings: {} }, { id: "new001", name: "card", settings: {} }] } as never;
     const result = remapGlobalClasses(template, new Map([["new002", "site01"]]), [site[0], { id: "new001", name: "card", settings: { _gap: "1rem" } }]);

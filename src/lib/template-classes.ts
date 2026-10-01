@@ -30,8 +30,13 @@ export type ClassPlan = {
   mismatched: Array<{ id: string; name: string }>;
 };
 
+/** Bricks reformats custom CSS when it stores a class (line breaks, indentation); layout is not a difference. */
+const normalizeCss = (css: string) => css.replace(/\s+/g, " ").replace(/\s*([{};])\s*/g, "$1").trim();
+const withoutCssLayout = (settings: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, key.startsWith("_cssCustom") && typeof value === "string" ? normalizeCss(value) : value]));
+
 const definition = (cls: Pick<BricksGlobalClass, "settings"> & { selectors?: unknown }) =>
-  stableJson({ settings: cls.settings ?? {}, selectors: Array.isArray(cls.selectors) && cls.selectors.length ? cls.selectors : [] });
+  stableJson({ settings: withoutCssLayout(cls.settings ?? {}), selectors: Array.isArray(cls.selectors) && cls.selectors.length ? cls.selectors : [] });
 
 /** A class ID that neither the site nor the change uses, derived from the colliding ID and name. */
 function freshId(id: string, name: string, taken: Set<string>): string {

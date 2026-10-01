@@ -110,6 +110,27 @@ describe("generated templates", () => {
     expect(html).toContain("accordion-content-wrapper");
   });
 
+  it("gives every header with links Bricks' nestable nav with a mobile menu", () => {
+    for (const variant of variantsFor("navbar").filter(v => v.id !== "minimal")) {
+      const { template } = generateKitTemplate({ kit: {}, profile: { industry: "kfz", language: "de" }, sections: [{ type: "navbar", variant: variant.id }] });
+      const byId = new Map(template.content.map(el => [el.id, el]));
+      const hidden = (id: string) => (byId.get(id)!.settings._hidden as { _cssClasses?: string } | undefined)?._cssClasses;
+      const nav = template.content.find(el => el.name === "nav-nested")!;
+      expect(nav.settings).toMatchObject({ mobileMenu: "tablet_portrait", ariaLabel: "Hauptnavigation" });
+      // Bricks 2.4.2's own structure: the item list, then the open toggle; the close toggle inside the list.
+      const [list, open] = nav.children.map(id => byId.get(id)!);
+      expect([list.name, list.settings.tag, hidden(list.id), open.name, open.settings.animation]).toEqual(["block", "ul", "brx-nav-nested-items", "toggle", "squeeze"]);
+      const items = list.children.map(id => byId.get(id)!);
+      expect(items.filter(el => el.name === "text-link")).toHaveLength(4);
+      expect(items.at(-1)!.name).toBe("toggle");
+      expect(hidden(items.at(-1)!.id)).toBe("brx-toggle-div");
+      expect(validateBricksElements(template.content).violations.filter(v => /undocumented/.test(v))).toEqual([]);
+      const { html } = renderPreview(template);
+      expect(html).toMatch(/<nav [^>]*class="brxe-nav-nested[^"]*bs-mainnav/);
+      expect(html.match(/<li class="menu-item">/g)!.length).toBeGreaterThanOrEqual(5);
+    }
+  });
+
   it("uses stable, unique class IDs", () => {
     const names = Object.keys(classLibrary(resolveKit({})));
     const ids = names.map(classId);
