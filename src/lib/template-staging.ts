@@ -2,17 +2,15 @@ import { wrapTemplate, type BricksElement, type BricksTemplate } from "./bricks-
 import { BRICKS_ELEMENT_NAMES } from "./bricks-validator";
 import { templateWarnings } from "./template-warnings";
 import { resolveElementCss } from "./bricks-css";
+import { stableJson } from "./stable-json";
+import { sameClassDefinition } from "./template-classes";
+
+export { stableJson };
 
 export type InsertPosition = { mode: "prepend" | "append" } | { mode: "after"; afterId: string };
 export type ElementDelta = { id: string; name: string; label: string; status: "added" | "removed" | "changed" | "moved"; fields: string[] };
 const object = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 
-/** Stable comparison of JSON data; deliberately not a WordPress concurrency token. */
-export function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  if (object(value)) return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
-  return JSON.stringify(value) ?? "undefined";
-}
 
 /** Staging is strict: silently repairing an existing page would alter the baseline. */
 export function readStagingTemplate(input: unknown, allowEmpty = false): BricksTemplate {
@@ -183,7 +181,7 @@ export function siteClassWarnings(template: BricksTemplate, siteClasses: SiteCla
     const sameId = byId.get(cls.id);
     const sameName = byName.get(cls.name);
     if (sameId && sameId.name !== cls.name) warnings.push(`The site uses the ID ${cls.id} of global class ${cls.name} for another class (${sameId.name}). "Create missing global classes" gives ${cls.name} a new ID before saving.`);
-    else if (sameId && stableJson(sameId.settings ?? {}) !== stableJson(cls.settings ?? {})) warnings.push(`Global class ${cls.name} already exists on the site with a different definition (for example from another BricksSnap design). The page will use the site's version; it is never overwritten.`);
+    else if (sameId && !sameClassDefinition({ settings: object(sameId.settings) ? sameId.settings : {} }, cls)) warnings.push(`Global class ${cls.name} already exists on the site with a different definition (for example from another BricksSnap design). The page will use the site's version; it is never overwritten.`);
     else if (!sameId && sameName) warnings.push(`Global class name ${cls.name} already exists on the site with ID ${sameName.id}; importing would create a second class.`);
   }
   const known = new Set([...(template.globalClasses ?? []).map(c => c.id), ...byId.keys()]);

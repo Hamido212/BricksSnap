@@ -7,7 +7,8 @@ import { renderPreview, settingsProperties } from "../src/lib/kit/preview";
 import { classLibrary, SECTION_TYPES, variantsFor } from "../src/lib/kit/sections";
 import { contrast } from "../src/lib/kit/color";
 import { contrastChecks, normalizeKit, resolveKit, STYLE_IDS } from "../src/lib/kit/tokens";
-import { validateBricksElements } from "../src/lib/bricks-validator";
+import { validateBricksElements, verifiedControls } from "../src/lib/bricks-validator";
+import schema from "../src/data/bricks-schema.json";
 import { readStagingTemplate } from "../src/lib/template-staging";
 import { insertSection, kitPreview, SECTION_LABELS, STARTER_PAGES } from "../src/lib/kit/studio";
 import { kitCatalog, kitTemplateType } from "../src/lib/kit/generate";
@@ -49,7 +50,10 @@ describe("generated templates", () => {
     for (const style of STYLE_IDS) {
       for (let i = 0; i < LAYOUTS.length; i += 10) {
         const { template } = generateKitTemplate({ kit: { style }, profile: { industry: "kfz", language: "de" }, sections: LAYOUTS.slice(i, i + 10) });
-        expect(validateBricksElements(template.content).valid).toBe(true);
+        const validation = validateBricksElements(template.content);
+        expect(validation.valid).toBe(true);
+        // Bricks' set-page-elements rejects controls it has not registered (e.g. a form's submitButtonPadding).
+        expect(validation.violations.filter(v => /undocumented/.test(v))).toEqual([]);
         expect(() => readStagingTemplate(template)).not.toThrow();
         const ids = new Set(template.globalClasses.map(c => c.id));
         for (const el of template.content) for (const id of (el.settings._cssGlobalClasses as string[] | undefined) ?? []) expect(ids.has(id)).toBe(true);
@@ -323,5 +327,99 @@ describe("phone layout", () => {
     expect(preview.css).toMatch(/\.bs-title \{[^}]*overflow-wrap: anywhere; hyphens: auto;/);
     expect(preview.html.startsWith('<div lang="de">')).toBe(true);
     expect(preview.html).toContain("Zahnarztpraxis in");
+  });
+});
+
+/** Top-level rules of a class's custom CSS; at-rule blocks are kept whole. */
+function cssRules(css: string): Array<{ selector: string; body: string; at: boolean }> {
+  const rules: Array<{ selector: string; body: string; at: boolean }> = [];
+  let i = 0;
+  while (i < css.length) {
+    const open = css.indexOf("{", i);
+    if (open < 0) break;
+    let depth = 1, j = open + 1;
+    while (j < css.length && depth) { if (css[j] === "{") depth++; else if (css[j] === "}") depth--; j++; }
+    const selector = css.slice(i, open).trim();
+    rules.push({ selector, body: css.slice(open + 1, j - 1).trim(), at: selector.startsWith("@") });
+    i = j;
+  }
+  return rules;
+}
+/** Splits at commas and combinators outside parentheses. */
+function splitOutside(value: string, separators: RegExp): string[] {
+  const parts: string[] = [];
+  let depth = 0, current = "";
+  for (const ch of value) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (!depth && separators.test(ch)) { parts.push(current); current = ""; continue; }
+    current += ch;
+  }
+  return [...parts, current].map(p => p.trim()).filter(Boolean);
+}
+/** Class-level specificity (classes, attributes, pseudo-classes; :is/:has/:not count their strongest argument). */
+function classSpecificity(selector: string): number {
+  let count = 0;
+  const rest = selector.replace(/:(is|not|has|where)\(((?:[^()]|\([^()]*\))*)\)/g, (_, fn: string, args: string) => {
+    if (fn !== "where") count += Math.max(0, ...splitOutside(args, /,/).map(classSpecificity));
+    return "";
+  });
+  count += (rest.match(/\.[\w-]+|\[[^\]]*\]|:(?!:)[\w-]+/g) ?? []).length;
+  return count;
+}
+
+describe("class CSS as Bricks 2.4 stores and renders it", () => {
+  const libraries = STYLE_IDS.flatMap(style => (["light", "dark"] as const).map(mode => classLibrary(resolveKit({ style, mode })) as Record<string, Record<string, unknown>>));
+  const customCss = function* () {
+    for (const lib of libraries) for (const [name, settings] of Object.entries(lib)) for (const [key, css] of Object.entries(settings)) if (key.startsWith("_cssCustom") && typeof css === "string") yield { name, css };
+  };
+
+  it("keeps properties Bricks turns into controls out of the class's own rule", () => {
+    // Saving a class, Bricks moves these from `.class { … }` into controls (gap into _gridGap, which it
+    // does not render on flex elements); the site then never matches the definition.
+    const converted = /^(display|gap|row-gap|column-gap|color|grid-column|grid-row|opacity|visibility|padding|margin|width|height)$/;
+    const found = new Set<string>();
+    for (const { name, css } of customCss()) for (const rule of cssRules(css)) {
+      if (rule.at || rule.selector !== `.${name}`) continue;
+      for (const decl of rule.body.split(";")) { const prop = decl.split(":")[0].trim(); if (converted.test(prop)) found.add(`${name}: ${prop}`); }
+    }
+    expect([...found]).toEqual([]);
+  });
+
+  it("writes rules the way Bricks stores them: no selector lists, at-rules first", () => {
+    const found = new Set<string>();
+    for (const { name, css } of customCss()) {
+      const rules = cssRules(css);
+      for (const rule of rules) if (!rule.at && splitOutside(rule.selector, /,/).length > 1) found.add(`${name}: list ${rule.selector}`);
+      const firstRule = rules.findIndex(r => !r.at);
+      if (firstRule >= 0 && firstRule < rules.findLastIndex(r => r.at)) found.add(`${name}: at-rule after a rule`);
+    }
+    expect([...found]).toEqual([]);
+  });
+
+  it("gives each element's classes only controls Bricks renders for that element", () => {
+    // Bricks stores any control on a class but prints only those the element has (no _columnGap on text).
+    const controls = new Map(Object.entries(schema.elements).map(([name, element]) => [name, new Set([...schema.commonControls, ...element.controls, ...(verifiedControls[name] ?? []), "_cssCustom"])]));
+    const found = new Set<string>();
+    for (const style of STYLE_IDS) for (let i = 0; i < LAYOUTS.length; i += 10) {
+      const { template } = generateKitTemplate({ kit: { style, motion: "subtle" }, profile: { industry: "kfz", language: "de" }, sections: LAYOUTS.slice(i, i + 10) });
+      const classes = new Map(template.globalClasses.map(c => [c.id, c]));
+      for (const el of template.content) for (const id of (el.settings._cssGlobalClasses as string[] | undefined) ?? []) {
+        const cls = classes.get(id)!;
+        for (const key of Object.keys(cls.settings ?? {})) if (!controls.get(el.name)?.has(key.split(":")[0])) found.add(`${cls.name} on ${el.name}: ${key}`);
+      }
+    }
+    expect([...found]).toEqual([]);
+  });
+
+  it("overrides other classes with rules stronger than Bricks' `.class.brxe-element`", () => {
+    // Equal specificity would make the result depend on which class Bricks prints first on a page.
+    const weak = new Set<string>();
+    for (const { name, css } of customCss()) for (const rule of cssRules(css).filter(r => !r.at)) for (const selector of splitOutside(rule.selector, /,/)) {
+      const compounds = splitOutside(selector.replace(/::[\w-]+$/, ""), /[\s>+~]/);
+      const target = compounds.at(-1)!.replace(/:has\((?:[^()]|\([^()]*\))*\)/g, "");
+      if (compounds.length > 1 && /\.bs-/.test(target) && !target.includes(`.${name}`) && classSpecificity(selector) < 3) weak.add(`${name}: ${selector}`);
+    }
+    expect([...weak]).toEqual([]);
   });
 });

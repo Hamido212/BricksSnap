@@ -1,6 +1,6 @@
 import type { BricksGlobalClass, BricksTemplate } from "./bricks-engine";
 import { classId } from "./kit/build";
-import { stableJson } from "./template-staging";
+import { stableJson } from "./stable-json";
 
 /** IDs of global classes the elements use (`_cssGlobalClasses`). */
 export function referencedClassIds(template: Pick<BricksTemplate, "content">): string[] {

@@ -129,7 +129,8 @@ export function commonClasses(r: ResolvedKit): ClassLibrary {
     "bs-info__value": { ...x.type({ size: "text-m", weight: "500", color: "heading", decoration: "none" }), _margin: { top: "0", bottom: "0" } },
 
     // Tabs: layout classes plus one look per part.
-    "bs-tabs": { _display: "flex", _direction: "column", _rowGap: x.v("space-l"), _alignItems: "stretch", _width: "100%" },
+    // Bricks lays tabs out as a column; tabs-nested has _gap but no row gap or direction control.
+    "bs-tabs": { _display: "flex", _gap: x.v("space-l"), _alignItems: "stretch", _width: "100%" },
     "bs-tabs__menu": { _direction: "row", _flexWrap: "wrap", _rowGap: "4px" },
     "bs-tabs__menu--pill": merge(x.bg("surface"), x.line("1px", "border"), x.round("999px"), x.pad("4px"), { _columnGap: "4px", _width: "auto", _alignSelf: "center" }),
     "bs-tabs__menu--line": { _columnGap: x.v("space-m"), _width: "100%", _border: { width: { top: "0", right: "0", bottom: "1px", left: "0" }, style: "solid", color: x.color("border") } },
@@ -155,7 +156,8 @@ export function commonClasses(r: ResolvedKit): ClassLibrary {
     "bs-acc__q": merge(x.type({ size: "text-l", weight: "heading-weight", ls: "heading-tracking", lh: "1.35", color: "heading" }), { _margin: { top: "0", bottom: "0" } }, x.font("bs-acc__q", "heading", " text-wrap: balance;")),
     "bs-acc__icon": merge(x.type({ size: "22px", color: "link" }), {
       _flexShrink: "0", _cssTransition: "transform .2s ease",
-      _cssCustom: `.bs-acc__item.brx-open .bs-acc__icon, .bs-acc__title[aria-expanded="true"] .bs-acc__icon { transform: rotate(45deg); }`,
+      // One rule per selector: Bricks splits selector lists when it saves a class.
+      _cssCustom: `.bs-acc__item.brx-open .bs-acc__icon { transform: rotate(45deg); }\n.bs-acc__title[aria-expanded="true"] .bs-acc__icon { transform: rotate(45deg); }`,
     }),
     "bs-acc__content": { _widthMax: "720px", _padding: { top: "0", right: "0", bottom: x.v("space-m"), left: "0" } },
   };

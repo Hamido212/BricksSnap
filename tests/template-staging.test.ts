@@ -101,6 +101,12 @@ describe("site class checks", () => {
     expect(siteClassWarnings(template, site)).toEqual([]);
   });
 
+  it("ignores how Bricks lays out a class's custom CSS", () => {
+    const stored = [{ id: "cls003", name: "bs-x", settings: { _cssCustom: ".bs-x::before {\n  content: \"\";\n}\n.a>.bs-x {\n  color: red;\n}" } }];
+    const template = { ...wrapTemplate([el("aaa001", ["cls003"])]), globalClasses: [{ id: "cls003", name: "bs-x", settings: { _cssCustom: ".bs-x::before { content: \"\"; }\n.a > .bs-x { color: red; }" } }] };
+    expect(siteClassWarnings(template, stored)).toEqual([]);
+  });
+
   it("reports a reused name under another ID, changed settings and undefined references", () => {
     const template = {
       ...wrapTemplate([el("aaa001", ["new001", "cls002", "ghost1"])]),

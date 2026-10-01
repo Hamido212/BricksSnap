@@ -25,7 +25,7 @@ function serviceClasses(r: ResolvedKit) {
       _gridItemColumnSpan: "2", "_gridItemColumnSpan:mobile_landscape": "1", _gridItemRowSpan: "2", "_gridItemRowSpan:mobile_landscape": "1",
       _position: "relative", _overflow: "hidden", _heightMin: "420px", _display: "flex", _direction: "column", _justifyContent: "flex-end", _alignItems: "flex-start", _rowGap: "10px",
       _padding: { top: x.v("space-l"), right: x.v("space-l"), bottom: x.v("space-l"), left: x.v("space-l") },
-      _cssCustom: `.bs-bento__feature::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 30%, color-mix(in srgb, ${x.v("inverse")} 85%, transparent) 100%); }\n.bs-bento__feature > * { position: relative; z-index: 1; }\n.bs-bento__feature :is(.bs-card__title, .bs-card__text) { color: ${x.v("on-inverse")}; }`,
+      _cssCustom: `.bs-bento__feature::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 30%, color-mix(in srgb, ${x.v("inverse")} 85%, transparent) 100%); }\n.bs-bento__feature > * { position: relative; z-index: 1; }\n.bs-bento__feature.bs-bento__feature :is(.bs-card__title, .bs-card__text) { color: ${x.v("on-inverse")}; }`,
     }),
     "bs-icon-grid": { _display: "grid", _gridTemplateColumns: "repeat(4, minmax(0, 1fr))", "_gridTemplateColumns:tablet_portrait": "repeat(2, minmax(0, 1fr))", "_gridTemplateColumns:mobile_portrait": "minmax(0, 1fr)", _gridGap: x.v("space-l"), _width: "100%" },
     "bs-icon-item": { _display: "flex", _direction: "column", _rowGap: "12px", _alignItems: "flex-start" },

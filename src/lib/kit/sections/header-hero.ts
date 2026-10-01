@@ -105,7 +105,7 @@ function heroClasses(r: ResolvedKit) {
   const x = sx(r);
   return {
     // The hero's buttons get extra room below the lead, most noticeable on phones.
-    "bs-hero": { _cssCustom: ".bs-hero .bs-btn-row { margin-top: 8px; }" },
+    "bs-hero": { _cssCustom: ".bs-hero.bs-hero .bs-btn-row { margin-top: 8px; }" },
     "bs-hero__content": { _display: "flex", _direction: "column", _rowGap: x.v("space-m"), _alignItems: "flex-start" },
     "bs-hero__visual": { _position: "relative", _width: "100%" },
     "bs-hero__badge": merge(x.bg("surface"), x.round("radius-m"), x.pad("12px", "16px"), x.shadow("16px", "40px", "-16px"), {
