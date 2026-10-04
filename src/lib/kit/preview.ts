@@ -174,10 +174,12 @@ function formHtml(el: BricksElement): string {
   const s = el.settings;
   const fields = Array.isArray(s.fields) ? s.fields as Array<Record<string, unknown>> : [];
   const input = (f: Record<string, unknown>) => {
-    const label = esc(String(f.label ?? ""));
-    if (f.type === "checkbox") return `<label class="bsp-check"><input type="checkbox" disabled> <span>${label}</span></label>`;
+    // Like Bricks: labels only with showLabels, honeypots hidden, checkbox texts from the options.
+    if (f.isHoneypot) return "";
+    const label = s.showLabels ? `<label>${esc(String(f.label ?? ""))}</label>` : "";
+    if (f.type === "checkbox") return `<div class="form-group">${label}${String(f.options ?? "").split("\n").filter(Boolean).map(option => `<label class="bsp-check"><input type="checkbox" disabled> <span>${esc(option)}</span></label>`).join("")}</div>`;
     const control = f.type === "textarea" ? `<textarea disabled rows="4"></textarea>` : `<input type="${esc(String(f.type ?? "text"))}" disabled>`;
-    return `<div class="form-group" style="width:${Number(f.width) > 0 ? `calc(${Number(f.width)}% - 8px)` : "100%"}"><label>${label}</label>${control}</div>`;
+    return `<div class="form-group" style="width:${Number(f.width) > 0 ? `calc(${Number(f.width)}% - 8px)` : "100%"}">${label}${control}</div>`;
   };
   return `<form class="brxe-form">${fields.map(input).join("")}<div class="form-group submit-button-wrapper"><button type="button" class="bricks-button">${esc(String(s.submitButtonText ?? "Send"))}</button></div></form>`;
 }

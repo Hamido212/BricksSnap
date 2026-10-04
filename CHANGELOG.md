@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.13.2 — 2026-10-04
+
+- **Forms show their labels and the privacy checkbox.** Bricks prints form labels only with "Show labels", and a checkbox's text only from its options. Every BricksSnap form left both out, so on the site the fields had no labels and the required privacy checkbox was missing. This affected contact, hero with form, sign-in and coming-soon layouts. Forms now set `showLabels`, and the checkbox carries its text as an option under a "Privacy" label.
+- **Preview** renders forms the same way: no labels without `showLabels`, checkbox texts from the options, honeypot fields hidden.
+- **Tests** check every form layout for labels and checkbox options.
+
 ## 0.13.1 — 2026-10-01
 
 Fixes found while rebuilding a real club website on a Bricks 2.4.2 site. See the [release notes](docs/RELEASE-0.13.1.md).
