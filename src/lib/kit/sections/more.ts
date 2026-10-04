@@ -120,8 +120,12 @@ function moreClasses(r: ResolvedKit) {
 export function form(ctx: Ctx, fields: Array<{ type: string; label: string; required?: boolean; width?: number }>, submit: string, actions: string[] = ["email"]): KitNode {
   const { x } = ctx;
   const fieldId = (i: number) => `f${String(i + 1).padStart(5, "0")}`;
+  // Bricks prints a checkbox's text from its options (one per line); the label becomes its heading.
+  const checkboxLabel = ctx.c.lang === "de" ? "Datenschutz" : "Privacy";
   return node("form", "bs-form", {
-    fields: fields.map((f, i) => ({ id: fieldId(i), type: f.type, label: f.label, required: !!f.required, ...(f.width ? { width: f.width } : {}) })),
+    fields: fields.map((f, i) => ({ id: fieldId(i), type: f.type, ...(f.type === "checkbox" ? { label: checkboxLabel, options: f.label } : { label: f.label }), required: !!f.required, ...(f.width ? { width: f.width } : {}) })),
+    // Without it Bricks renders no labels at all.
+    showLabels: true,
     ...(actions.includes("login") ? { loginName: fieldId(0), loginPassword: fieldId(1) } : {}),
     submitButtonText: submit,
     actions,

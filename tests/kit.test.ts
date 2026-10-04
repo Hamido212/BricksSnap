@@ -423,3 +423,24 @@ describe("class CSS as Bricks 2.4 stores and renders it", () => {
     expect([...weak]).toEqual([]);
   });
 });
+
+describe("forms as Bricks renders them", () => {
+  it("show their labels and give checkboxes the options Bricks prints", () => {
+    const forms = LAYOUTS.flatMap(layout => generateKitTemplate({ kit: {}, profile: { industry: "kfz", language: "de" }, sections: [layout] }).template.content.filter(el => el.name === "form"));
+    expect(forms.length).toBeGreaterThanOrEqual(6);
+    for (const form of forms) {
+      expect(form.settings.showLabels).toBe(true);
+      for (const field of form.settings.fields as Array<Record<string, unknown>>) if (field.type === "checkbox") expect(String(field.options ?? "")).toMatch(/Datenschutzerklärung/);
+    }
+  });
+
+  it("previews labels only when Bricks would show them", () => {
+    const { template } = generateKitTemplate({ kit: {}, profile: { industry: "kfz", language: "de" }, sections: [{ type: "contact", variant: "split" }] });
+    const html = renderPreview(template).html;
+    expect(html).toContain("<label>Name</label>");
+    expect(html).toContain("<span>Ich stimme der Verarbeitung meiner Daten gemäß Datenschutzerklärung zu.</span>");
+    const form = template.content.find(el => el.name === "form")!;
+    const unlabeled = { ...template, content: template.content.map(el => (el === form ? { ...el, settings: { ...el.settings, showLabels: false } } : el)) };
+    expect(renderPreview(unlabeled).html).not.toContain("<label>Name</label>");
+  });
+});
