@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import { wpRequestSchema, type WordPressDesignSystemResult, type WordPressDesignSystemRevertResult, type WordPressDesignSystemUninstallResult, type WordPressApplyResult, type WordPressClassesResult, type WordPressClassUpdateResult, type WordPressConditionsResult, type WordPressCreateTemplateResult, type WordPressCredentials, type WordPressRestoreResult, type WordPressTemplatesResult } from "../src/lib/wordpress-contract";
-import { stableJson } from "../src/lib/template-staging";
+import { readBackSummary, stableJson } from "../src/lib/template-staging";
 import type { BricksElement } from "../src/lib/bricks-engine";
 
 // A stateful stand-in for a Bricks 2.4.2 site behind the MCP Adapter dispatcher, following the
@@ -38,8 +38,10 @@ class FakeBricksSite {
   writes = 0;
   /** Simulates another editor saving between BricksSnap's check and its write. */
   editBeforeWrite = false;
-  /** Simulates Bricks normalizing a setting on save. */
+  /** Simulates Bricks dropping custom CSS on save. */
   normalize = false;
+  /** Simulates how Bricks rewrites an element when it stores it. */
+  onSave?: (el: BricksElement) => BricksElement;
   /** Simulates the live host firewall that answered requests with external image URLs or email addresses with an HTML page. */
   firewall = false;
 
@@ -194,6 +196,7 @@ class FakeBricksSite {
         if (revisionId) this.revisions.set(revisionId, structuredClone(this.elements));
         this.elements = structuredClone(params.elements as BricksElement[]);
         if (this.normalize) this.elements = this.elements.map(el => { const { _cssCustom, ...settings } = el.settings; void _cssCustom; return { ...el, settings }; });
+        if (this.onSave) this.elements = this.elements.map(this.onSave);
         this.writes++;
         return { elementIds: this.elements.map(el => el.id), elementCount: this.elements.length, revisionId, documentDigest: this.digest(), changed: true };
       }
@@ -468,12 +471,57 @@ describe("guarded apply and restore", () => {
     await expect(createClasses(proposal)).rejects.toMatchObject({ status: 403, message: expect.stringMatching(/batch-create-global-classes/) });
   });
 
-  it("reports Bricks normalization in the read-back verification", async () => {
+  it("reports custom CSS that Bricks did not keep", async () => {
     const site = new FakeBricksSite(section("hero01", "Hero"));
     site.normalize = true;
     const { apply } = await connectTo(site);
     const result = await apply({ content: section("feat01", "Features", { _cssCustom: "#brxe-feat01 { color: red; }" }) }, site.digest());
-    expect(result.verification).toMatchObject({ matches: false, changed: 1, fields: ["settings._cssCustom"] });
+    expect(result.verification).toMatchObject({ matches: false, changed: 1, fields: ["settings._cssCustom"], reformatted: 0, converted: 0 });
+    expect(readBackSummary(result.verification)).toMatch(/^Read-back differs in 1 element \(settings\._cssCustom\)/);
+  });
+
+  describe("custom CSS that Bricks reformats on save", () => {
+    // A hero's custom CSS as BricksSnap sent it to a Bricks 2.4.4 site, and as Bricks stored it (read back live).
+    const sent = [
+      "%root%::before { background: linear-gradient(90deg, rgba(32, 107, 175, 0.8) 0%, rgba(36, 75, 111, 0.8) 50%, rgba(25, 31, 36, 0.85) 100%); }",
+      "%root% .bs-title { font-family: Arial, \"Helvetica Neue\", Helvetica, sans-serif; font-weight: 700; letter-spacing: 0; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35); }",
+      "%root% .bs-lead { color: #ffffff; }",
+      "%root% .bs-eyebrow { color: #ffffff; }",
+      "%root% .bs-eyebrow::before { background: #ffffff; }",
+    ].join("\n");
+    const stored = [
+      "#brxe-f2t7x7::before {", "  background: linear-gradient(90deg, rgba(32, 107, 175, 0.8) 0%, rgba(36, 75, 111, 0.8) 50%, rgba(25, 31, 36, 0.85) 100%);", "}",
+      "#brxe-f2t7x7 .bs-title {", "  font-family: Arial, \"Helvetica Neue\", Helvetica, sans-serif;", "  font-weight: 700;", "  letter-spacing: 0;", "  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);", "}",
+      "#brxe-f2t7x7 .bs-lead {", "  color: #ffffff;", "}",
+      "#brxe-f2t7x7 .bs-eyebrow {", "  color: #ffffff;", "}",
+      "#brxe-f2t7x7 .bs-eyebrow::before {", "  background: #ffffff;", "}",
+    ].join("\n");
+    const storeAs = (css: string, extra: Record<string, unknown> = {}) => (el: BricksElement) => el.settings._cssCustom ? { ...el, settings: { ...el.settings, _cssCustom: css, ...extra } } : el;
+    const saveHero = async (onSave: (el: BricksElement) => BricksElement, css = sent) => {
+      const site = new FakeBricksSite(section("hero01", "Hero"));
+      site.onSave = onSave;
+      const { apply } = await connectTo(site);
+      return (await apply({ content: section("f2t7x7", "Hero", { _cssCustom: css }) }, site.digest())).verification;
+    };
+
+    it("counts reformatting and %root% written as the element ID as a match", async () => {
+      const verification = await saveHero(storeAs(stored));
+      expect(verification).toMatchObject({ matches: true, changed: 0, fields: [], reformatted: 1, converted: 0 });
+      expect(readBackSummary(verification)).toMatch(/^Read-back matches the reviewed version\. Bricks reformatted the custom CSS of 1 element when saving/);
+    });
+
+    it("still reports a rule whose value changed", async () => {
+      const verification = await saveHero(storeAs(stored.replace("rgba(0, 0, 0, 0.35)", "rgba(0, 0, 0, 0.6)")));
+      expect(verification).toMatchObject({ matches: false, changed: 1, fields: ["settings._cssCustom"], reformatted: 0, converted: 0 });
+    });
+
+    it("names CSS that Bricks moved into native style controls", async () => {
+      const css = "%root% { transition: opacity 0.3s; }\n%root% .bs-lead { color: #ffffff; }";
+      const verification = await saveHero(storeAs("#brxe-f2t7x7 .bs-lead {\n  color: #ffffff;\n}", { _cssTransition: "opacity 0.3s" }), css);
+      expect(verification).toMatchObject({ matches: false, changed: 1, converted: 1 });
+      expect(verification.fields.sort()).toEqual(["settings._cssCustom", "settings._cssTransition"]);
+      expect(readBackSummary(verification)).toMatch(/^Bricks moved custom CSS of 1 element into native style controls/);
+    });
   });
 
   it("names external URLs when a host firewall blocks the write", async () => {

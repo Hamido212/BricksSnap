@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BricksTemplate } from "@/lib/bricks-engine";
 import type { WordPressApplyResult, WordPressCredentials, WordPressRestoreResult, WordPressSource } from "@/lib/wordpress-contract";
+import { readBackSummary } from "@/lib/template-staging";
 import { isMissingClassesError, postWordPress as post } from "@/lib/wordpress-request";
 
 interface WordPressApplyProps {
@@ -73,9 +74,7 @@ export default function WordPressApply({ source, credentials, proposal, onUpdate
 
     {applied && <div role="status" className="rounded-lg border border-success/30 bg-success/5 p-4 space-y-2 text-sm">
       <p><strong>Saved to {target}.</strong> {applied.template.content.length} elements, new digest <span className="font-mono">{applied.documentDigest.slice(0, 12)}</span>.</p>
-      <p>{applied.verification.matches
-        ? "Read-back matches the reviewed version."
-        : `Read-back differs in ${applied.verification.changed + applied.verification.added + applied.verification.removed + applied.verification.moved} elements, typically Bricks converting custom CSS into native style controls (${applied.verification.fields.slice(0, 6).join(", ")}${applied.verification.fields.length > 6 ? ", …" : ""}). Check the page in Bricks.`}</p>
+      <p>{readBackSummary(applied.verification)}</p>
       {applied.warnings?.map((w, i) => <p key={i} className="text-xs text-warning break-words">{w}</p>)}
       {applied.revisionId
         ? <div className="flex flex-wrap items-center gap-2 pt-1">
