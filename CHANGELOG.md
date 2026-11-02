@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.13.3 — 2026-11-02
+
+Checked against Bricks 2.4.3 (October 13) and 2.4.4 (October 28). Neither needs a code change in BricksSnap.
+
+- **Tested on Bricks 2.4.4** with WordPress 7.1.4 and MCP Adapter 0.7.1, on a live site:
+  - connect, reading a page with its document digest, the design and the templates, and a guarded page save;
+  - Bricks' abilities version is unchanged at 2.0.0;
+  - global classes with child selectors (`>`) and `inset` are stored as written.
+- **Element registry** refreshed from the Bricks 2.4.3 schema:
+  - Bricks now publishes the nestable nav's 52 controls, so dropdown, item and mobile-menu settings no longer warn as undocumented;
+  - also new: Map `renderMode` and Product Stock `alwaysShowStockStatus`.
+- **Docs:**
+  - The MCP Adapter is now in the WordPress.org plugin directory, and Bricks 2.4.4 installs it from there.
+  - Sites with forms should run Bricks 2.4.4 or newer: 2.4.3 fixes security issues in the Form element, and 2.4.4 checks required checkboxes such as the privacy checkbox again after a successful submission.
+
 ## 0.13.2 — 2026-10-04
 
 - **Forms show their labels and the privacy checkbox.** Bricks prints form labels only with "Show labels", and a checkbox's text only from its options. Every BricksSnap form left both out, so on the site the fields had no labels and the required privacy checkbox was missing. This affected contact, hero with form, sign-in and coming-soon layouts. Forms now set `showLabels`, and the checkbox carries its text as an option under a "Privacy" label.

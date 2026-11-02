@@ -4,8 +4,8 @@ BricksSnap can read a live Bricks page and the site's global classes through the
 
 ## Requirements
 
-- Bricks 2.4 or newer with **Bricks → AI → Enable Bricks abilities** turned on. The abilities are experimental; Bricks recommends a local or staging site.
-- WordPress 6.9 or newer (Abilities API) and the **WordPress MCP Adapter** plugin, 0.6.1 or newer. It is not in the WordPress.org directory. If the one-click installer in Bricks → AI cannot reach GitHub, download `mcp-adapter.zip` from the [adapter releases](https://github.com/WordPress/mcp-adapter/releases) and upload it under **Plugins → Add New Plugin → Upload Plugin**.
+- Bricks 2.4 or newer with **Bricks → AI → Enable Bricks abilities** turned on. The abilities are experimental; Bricks recommends a local or staging site. On sites with forms, use Bricks 2.4.4 or newer: 2.4.3 fixes security issues in the Form element, and 2.4.4 checks required checkboxes, such as the privacy checkbox in BricksSnap forms, again after a successful submission.
+- WordPress 6.9 or newer (Abilities API) and the **WordPress MCP Adapter** plugin, 0.6.1 or newer (tested with 0.7.1). It is in the WordPress.org plugin directory: since Bricks 2.4.4, the installer in Bricks → AI installs it from there, or search for “MCP Adapter” under **Plugins → Add New Plugin**.
 - An application password for a dedicated WordPress user. Give that user only the Bricks builder access it needs rather than using an administrator. Revoke the password when you are done.
 - These abilities enabled under **Bricks → AI → Abilities**:
   - required: `get-page-elements` and `get-design-context`;

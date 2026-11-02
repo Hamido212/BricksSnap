@@ -48,7 +48,7 @@ The opt-in stateless endpoint provides eleven tools: `bricks_get_schema`, `brick
 
 Select section, content, header or footer, download JSON, then use **Bricks → Templates → Import templates**. Review the layout in Bricks before publishing. The app preview is a structure sketch, not the Bricks renderer.
 
-The registry covers 182 native element names and control names from the Bricks 2.4.1 schema (September 25, 2026). Validation checks tree integrity and control names, not every nested value or WordPress runtime behavior. Unknown controls are retained with warnings; third-party add-on elements are not supported.
+The registry covers 182 native element names and control names from the Bricks 2.4.3 schema (November 2, 2026). Validation checks tree integrity and control names, not every nested value or WordPress runtime behavior. Unknown controls are retained with warnings; third-party add-on elements are not supported.
 
 Global classes and supplied component metadata are preserved. Definitions must be included or already present on the destination site; preservation does not guarantee every Bricks import mechanism resolves them. Custom breakpoints, fonts, media, menus, query data, form actions, recipients, login/social sign-in integrations and placeholder links need destination-side review. Countdowns default to 30 days ahead. Review executable code independently.
 

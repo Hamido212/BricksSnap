@@ -99,6 +99,10 @@ describe("validation and round trips", () => {
     expect(result.template.components).toEqual(template.components); expect(result.template.type).toBe("content");
   });
   it("accepts standalone native text links", () => expect(validateBricksElements([{ ...element("link01"), name: "text-link" }]).valid).toBe(true));
+  it("knows the nestable nav's dropdown and mobile-menu controls (Bricks 2.4.3 schema)", () => {
+    const nav = { ...element("nav001"), name: "nav-nested", settings: { mobileMenu: "tablet_portrait", mobileMenuBackgroundColor: { hex: "#fff" }, dropdownTypography: { "font-size": "14px" }, itemPadding: { top: "8px" } } };
+    expect(validateBricksElements([nav]).violations).toEqual([]);
+  });
   it("renders HTML in JSON as text, never as executable markup", () => {
     const highlighted = syntaxHighlight(JSON.stringify({ text: '<img src=x onerror="alert(1)"><script>alert(1)</script>&lt;' }));
     expect(highlighted).not.toContain("<img"); expect(highlighted).not.toContain("<script");
