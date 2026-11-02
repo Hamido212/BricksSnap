@@ -40,7 +40,7 @@ v0.5 builds on v0.4's [read-only connection](docs/RELEASE-0.4.0.md) and v0.3's [
 - API route for AI-powered generation (`/api/generate`)
 - Export as Bricks Import JSON + copy-to-clipboard
 - Local Sign in with ChatGPT, Claude and ChatGPT over MCP, and JSON paste/file import
-- Bricks 2.4.1 native element/control registry, reference repair and responsive defaults
+- Bricks 2.4.3 native element/control registry, reference repair and responsive defaults
 - Export types and preservation of global classes/component metadata
 - Staging workspace: prepend/append sections or insert after a root, with ID collision handling and structural comparison
 - Eleven MCP tools over optional HTTP or local stdio; Studio pages, modernizing Bricks JSON, section generation, page assembly, merge and comparison
