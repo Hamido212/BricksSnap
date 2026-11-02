@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffTemplates, mergeTemplates, readStagingTemplate, siteClassWarnings } from "../src/lib/template-staging";
+import { diffTemplates, mergeTemplates, readStagingTemplate, siteClassWarnings, verifyReadBack } from "../src/lib/template-staging";
 import { type BricksElement, wrapTemplate } from "../src/lib/bricks-engine";
 import { TEMPLATES } from "../src/lib/templates";
 import { generateMcpPage } from "../src/lib/mcp-generation";
@@ -89,6 +89,33 @@ describe("strict staging", () => {
     expect(result.template.content.filter(e => e.parent === 0)).toHaveLength(3);
     expect(() => generateMcpPage({ prompt: "x", sections: ["nope"] })).toThrow(/section/);
     expect(() => generateMcpPage({ prompt: "x", sections: ["hero"], stylePreset: "nope" })).toThrow(/preset/);
+  });
+});
+
+describe("read-back verification", () => {
+  const withCss = (id: string, css: string, settings = {}) => el(id, 0, [], { _cssCustom: css, ...settings });
+
+  it("treats %root%, #brxe-<id> and the element's CSS ID as the same selector", () => {
+    const sent = [withCss("aaaaaa", "%root% > .x { color: red }", { _cssId: "hero" })];
+    for (const css of ["#brxe-aaaaaa>.x {\n  color: red;\n}", "#hero > .x { color:red; }"]) {
+      expect(verifyReadBack(sent, [withCss("aaaaaa", css, { _cssId: "hero" })])).toMatchObject({ matches: true, reformatted: 1 });
+    }
+    expect(verifyReadBack(sent, [withCss("aaaaaa", "#brxe-aaaaab > .x { color: red; }", { _cssId: "hero" })]).matches).toBe(false);
+  });
+
+  it("ignores the layout of media queries but not their values", () => {
+    const sent = [withCss("aaaaaa", "@media (max-width:767px) { %root% { padding: 1rem } }")];
+    expect(verifyReadBack(sent, [withCss("aaaaaa", "@media ( max-width: 767px ) {\n  #brxe-aaaaaa {\n    padding: 1rem;\n  }\n}")]).matches).toBe(true);
+    expect(verifyReadBack(sent, [withCss("aaaaaa", "@media (max-width: 991px) {\n  #brxe-aaaaaa {\n    padding: 1rem;\n  }\n}")]).matches).toBe(false);
+  });
+
+  it("keeps reporting moves and other setting changes next to reformatted CSS", () => {
+    const sent = [withCss("aaaaaa", "%root% { color: red; }"), withCss("bbbbbb", "%root% { color: blue; }")];
+    const stored = [withCss("bbbbbb", "#brxe-bbbbbb {\n  color: blue;\n}"), withCss("aaaaaa", "#brxe-aaaaaa {\n  color: red;\n}", { tag: "main" })];
+    const result = verifyReadBack(sent, stored);
+    expect(result).toMatchObject({ matches: false, changed: 1, moved: 1, converted: 0 });
+    expect(result.fields).toEqual(expect.arrayContaining(["position", "settings.tag"]));
+    expect(result.fields).not.toContain("settings._cssCustom");
   });
 });
 

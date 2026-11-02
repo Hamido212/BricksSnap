@@ -31,7 +31,7 @@ import { designSystemInstalled, planDesignSystem, readSiteCategories, readSitePa
 import { buildManifest, manifestValue, MANIFEST_ID, MANIFEST_NAME, planRevert, planUninstall, readManifest, sameInstall, snapshotForInstall, type DesignManifest, type DesignSnapshot, type RevertPlan } from "./design-system-lifecycle";
 import { designSystemFor } from "./kit/generate";
 import { resolveKit, type BrandKit } from "./kit/tokens";
-import { diffTemplates, readStagingTemplate, stableJson } from "./template-staging";
+import { readStagingTemplate, stableJson, verifyReadBack } from "./template-staging";
 import type { BricksGlobalClass, BricksTemplate, DesignTokens } from "./bricks-engine";
 import packageJson from "../../package.json";
 import { downloadImage, findExternalImages, MAX_IMAGES, replaceImages, uploadName, type SiteImage } from "./wordpress-media";
@@ -572,16 +572,7 @@ export async function applyWordPressPage(
     const saved = isRecord(written) ? written : {};
 
     const after = await readDocument(session, postId);
-    const diff = diffTemplates({ content: proposal.content }, { content: after.template.content });
-    // Name changed setting keys (e.g. settings._cssCustom) so normalization by Bricks is reviewable.
-    const proposed = new Map(proposal.content.map(el => [el.id, el]));
-    const settingKeys = new Set<string>();
-    for (const el of after.template.content) {
-      const sent = proposed.get(el.id);
-      if (!sent) continue;
-      for (const key of new Set([...Object.keys(sent.settings), ...Object.keys(el.settings)])) if (stableJson(sent.settings[key]) !== stableJson(el.settings[key])) settingKeys.add(`settings.${key}`);
-    }
-    const fields = [...new Set([...diff.elements.flatMap(e => e.fields).filter(f => f !== "settings"), ...settingKeys])];
+    const verification = verifyReadBack(proposal.content, after.template.content);
     if (typeof saved.documentDigest === "string" && after.documentDigest && saved.documentDigest !== after.documentDigest) warnings.push("The page changed again right after saving. Reload it before further changes.");
     const documentDigest = after.documentDigest ?? (typeof saved.documentDigest === "string" ? saved.documentDigest : "");
     const template = { ...after.template, globalClasses: (proposal.globalClasses ?? []).filter(c => referenced.has(c.id)) };
@@ -594,7 +585,7 @@ export async function applyWordPressPage(
       documentDigest,
       template,
       source: { endpoint: credentials.endpoint, postId, postTitle: title ?? current.title ?? `Page #${postId}`, fetchedAt, pageHash: shortHash(template), ...(documentDigest ? { documentDigest } : {}) },
-      verification: { matches: diff.elements.length === 0, ...diff.counts, fields },
+      verification,
       ...(warnings.length ? { warnings } : {}),
     };
   });

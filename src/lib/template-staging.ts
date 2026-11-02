@@ -1,7 +1,7 @@
 import { wrapTemplate, type BricksElement, type BricksTemplate } from "./bricks-engine";
 import { BRICKS_ELEMENT_NAMES } from "./bricks-validator";
 import { templateWarnings } from "./template-warnings";
-import { resolveElementCss } from "./bricks-css";
+import { comparableElementCss, resolveElementCss } from "./bricks-css";
 import { stableJson } from "./stable-json";
 import { sameClassDefinition } from "./template-classes";
 
@@ -164,6 +164,59 @@ export function diffTemplates(baseline: unknown, proposal: unknown) {
   }
   const metadata = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(key => key !== "content" && stableJson(before[key]) !== stableJson(after[key]));
   return { elements: deltas, metadata, counts: { added: deltas.filter(e => e.status === "added").length, removed: deltas.filter(e => e.status === "removed").length, changed: deltas.filter(e => e.status === "changed").length, moved: deltas.filter(e => e.status === "moved").length, unchanged: after.content.length - deltas.filter(e => e.status !== "removed").length } };
+}
+
+export type ReadBackVerification = {
+  /** Bricks stored what was sent, apart from how it lays out custom CSS. */
+  matches: boolean;
+  added: number;
+  removed: number;
+  changed: number;
+  moved: number;
+  unchanged: number;
+  /** Fields that differ, e.g. settings._cssTransition or position. */
+  fields: string[];
+  /** Elements whose custom CSS Bricks only reformatted (line breaks, %root% written as #brxe-<id>). */
+  reformatted: number;
+  /** Changed elements where Bricks moved custom CSS into native style controls. */
+  converted: number;
+};
+
+/** Compare the elements BricksSnap saved with what Bricks stored and read back. */
+export function verifyReadBack(sent: BricksElement[], stored: BricksElement[]): ReadBackVerification {
+  const literal = diffTemplates({ content: sent }, { content: stored });
+  const before = sent.map(comparableElementCss);
+  const after = stored.map(comparableElementCss);
+  const diff = diffTemplates({ content: before }, { content: after });
+  const differing = new Set(diff.elements.map(e => e.id));
+  const reformatted = literal.elements.filter(e => e.status === "changed" && !differing.has(e.id)).length;
+
+  const sentById = new Map(before.map(el => [el.id, el]));
+  const fields = new Set(diff.elements.flatMap(e => e.fields).filter(f => f !== "settings"));
+  let converted = 0;
+  for (const el of after) {
+    const previous = sentById.get(el.id);
+    if (!previous || !differing.has(el.id)) continue;
+    const keys = [...new Set([...Object.keys(previous.settings), ...Object.keys(el.settings)])].filter(key => stableJson(previous.settings[key]) !== stableJson(el.settings[key]));
+    for (const key of keys) fields.add(`settings.${key}`);
+    // CSS Sync: Bricks takes rules out of custom CSS and stores them as native style controls.
+    const hadCss = Object.keys(previous.settings).some(key => key.startsWith("_cssCustom"));
+    const addedControls = keys.filter(key => key.startsWith("_") && !(key in previous.settings));
+    if (hadCss && addedControls.length && keys.every(key => key.startsWith("_cssCustom") || addedControls.includes(key))) converted++;
+  }
+  return { matches: diff.elements.length === 0, ...diff.counts, fields: [...fields], reformatted, converted };
+}
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+
+/** One-line summary of a read-back check for the Apply panel. */
+export function readBackSummary(v: ReadBackVerification): string {
+  const reformatted = v.reformatted ? ` Bricks reformatted the custom CSS of ${plural(v.reformatted, "element")} when saving (line breaks, %root% written as the element ID); the rules are the same.` : "";
+  if (v.matches) return `Read-back matches the reviewed version.${reformatted}`;
+  const listed = `${v.fields.slice(0, 6).join(", ")}${v.fields.length > 6 ? ", …" : ""}`;
+  const differing = v.added + v.removed + v.changed + v.moved;
+  if (v.converted === differing) return `Bricks moved custom CSS of ${plural(v.converted, "element")} into native style controls (${listed}). The page should look the same; check it in Bricks.${reformatted}`;
+  return `Read-back differs in ${plural(differing, "element")} (${listed}). Check the page in Bricks.${reformatted}`;
 }
 
 type SiteClass = { id: string; name: string; settings?: unknown };
