@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.13.4 — 2026-11-02
+
+- **No false "differs" after saving custom CSS.** Bricks stores custom CSS in its own layout (line breaks, indentation, `.a>.b`) and writes `%root%` as `#brxe-<id>`. BricksSnap compared the text literally, so after saving it reported a difference, although the rules were identical. It now compares the CSS without layout, and treats `%root%`, `#brxe-<id>` and the element's own CSS ID as the same selector.
+- **Clearer result after saving.** The result now separates three cases:
+  - **matches:** the result also says how many elements Bricks only reformatted;
+  - **converted:** Bricks moved custom CSS into native style controls, and the result names those controls;
+  - **differs:** the read-back really differs, and the result lists the fields.
+- **Global classes** use the same CSS comparison: spaces after colons, inside parentheses and a last semicolon no longer count as a change.
+- **Tests:**
+  - replay a hero's custom CSS as sent to Bricks 2.4.4 and as Bricks stored it;
+  - check that a changed value is still reported;
+  - cover converted CSS and media queries.
+
 ## 0.13.3 — 2026-11-02
 
 Checked against Bricks 2.4.3 (October 13) and 2.4.4 (October 28). Neither needs a code change in BricksSnap.

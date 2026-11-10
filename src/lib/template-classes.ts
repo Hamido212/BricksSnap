@@ -1,4 +1,5 @@
 import type { BricksGlobalClass, BricksTemplate } from "./bricks-engine";
+import { normalizeCssLayout } from "./bricks-css";
 import { classId } from "./kit/build";
 import { stableJson } from "./stable-json";
 
@@ -30,13 +31,9 @@ export type ClassPlan = {
   mismatched: Array<{ id: string; name: string }>;
 };
 
-/**
- * Bricks reformats custom CSS when it stores a class (line breaks, indentation, no spaces around
- * ">" combinators); layout is not a difference. Both sides are normalized the same way.
- */
-const normalizeCss = (css: string) => css.replace(/\s+/g, " ").replace(/\s*([{};>,])\s*/g, "$1").trim();
+/** Bricks reformats a class's custom CSS when it stores it; layout is not a difference. */
 const withoutCssLayout = (settings: Record<string, unknown>) =>
-  Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, key.startsWith("_cssCustom") && typeof value === "string" ? normalizeCss(value) : value]));
+  Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, key.startsWith("_cssCustom") && typeof value === "string" ? normalizeCssLayout(value) : value]));
 
 const definition = (cls: Pick<BricksGlobalClass, "settings"> & { selectors?: unknown }) =>
   stableJson({ settings: withoutCssLayout(cls.settings ?? {}), selectors: Array.isArray(cls.selectors) && cls.selectors.length ? cls.selectors : [] });

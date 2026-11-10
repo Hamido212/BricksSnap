@@ -4,6 +4,7 @@ import { TEMPLATE_TYPES, templateConditionsSchema, type TemplateCondition } from
 import { FONT_PAIR_IDS, RADIUS_IDS, SPACING_IDS, STYLE_IDS } from "./kit/tokens";
 import type { DesignSystemChange } from "./design-system-install";
 import { designSnapshotSchema, type DesignSnapshot } from "./design-system-lifecycle";
+import type { ReadBackVerification } from "./template-staging";
 
 // Only these fixed abilities are called; no arbitrary tool names or endpoints per call.
 export const WP_READ_ABILITIES = [
@@ -185,8 +186,8 @@ export type WordPressApplyResult = {
   /** The page as read back after saving. */
   template: BricksTemplate;
   source: WordPressSource;
-  /** Differences between the reviewed proposal and the read-back page (normalization by Bricks). */
-  verification: { matches: boolean; added: number; removed: number; changed: number; moved: number; fields: string[] };
+  /** Differences between the reviewed proposal and the read-back page; custom CSS layout is ignored. */
+  verification: ReadBackVerification;
   warnings?: string[];
 };
 
